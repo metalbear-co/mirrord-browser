@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "mirrord",
+    "version": "0.1",
+    "description": "More user-friendly testing with mirrord by automatically injecting HTTP header",
+    "icons": {
+        "48": "images/mirrord.png"
+    },
+    "permissions": [
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess",
+        "storage"
+    ],
+    "host_permissions": ["<all_urls>"],
+    "background": {
+        "service_worker": "src/background.ts",
+        "type": "module"
+    },
+    "action": {
+        "default_popup": "pages/popup.html"
+    }
+}
