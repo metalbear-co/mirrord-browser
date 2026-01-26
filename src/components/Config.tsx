@@ -7,11 +7,7 @@ export type ConfigPayload = {
 };
 
 function isRegex(str: string): boolean {
-    const regexIndicators = [
-        /\\[dDsSwWbB]/,
-        /\\./,
-        /[.*+?^${}()|[\]]/,
-    ];
+    const regexIndicators = [/\\[dDsSwWbB]/, /\\./, /[.*+?^${}()|[\]]/];
     return regexIndicators.some((pattern) => pattern.test(str));
 }
 
@@ -29,7 +25,9 @@ function decodeConfig(encoded: string): ConfigPayload {
 }
 
 export function Config() {
-    const [status, setStatus] = useState<'loading' | 'input' | 'success' | 'error'>('loading');
+    const [status, setStatus] = useState<
+        'loading' | 'input' | 'success' | 'error'
+    >('loading');
     const [error, setError] = useState<string>('');
     const [pattern, setPattern] = useState<string>('');
     const [headerInput, setHeaderInput] = useState<string>('');
@@ -50,11 +48,14 @@ export function Config() {
                     id: 1,
                     priority: 1,
                     action: {
-                        type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+                        type: chrome.declarativeNetRequest.RuleActionType
+                            .MODIFY_HEADERS,
                         requestHeaders: [
                             {
                                 header: key.trim(),
-                                operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+                                operation:
+                                    chrome.declarativeNetRequest.HeaderOperation
+                                        .SET,
                                 value: value.trim(),
                             },
                         ],
@@ -62,8 +63,10 @@ export function Config() {
                     condition: {
                         urlFilter: '|',
                         resourceTypes: [
-                            chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST,
-                            chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
+                            chrome.declarativeNetRequest.ResourceType
+                                .XMLHTTPREQUEST,
+                            chrome.declarativeNetRequest.ResourceType
+                                .MAIN_FRAME,
                             chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
                         ],
                     },
@@ -96,7 +99,9 @@ export function Config() {
         const encoded = params.get('payload');
 
         if (!encoded) {
-            setError('Configuration data missing. Please make sure to copy the complete link.');
+            setError(
+                'Configuration data missing. Please make sure to copy the complete link.'
+            );
             setStatus('error');
             return;
         }
@@ -154,7 +159,9 @@ export function Config() {
     if (status === 'error') {
         return (
             <div className="flex flex-col gap-4">
-                <div className="text-xl text-destructive font-medium">Error</div>
+                <div className="text-xl text-destructive font-medium">
+                    Error
+                </div>
                 <div className="text-muted-foreground">{error}</div>
             </div>
         );
@@ -164,7 +171,9 @@ export function Config() {
         return (
             <div className="flex flex-col gap-4">
                 <div>
-                    <Label htmlFor="header">Enter a header matching the pattern:</Label>
+                    <Label htmlFor="header">
+                        Enter a header matching the pattern:
+                    </Label>
                     <code className="block mt-2 px-[0.3rem] py-[0.2rem] bg-muted rounded text-sm font-mono">
                         {pattern}
                     </code>
@@ -176,7 +185,9 @@ export function Config() {
                         onChange={(e) => setHeaderInput(e.target.value)}
                         placeholder="X-Header: value"
                     />
-                    {error && <p className="text-destructive text-sm mt-1">{error}</p>}
+                    {error && (
+                        <p className="text-destructive text-sm mt-1">{error}</p>
+                    )}
                 </div>
                 <Button onClick={handleSubmit} variant="brand-primary">
                     Set Header
@@ -188,12 +199,15 @@ export function Config() {
     return (
         <div className="flex flex-col gap-4 items-center text-center">
             <div className="text-3xl font-semibold text-brand-purple">✓</div>
-            <div className="text-xl font-medium text-foreground">Header set successfully!</div>
+            <div className="text-xl font-medium text-foreground">
+                Header set successfully!
+            </div>
             <code className="px-[0.3rem] py-[0.2rem] bg-muted rounded text-sm font-mono">
                 {headerDisplay}
             </code>
             <p className="text-sm text-muted-foreground">
-                You can close this tab. The header will be added to all requests.
+                You can close this tab. The header will be added to all
+                requests.
             </p>
         </div>
     );

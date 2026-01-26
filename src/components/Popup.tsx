@@ -25,7 +25,10 @@ export function Popup() {
                 if (!chrome.runtime.lastError) {
                     loadRules();
                 } else {
-                    console.error('Failed to remove rule:', chrome.runtime.lastError);
+                    console.error(
+                        'Failed to remove rule:',
+                        chrome.runtime.lastError
+                    );
                 }
             }
         );
@@ -33,7 +36,8 @@ export function Popup() {
 
     const getHeadersDisplay = (rule: Rule): string | null => {
         if (
-            rule.action.type === chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS &&
+            rule.action.type ===
+                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS &&
             rule.action.requestHeaders
         ) {
             return rule.action.requestHeaders
@@ -46,7 +50,9 @@ export function Popup() {
     return (
         <div className="flex flex-col gap-2">
             {rules.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No active header</div>
+                <div className="text-sm text-muted-foreground">
+                    No active header
+                </div>
             ) : (
                 rules.map((rule) => {
                     const headers = getHeadersDisplay(rule);

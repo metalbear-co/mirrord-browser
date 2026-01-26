@@ -3,90 +3,90 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* MetalBear Brand Colors */
-    --brand-purple: 244 85% 69%;
-    --brand-purple-medium: 242 87% 94%;
-    --brand-purple-dark: 243 33% 19%;
-    --brand-yellow: 38 100% 74%;
-    --brand-black: 0 0% 0%;
-    --brand-grey-light: 240 43% 99%;
-    --brand-red-blush: 359 85% 68%;
-    --brand-grey-dark: 0 0% 67%;
-    --brand-grey-bear: 0 0% 93%;
+    :root {
+        /* MetalBear Brand Colors */
+        --brand-purple: 244 85% 69%;
+        --brand-purple-medium: 242 87% 94%;
+        --brand-purple-dark: 243 33% 19%;
+        --brand-yellow: 38 100% 74%;
+        --brand-black: 0 0% 0%;
+        --brand-grey-light: 240 43% 99%;
+        --brand-red-blush: 359 85% 68%;
+        --brand-grey-dark: 0 0% 67%;
+        --brand-grey-bear: 0 0% 93%;
 
-    /* Light Mode */
-    --background: 240 43% 99%;
-    --foreground: 0 0% 0%;
+        /* Light Mode */
+        --background: 240 43% 99%;
+        --foreground: 0 0% 0%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 0%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 0%;
 
-    --primary: 244 85% 69%;
-    --primary-foreground: 0 0% 100%;
+        --primary: 244 85% 69%;
+        --primary-foreground: 0 0% 100%;
 
-    --secondary: 38 100% 74%;
-    --secondary-foreground: 0 0% 0%;
+        --secondary: 38 100% 74%;
+        --secondary-foreground: 0 0% 0%;
 
-    --muted: 242 87% 94%;
-    --muted-foreground: 243 33% 19%;
+        --muted: 242 87% 94%;
+        --muted-foreground: 243 33% 19%;
 
-    --accent: 242 87% 94%;
-    --accent-foreground: 243 33% 19%;
+        --accent: 242 87% 94%;
+        --accent-foreground: 243 33% 19%;
 
-    --destructive: 359 85% 68%;
-    --destructive-foreground: 0 0% 100%;
+        --destructive: 359 85% 68%;
+        --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 244 85% 69%;
+        --border: 0 0% 90%;
+        --input: 0 0% 90%;
+        --ring: 244 85% 69%;
 
-    --radius: 0.5rem;
-  }
+        --radius: 0.5rem;
+    }
 
-  .dark {
-    /* Dark Mode */
-    --background: 243 33% 19%;
-    --foreground: 0 0% 100%;
+    .dark {
+        /* Dark Mode */
+        --background: 243 33% 19%;
+        --foreground: 0 0% 100%;
 
-    --card: 243 33% 15%;
-    --card-foreground: 0 0% 100%;
+        --card: 243 33% 15%;
+        --card-foreground: 0 0% 100%;
 
-    --popover: 243 33% 15%;
-    --popover-foreground: 0 0% 100%;
+        --popover: 243 33% 15%;
+        --popover-foreground: 0 0% 100%;
 
-    --primary: 244 85% 69%;
-    --primary-foreground: 0 0% 100%;
+        --primary: 244 85% 69%;
+        --primary-foreground: 0 0% 100%;
 
-    --secondary: 38 100% 74%;
-    --secondary-foreground: 0 0% 0%;
+        --secondary: 38 100% 74%;
+        --secondary-foreground: 0 0% 0%;
 
-    --muted: 243 33% 25%;
-    --muted-foreground: 0 0% 80%;
+        --muted: 243 33% 25%;
+        --muted-foreground: 0 0% 80%;
 
-    --accent: 243 33% 25%;
-    --accent-foreground: 0 0% 100%;
+        --accent: 243 33% 25%;
+        --accent-foreground: 0 0% 100%;
 
-    --destructive: 359 85% 68%;
-    --destructive-foreground: 0 0% 100%;
+        --destructive: 359 85% 68%;
+        --destructive-foreground: 0 0% 100%;
 
-    --border: 243 33% 30%;
-    --input: 243 33% 30%;
-    --ring: 244 85% 69%;
-  }
+        --border: 243 33% 30%;
+        --input: 243 33% 30%;
+        --ring: 244 85% 69%;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings:
-      'rlig' 1,
-      'calt' 1;
-  }
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings:
+            'rlig' 1,
+            'calt' 1;
+    }
 }
