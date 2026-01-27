@@ -2,136 +2,216 @@
 <html class="dark">
     <head>
         <meta charset="utf-8" />
-        <title>mirrord Headers</title>
+        <title>mirrord</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
             rel="stylesheet"
         />
         <script type="module" src="../src/popup.ts"></script>
         <style>
-            html,
-            body {
+            * {
+                box-sizing: border-box;
                 margin: 0;
                 padding: 0;
-                min-width: 320px;
             }
+
+            html,
             body {
+                min-width: 320px;
                 font-family: 'Poppins', system-ui, sans-serif;
+                font-size: 11px;
+                background: #232141;
+                color: #fafafd;
             }
+
+            /* Header */
+            .header {
+                padding: 12px 16px;
+                border-bottom: 1px solid #3e3c5e;
+            }
+
+            .header-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #fafafd;
+            }
+
+            /* Main content */
             #content {
-                padding: 12px;
+                padding: 12px 16px 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
             }
+
+            /* Card container */
+            .card {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 12px;
+                background: #1c1a38;
+                border-radius: 6px;
+                border: 1px solid #3e3c5e;
+            }
+
+            .card h3 {
+                font-size: 11px;
+                font-weight: 600;
+                color: #fafafd;
+            }
+
+            /* Active rules section */
             #rulesList {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 6px;
             }
+
             .no-rules-message {
-                font-size: 14px;
-                color: hsl(var(--muted-foreground));
+                color: #acacac;
+                text-align: center;
+                padding: 12px;
+                border-radius: 4px;
+                border: 1px dashed #3e3c5e;
             }
+
+            /* Rule item */
             .rule-item {
                 display: flex;
-                flex-wrap: wrap;
-                align-items: center;
+                flex-direction: column;
+                gap: 6px;
+                padding: 10px 12px;
+                border-radius: 4px;
+                border: 1px solid #3e3c5e;
+                background: #232141;
+            }
+
+            .rule-item-row {
+                display: flex;
+                align-items: flex-start;
                 justify-content: space-between;
-                gap: 4px 8px;
+                gap: 8px;
             }
+
             .rule-header {
-                font-size: 14px;
-                font-family: Monaco, Consolas, monospace;
-                word-break: break-all;
-                flex: 1 1 100%;
-            }
-            .rule-scope {
-                font-size: 12px;
-                color: hsl(var(--muted-foreground));
-                flex: 1;
-            }
-            .rule-item button {
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px;
-                font-size: 12px;
-                flex-shrink: 0;
-            }
-            /* Edit form styles */
-            #editForm {
-                margin-top: 16px;
-                padding-top: 16px;
-                border-top: 1px solid hsl(var(--border));
-            }
-            #editForm h3 {
-                margin: 0 0 12px 0;
-                font-size: 14px;
+                font-family: 'SF Mono', Monaco, Consolas, monospace;
+                color: #ffcb7d;
                 font-weight: 500;
             }
+
+            .rule-scope {
+                color: #acacac;
+                word-break: break-all;
+            }
+
+            .rule-item button {
+                flex-shrink: 0;
+                background: transparent;
+                border: 1px solid #3e3c5e;
+                border-radius: 4px;
+                cursor: pointer;
+                padding: 4px 8px;
+                font-size: 10px;
+                font-weight: 500;
+                color: #acacac;
+                transition: all 0.15s;
+                font-family: inherit;
+            }
+
+            .rule-item button:hover {
+                background: #f36869;
+                border-color: #f36869;
+                color: white;
+            }
+
+            /* Form section */
+
             .form-group {
-                margin-bottom: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
             }
+
             .form-group label {
-                display: block;
-                font-size: 12px;
-                margin-bottom: 4px;
-                color: hsl(var(--muted-foreground));
+                font-weight: 500;
+                color: #acacac;
             }
+
+            .hint {
+                cursor: help;
+                margin-left: 4px;
+                opacity: 0.7;
+            }
+
+            .hint:hover {
+                opacity: 1;
+                color: #756df3;
+            }
+
             .form-group input {
+                height: 32px;
                 width: 100%;
-                padding: 8px;
-                font-size: 13px;
-                border: 1px solid hsl(var(--input));
-                border-radius: var(--radius);
-                background: hsl(var(--background));
-                color: hsl(var(--foreground));
-                font-family: Monaco, Consolas, monospace;
-                box-sizing: border-box;
+                border-radius: 4px;
+                border: 1px solid #3e3c5e;
+                background: #232141;
+                padding: 0 10px;
+                font-size: 11px;
+                font-family: 'SF Mono', Monaco, Consolas, monospace;
+                color: #fafafd;
+                transition: border-color 0.15s;
             }
+
+            .form-group input::placeholder {
+                color: #6b6b8a;
+            }
+
             .form-group input:focus {
                 outline: none;
-                border-color: hsl(var(--primary));
-                box-shadow: 0 0 0 1px hsl(var(--primary));
+                border-color: #756df3;
             }
-            .form-group input::placeholder {
-                color: hsl(var(--muted-foreground));
-            }
+
             #saveBtn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 600;
+                font-family: inherit;
+                height: 32px;
                 width: 100%;
-                padding: 10px;
-                font-size: 14px;
-                font-weight: 500;
+                background: #756df3;
+                color: white;
                 border: none;
-                border-radius: var(--radius);
-                background: hsl(var(--primary));
-                color: hsl(var(--primary-foreground));
                 cursor: pointer;
-                font-family: 'Poppins', system-ui, sans-serif;
-                transition: background-color 0.2s;
+                transition: opacity 0.15s;
+                margin-top: 2px;
             }
+
             #saveBtn:hover {
-                background: hsl(var(--brand-purple-dark));
+                opacity: 0.9;
             }
+
             #saveBtn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
             }
-            .hint {
-                cursor: help;
-                color: hsl(var(--muted-foreground));
-                font-size: 11px;
-            }
-            .hint:hover {
-                color: hsl(var(--foreground));
-            }
         </style>
     </head>
-    <body class="bg-background text-foreground">
+    <body>
+        <div class="header">
+            <div class="header-title">mirrord header injector</div>
+        </div>
         <div id="content">
-            <div id="rulesList"></div>
-            <div id="editForm">
-                <h3>Edit Header</h3>
+            <div class="card">
+                <h3>Active Header</h3>
+                <div id="rulesList"></div>
+            </div>
+            <div id="editForm" class="card">
+                <h3>Configure Header</h3>
                 <div class="form-group">
                     <label for="headerName">Header Name</label>
                     <input
@@ -151,8 +231,8 @@
                 <div class="form-group">
                     <label
                         for="scope"
-                        title="Use * as wildcard. Example: *://api.example.com/* to match only that domain."
-                        >Scope (URL pattern) <span class="hint">ⓘ</span></label
+                        title="Use * as wildcard. Example: *://api.example.com/*"
+                        >URL Scope<span class="hint">ⓘ</span></label
                     >
                     <input
                         type="text"

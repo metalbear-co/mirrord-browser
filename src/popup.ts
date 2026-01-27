@@ -62,12 +62,15 @@ export function renderRequestRules(
             headerLabel.className = 'rule-header';
             headerLabel.textContent = headers;
 
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'rule-item-row';
+
             const scopeLabel = document.createElement('div');
             scopeLabel.className = 'rule-scope';
-            scopeLabel.textContent = `Scope: ${scope}`;
+            scopeLabel.textContent = scope;
 
             const removeBtn = document.createElement('button');
-            removeBtn.textContent = '❌';
+            removeBtn.textContent = 'Remove';
             removeBtn.onclick = () => {
                 chrome.declarativeNetRequest.updateDynamicRules(
                     { removeRuleIds: [rule.id] },
@@ -85,9 +88,10 @@ export function renderRequestRules(
                 );
             };
 
+            rowDiv.appendChild(scopeLabel);
+            rowDiv.appendChild(removeBtn);
             div.appendChild(headerLabel);
-            div.appendChild(scopeLabel);
-            div.appendChild(removeBtn);
+            div.appendChild(rowDiv);
             rulesListEl.appendChild(div);
         }
     });

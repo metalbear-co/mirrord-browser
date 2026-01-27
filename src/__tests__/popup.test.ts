@@ -81,7 +81,7 @@ describe('renderRequestRules', () => {
         const ruleItem = container.querySelector('.rule-item');
         expect(ruleItem).not.toBeNull();
         expect(ruleItem?.textContent).toContain('X-MIRRORD-USER: someone');
-        expect(container.querySelector('button')?.textContent).toBe('❌');
+        expect(container.querySelector('button')?.textContent).toBe('Remove');
     });
 });
 
