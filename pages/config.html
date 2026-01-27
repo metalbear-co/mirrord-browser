@@ -2,28 +2,53 @@
 <html class="dark">
     <head>
         <meta charset="utf-8" />
-        <title>Configure mirrord Header</title>
+        <title>Configure Header</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
             rel="stylesheet"
         />
+        <script type="module" src="../src/config.ts"></script>
         <style>
             html,
             body {
                 margin: 0;
                 padding: 0;
             }
-            #root {
+            body {
+                font-family: 'Poppins', system-ui, sans-serif;
+            }
+            #content {
                 padding: 24px;
                 max-width: 500px;
                 margin: 0 auto;
             }
+            input {
+                width: 100%;
+                padding: 8px;
+                font-size: 14px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                font-family: 'Poppins', system-ui, sans-serif;
+            }
+            button {
+                padding: 8px 16px;
+                font-size: 14px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-family: 'Poppins', system-ui, sans-serif;
+                font-weight: 500;
+            }
+            .error {
+                font-size: 12px;
+                margin-top: -8px;
+                margin-bottom: 10px;
+            }
         </style>
     </head>
-    <body class="bg-background text-foreground font-sans">
-        <div id="root"></div>
-        <script type="module" src="../src/config-main.tsx"></script>
+    <body class="bg-background text-foreground">
+        <div id="content"></div>
     </body>
 </html>

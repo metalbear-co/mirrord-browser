@@ -9,6 +9,7 @@
             href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
             rel="stylesheet"
         />
+        <script type="module" src="../src/popup.ts"></script>
         <style>
             html,
             body {
@@ -16,13 +17,45 @@
                 padding: 0;
                 min-width: 320px;
             }
-            #root {
+            body {
+                font-family: 'Poppins', system-ui, sans-serif;
+            }
+            #content {
                 padding: 12px;
+            }
+            #rulesList {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .no-rules-message {
+                font-size: 14px;
+            }
+            .rule-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            .rule-item span {
+                font-size: 14px;
+                font-family: Monaco, Consolas, monospace;
+                word-break: break-all;
+                flex: 1;
+            }
+            .rule-item button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+                font-size: 12px;
+                flex-shrink: 0;
             }
         </style>
     </head>
-    <body class="bg-background text-foreground font-sans">
-        <div id="root"></div>
-        <script type="module" src="../src/popup-main.tsx"></script>
+    <body class="bg-background text-foreground">
+        <div id="content">
+            <div id="rulesList"></div>
+        </div>
     </body>
 </html>

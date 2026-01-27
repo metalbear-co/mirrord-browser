@@ -1,3 +1,4 @@
+import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
 
 /**
