@@ -114,8 +114,10 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
             return;
         }
 
-        // Use scope if provided, otherwise apply to all URLs
-        // '|' is a special pattern that matches the start of any URL (i.e., all URLs)
+        // Use scope if provided, otherwise apply to all URLs.
+        // '|' is a left anchor in Chrome DNR urlFilter syntax meaning "start of URL",
+        // so '|' alone matches all URLs.
+        // See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-RuleCondition
         const urlFilter = scope || '|';
 
         const rules = [
@@ -210,7 +212,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? promptForValidHeader(config.header_filter)
         : config.header_filter;
 
-    // Extract scope from config (optional)
+    // Scope is set by user via popup UI, not provided by CLI.
+    // This field exists for future use but will be undefined here.
     const scope = config.inject_scope;
 
     try {
