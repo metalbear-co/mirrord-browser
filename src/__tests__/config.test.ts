@@ -115,6 +115,24 @@ describe('storeDefaults', () => {
                 [STORAGE_KEYS.DEFAULTS]: {
                     headerName: 'X-Test-Header',
                     headerValue: 'test-value',
+                    scope: undefined,
+                },
+            },
+            expect.any(Function)
+        );
+    });
+
+    it('stores header with scope in chrome.storage.local', async () => {
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+
+        await storeDefaults('X-Test-Header', 'test-value', '*://example.com/*');
+
+        expect(mockStorageSet).toHaveBeenCalledWith(
+            {
+                [STORAGE_KEYS.DEFAULTS]: {
+                    headerName: 'X-Test-Header',
+                    headerValue: 'test-value',
+                    scope: '*://example.com/*',
                 },
             },
             expect.any(Function)
