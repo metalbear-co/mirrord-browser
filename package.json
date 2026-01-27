@@ -11,7 +11,8 @@
         "format:check": "prettier --check .",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix",
-        "check": "pnpm run format:check && pnpm run lint"
+        "check": "pnpm run format:check && pnpm run lint",
+        "prepare": "husky"
     },
     "keywords": [
         "mirrord"
@@ -25,6 +26,7 @@
         "@typescript-eslint/parser": "^8.33.1",
         "eslint": "^9.28.0",
         "eslint-plugin-ts": "^1.0.0",
+        "husky": "^9.1.7",
         "identity-obj-proxy": "^3.0.0",
         "jest": "^29.7.0",
         "jest-environment-jsdom": "^30.0.0",
