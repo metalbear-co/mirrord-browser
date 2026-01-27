@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Button, Input, Label } from '@metalbear/ui';
 import { refreshIconIndicator } from '../util';
 
 export type ConfigPayload = {
     header_filter: string;
 };
-
-function isRegex(str: string): boolean {
-    const regexIndicators = [/\\[dDsSwWbB]/, /\\./, /[.*+?^${}()|[\]]/];
-    return regexIndicators.some((pattern) => pattern.test(str));
-}
 
 function parseHeader(header: string): { key: string; value: string } {
     const [key, value] = header.split(':').map((s) => s.trim());
@@ -25,12 +19,10 @@ function decodeConfig(encoded: string): ConfigPayload {
 }
 
 export function Config() {
-    const [status, setStatus] = useState<
-        'loading' | 'input' | 'success' | 'error'
-    >('loading');
+    const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+        'loading'
+    );
     const [error, setError] = useState<string>('');
-    const [pattern, setPattern] = useState<string>('');
-    const [headerInput, setHeaderInput] = useState<string>('');
     const [headerDisplay, setHeaderDisplay] = useState<string>('');
 
     const setHeaderRule = (header: string): Promise<void> => {
@@ -121,36 +113,14 @@ export function Config() {
             return;
         }
 
-        if (isRegex(config.header_filter)) {
-            setPattern(config.header_filter);
-            setStatus('input');
-        } else {
-            setHeaderDisplay(config.header_filter);
-            setHeaderRule(config.header_filter)
-                .then(() => setStatus('success'))
-                .catch((err) => {
-                    setError((err as Error).message);
-                    setStatus('error');
-                });
-        }
+        setHeaderDisplay(config.header_filter);
+        setHeaderRule(config.header_filter)
+            .then(() => setStatus('success'))
+            .catch((err) => {
+                setError((err as Error).message);
+                setStatus('error');
+            });
     }, []);
-
-    const handleSubmit = async () => {
-        const regex = new RegExp(pattern);
-        if (!regex.test(headerInput)) {
-            setError('Input does not match the required pattern.');
-            return;
-        }
-        setError('');
-        setHeaderDisplay(headerInput);
-        try {
-            await setHeaderRule(headerInput);
-            setStatus('success');
-        } catch (err) {
-            setError((err as Error).message);
-            setStatus('error');
-        }
-    };
 
     if (status === 'loading') {
         return <div className="text-muted-foreground">Loading...</div>;
@@ -163,35 +133,6 @@ export function Config() {
                     Error
                 </div>
                 <div className="text-muted-foreground">{error}</div>
-            </div>
-        );
-    }
-
-    if (status === 'input') {
-        return (
-            <div className="flex flex-col gap-4">
-                <div>
-                    <Label htmlFor="header">
-                        Enter a header matching the pattern:
-                    </Label>
-                    <code className="block mt-2 px-[0.3rem] py-[0.2rem] bg-muted rounded text-sm font-mono">
-                        {pattern}
-                    </code>
-                </div>
-                <div>
-                    <Input
-                        id="header"
-                        value={headerInput}
-                        onChange={(e) => setHeaderInput(e.target.value)}
-                        placeholder="X-Header: value"
-                    />
-                    {error && (
-                        <p className="text-destructive text-sm mt-1">{error}</p>
-                    )}
-                </div>
-                <Button onClick={handleSubmit} variant="brand-primary">
-                    Set Header
-                </Button>
             </div>
         );
     }
