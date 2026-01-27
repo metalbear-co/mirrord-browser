@@ -1,6 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import './styles/globals.css';
 import '@metalbear/ui/styles.css';
 import { Config } from './components/Config';
 
