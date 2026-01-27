@@ -30,6 +30,7 @@
         "identity-obj-proxy": "^3.0.0",
         "jest": "^29.7.0",
         "jest-environment-jsdom": "^30.0.0",
+        "lint-staged": "^16.2.7",
         "prettier": "^3.5.3",
         "ts-jest": "^29.3.4",
         "typescript": "^5.8.3",
@@ -39,5 +40,14 @@
         "@metalbear/ui": "^0.1.4",
         "react": "^19.2.4",
         "react-dom": "^19.2.4"
+    },
+    "lint-staged": {
+        "*.{ts,tsx}": [
+            "prettier --write",
+            "eslint --fix"
+        ],
+        "*.{json,md,yaml,yml,html,css}": [
+            "prettier --write"
+        ]
     }
 }

@@ -1,4 +1,2 @@
-pnpm run fmt
-pnpm run lint:fix
-git add -u
+pnpm exec lint-staged
 pnpm test
