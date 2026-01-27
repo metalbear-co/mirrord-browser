@@ -8,8 +8,7 @@
         "esModuleInterop": true,
         "resolveJsonModule": true,
         "skipLibCheck": true,
-        "outDir": "dist",
-        "jsx": "react-jsx"
+        "outDir": "dist"
     },
-    "include": ["src", "src/components", "vite.config.ts"]
+    "include": ["src", "vite.config.ts"]
 }
