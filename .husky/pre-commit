@@ -1,2 +1,4 @@
-pnpm run check
+pnpm run fmt
+pnpm run lint:fix
+git add -u
 pnpm test
