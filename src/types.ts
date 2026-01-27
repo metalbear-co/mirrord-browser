@@ -23,5 +23,8 @@ export type StoredConfig = {
  * Keys used in chrome.storage.local.
  */
 export const STORAGE_KEYS = {
+    /** Original config from CLI - used for "Reset to Default" */
     DEFAULTS: 'defaults',
+    /** User's custom overrides from popup UI */
+    OVERRIDE: 'override',
 } as const;

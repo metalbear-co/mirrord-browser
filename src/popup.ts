@@ -1,5 +1,6 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
+import { StoredConfig, STORAGE_KEYS } from './types';
 
 /**
  * Render rules managed by the extension in the given HTML element and
@@ -93,12 +94,157 @@ export function renderRequestRules(
 }
 
 /**
+ * Load stored config (override or defaults) into form fields.
+ */
+export function loadFormValues(
+    nameInput: HTMLInputElement,
+    valueInput: HTMLInputElement,
+    scopeInput: HTMLInputElement
+) {
+    chrome.storage.local.get(
+        [STORAGE_KEYS.OVERRIDE, STORAGE_KEYS.DEFAULTS],
+        (result) => {
+            // Prefer override, fall back to defaults
+            const config: StoredConfig | undefined =
+                result[STORAGE_KEYS.OVERRIDE] || result[STORAGE_KEYS.DEFAULTS];
+
+            if (config) {
+                nameInput.value = config.headerName || '';
+                valueInput.value = config.headerValue || '';
+                scopeInput.value = config.scope || '';
+            }
+        }
+    );
+}
+
+/**
+ * Save override config and update DNR rule.
+ */
+export function saveOverride(
+    headerName: string,
+    headerValue: string,
+    scope: string | undefined,
+    rulesListEl: HTMLDivElement
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (!headerName || !headerValue) {
+            reject(new Error('Header name and value are required'));
+            return;
+        }
+
+        const override: StoredConfig = {
+            headerName,
+            headerValue,
+            scope: scope || undefined,
+        };
+
+        // Use scope if provided, otherwise apply to all URLs
+        // See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-RuleCondition
+        const urlFilter = scope || '|';
+
+        const rules = [
+            {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: chrome.declarativeNetRequest.RuleActionType
+                        .MODIFY_HEADERS,
+                    requestHeaders: [
+                        {
+                            header: headerName,
+                            operation:
+                                chrome.declarativeNetRequest.HeaderOperation
+                                    .SET,
+                            value: headerValue,
+                        },
+                    ],
+                },
+                condition: {
+                    urlFilter,
+                    resourceTypes: [
+                        chrome.declarativeNetRequest.ResourceType
+                            .XMLHTTPREQUEST,
+                        chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
+                        chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
+                    ],
+                },
+            },
+        ];
+
+        // Update DNR rule
+        chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
+            chrome.declarativeNetRequest.updateDynamicRules(
+                {
+                    removeRuleIds: existingRules.map((r) => r.id),
+                    addRules: rules,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+
+                    // Save override to storage
+                    chrome.storage.local.set(
+                        { [STORAGE_KEYS.OVERRIDE]: override },
+                        () => {
+                            if (chrome.runtime.lastError) {
+                                reject(
+                                    new Error(chrome.runtime.lastError.message)
+                                );
+                                return;
+                            }
+                            refreshIconIndicator(rules.length);
+                            loadRequestRules(rulesListEl);
+                            resolve();
+                        }
+                    );
+                }
+            );
+        });
+    });
+}
+
+/**
  * Main listener of the extension popup menu. Render all declarative net request
  * rules managed by the extension and handle rule removal.
  */
 async function popupListener() {
     const rulesListEl = document.getElementById('rulesList') as HTMLDivElement;
+    const nameInput = document.getElementById('headerName') as HTMLInputElement;
+    const valueInput = document.getElementById(
+        'headerValue'
+    ) as HTMLInputElement;
+    const scopeInput = document.getElementById('scope') as HTMLInputElement;
+    const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
+
+    // Load existing rules and form values
     loadRequestRules(rulesListEl);
+    loadFormValues(nameInput, valueInput, scopeInput);
+
+    // Handle save button click
+    saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            await saveOverride(
+                nameInput.value.trim(),
+                valueInput.value.trim(),
+                scopeInput.value.trim() || undefined,
+                rulesListEl
+            );
+            saveBtn.textContent = 'Saved!';
+            setTimeout(() => {
+                saveBtn.textContent = 'Save';
+                saveBtn.disabled = false;
+            }, 1500);
+        } catch (err) {
+            alert('Failed to save: ' + (err as Error).message);
+            saveBtn.textContent = 'Save';
+            saveBtn.disabled = false;
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', popupListener);

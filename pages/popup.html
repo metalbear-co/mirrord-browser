@@ -57,11 +57,96 @@
                 font-size: 12px;
                 flex-shrink: 0;
             }
+            /* Edit form styles */
+            #editForm {
+                margin-top: 16px;
+                padding-top: 16px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            #editForm h3 {
+                margin: 0 0 12px 0;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            .form-group {
+                margin-bottom: 10px;
+            }
+            .form-group label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 4px;
+                opacity: 0.8;
+            }
+            .form-group input {
+                width: 100%;
+                padding: 8px;
+                font-size: 13px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.05);
+                color: inherit;
+                font-family: Monaco, Consolas, monospace;
+                box-sizing: border-box;
+            }
+            .form-group input:focus {
+                outline: none;
+                border-color: #756df3;
+            }
+            .form-group input::placeholder {
+                opacity: 0.5;
+            }
+            #saveBtn {
+                width: 100%;
+                padding: 10px;
+                font-size: 14px;
+                font-weight: 500;
+                border: none;
+                border-radius: 4px;
+                background: #756df3;
+                color: white;
+                cursor: pointer;
+                font-family: 'Poppins', system-ui, sans-serif;
+            }
+            #saveBtn:hover {
+                background: #6560d9;
+            }
+            #saveBtn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
         </style>
     </head>
     <body class="bg-background text-foreground">
         <div id="content">
             <div id="rulesList"></div>
+            <div id="editForm">
+                <h3>Edit Header</h3>
+                <div class="form-group">
+                    <label for="headerName">Header Name</label>
+                    <input
+                        type="text"
+                        id="headerName"
+                        placeholder="X-MIRRORD-USER"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="headerValue">Header Value</label>
+                    <input
+                        type="text"
+                        id="headerValue"
+                        placeholder="testuser"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="scope">Scope (URL pattern)</label>
+                    <input
+                        type="text"
+                        id="scope"
+                        placeholder="*://api.example.com/* (leave empty for all URLs)"
+                    />
+                </div>
+                <button id="saveBtn">Save</button>
+            </div>
         </div>
     </body>
 </html>
