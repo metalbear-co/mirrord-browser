@@ -44,6 +44,35 @@ export function decodeConfig(encoded: string): Config {
 }
 
 /**
+ * Store the given header configuration as defaults in chrome.storage.local.
+ * @param headerName the HTTP header name
+ * @param headerValue the HTTP header value
+ * @returns Promise that resolves when storage is complete
+ */
+export function storeDefaults(
+    headerName: string,
+    headerValue: string
+): Promise<void> {
+    return new Promise((resolve) => {
+        const defaults: StoredConfig = {
+            headerName,
+            headerValue,
+        };
+        chrome.storage.local.set({ [STORAGE_KEYS.DEFAULTS]: defaults }, () => {
+            if (chrome.runtime.lastError) {
+                console.error(
+                    'Failed to store defaults:',
+                    chrome.runtime.lastError.message
+                );
+            } else {
+                console.log('Defaults stored successfully.');
+            }
+            resolve();
+        });
+    });
+}
+
+/**
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  * @returns
@@ -132,26 +161,7 @@ function setHeaderRule(header: string): Promise<void> {
                         refreshIconIndicator(rules.length);
 
                         // Store defaults in chrome.storage
-                        const defaults: StoredConfig = {
-                            headerName: key.trim(),
-                            headerValue: value.trim(),
-                        };
-                        chrome.storage.local.set(
-                            { [STORAGE_KEYS.DEFAULTS]: defaults },
-                            () => {
-                                if (chrome.runtime.lastError) {
-                                    console.error(
-                                        'Failed to store defaults:',
-                                        chrome.runtime.lastError.message
-                                    );
-                                } else {
-                                    console.log(
-                                        'Defaults stored successfully.'
-                                    );
-                                }
-                                resolve();
-                            }
-                        );
+                        storeDefaults(key.trim(), value.trim()).then(resolve);
                     }
                 }
             );
