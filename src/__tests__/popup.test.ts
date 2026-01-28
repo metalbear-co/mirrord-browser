@@ -3,9 +3,10 @@ import {
     renderRequestRules,
     loadFormValues,
     saveOverride,
+    resetToDefaults,
 } from '../popup';
-import { STORAGE_KEYS } from '../types';
 import { STRINGS, BADGE } from '../constants';
+import { STORAGE_KEYS } from '../types';
 
 // Mock the chrome API globally
 const mockGetDynamicRules = jest.fn();
@@ -14,6 +15,7 @@ const mockSetBadgeText = jest.fn();
 const mockSetBadgeTextColor = jest.fn();
 const mockStorageGet = jest.fn();
 const mockStorageSet = jest.fn();
+const mockStorageRemove = jest.fn();
 
 globalThis.chrome = {
     declarativeNetRequest: {
@@ -39,6 +41,7 @@ globalThis.chrome = {
         local: {
             get: mockStorageGet,
             set: mockStorageSet,
+            remove: mockStorageRemove,
         },
     },
     runtime: {
@@ -393,5 +396,54 @@ describe('saveOverride', () => {
         await expect(
             saveOverride('X-Header', 'value', undefined, rulesListEl)
         ).rejects.toThrow('Storage failed');
+    });
+});
+
+describe('resetToDefaults', () => {
+    let nameInput: HTMLInputElement;
+    let valueInput: HTMLInputElement;
+    let scopeInput: HTMLInputElement;
+    let rulesListEl: HTMLDivElement;
+
+    beforeEach(() => {
+        nameInput = document.createElement('input');
+        valueInput = document.createElement('input');
+        scopeInput = document.createElement('input');
+        rulesListEl = document.createElement('div');
+        jest.clearAllMocks();
+        (chrome.runtime as any).lastError = null;
+    });
+
+    it('rejects if no defaults exist', async () => {
+        mockStorageGet.mockImplementation((_keys, cb) => cb({}));
+
+        await expect(
+            resetToDefaults(nameInput, valueInput, scopeInput, rulesListEl)
+        ).rejects.toThrow(STRINGS.ERR_NO_DEFAULTS);
+    });
+
+    it('restores defaults and updates form fields', async () => {
+        const defaults = {
+            headerName: 'X-DEFAULT',
+            headerValue: 'defaultValue',
+            scope: '*://example.com/*',
+        };
+
+        mockStorageGet.mockImplementation((_keys, cb) =>
+            cb({ [STORAGE_KEYS.DEFAULTS]: defaults })
+        );
+        mockStorageRemove.mockImplementation((_keys, cb) => cb());
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+
+        await resetToDefaults(nameInput, valueInput, scopeInput, rulesListEl);
+
+        expect(mockStorageRemove).toHaveBeenCalledWith(
+            [STORAGE_KEYS.OVERRIDE],
+            expect.any(Function)
+        );
+        expect(nameInput.value).toBe('X-DEFAULT');
+        expect(valueInput.value).toBe('defaultValue');
+        expect(scopeInput.value).toBe('*://example.com/*');
     });
 });

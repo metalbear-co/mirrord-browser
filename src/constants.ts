@@ -30,6 +30,9 @@ export const STRINGS = {
     BTN_SAVING: 'Saving...',
     BTN_SAVED: 'Saved!',
     BTN_REMOVE: 'Remove',
+    BTN_RESET: 'Reset to Default',
+    BTN_RESETTING: 'Resetting...',
+    BTN_RESET_DONE: 'Reset!',
 
     // Messages
     MSG_NO_ACTIVE_HEADER: 'No active header',
@@ -54,6 +57,8 @@ export const STRINGS = {
     ERR_CONFIG_MISSING:
         'Configuration data missing, please make sure to copy the complete link.',
     ERR_NO_HEADER_FILTER: 'no header filter in the config',
+    ERR_NO_DEFAULTS: 'No defaults found. Configure via mirrord CLI first.',
+    ERR_RESET_PREFIX: 'Failed to reset: ',
 } as const;
 
 /**
@@ -74,4 +79,5 @@ export const ELEMENT_IDS = {
     HEADER_VALUE: 'headerValue',
     SCOPE: 'scope',
     SAVE_BTN: 'saveBtn',
+    RESET_BTN: 'resetBtn',
 } as const;

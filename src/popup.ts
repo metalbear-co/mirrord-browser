@@ -213,6 +213,101 @@ export function saveOverride(
 }
 
 /**
+ * Reset to default config from CLI.
+ * Clears override, restores defaults, and updates DNR rule.
+ */
+export function resetToDefaults(
+    nameInput: HTMLInputElement,
+    valueInput: HTMLInputElement,
+    scopeInput: HTMLInputElement,
+    rulesListEl: HTMLDivElement
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.get([STORAGE_KEYS.DEFAULTS], (result) => {
+            const defaults: StoredConfig | undefined =
+                result[STORAGE_KEYS.DEFAULTS];
+
+            if (!defaults) {
+                reject(new Error(STRINGS.ERR_NO_DEFAULTS));
+                return;
+            }
+
+            // Clear override from storage
+            chrome.storage.local.remove([STORAGE_KEYS.OVERRIDE], () => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+
+                // Update DNR rule with defaults
+                const urlFilter = defaults.scope || '|';
+                const rules = [
+                    {
+                        id: 1,
+                        priority: 1,
+                        action: {
+                            type: chrome.declarativeNetRequest.RuleActionType
+                                .MODIFY_HEADERS,
+                            requestHeaders: [
+                                {
+                                    header: defaults.headerName,
+                                    operation:
+                                        chrome.declarativeNetRequest
+                                            .HeaderOperation.SET,
+                                    value: defaults.headerValue,
+                                },
+                            ],
+                        },
+                        condition: {
+                            urlFilter,
+                            resourceTypes: [
+                                chrome.declarativeNetRequest.ResourceType
+                                    .XMLHTTPREQUEST,
+                                chrome.declarativeNetRequest.ResourceType
+                                    .MAIN_FRAME,
+                                chrome.declarativeNetRequest.ResourceType
+                                    .SUB_FRAME,
+                            ],
+                        },
+                    },
+                ];
+
+                chrome.declarativeNetRequest.getDynamicRules(
+                    (existingRules) => {
+                        chrome.declarativeNetRequest.updateDynamicRules(
+                            {
+                                removeRuleIds: existingRules.map((r) => r.id),
+                                addRules: rules,
+                            },
+                            () => {
+                                if (chrome.runtime.lastError) {
+                                    reject(
+                                        new Error(
+                                            chrome.runtime.lastError.message
+                                        )
+                                    );
+                                    return;
+                                }
+
+                                // Update form fields with defaults
+                                nameInput.value = defaults.headerName;
+                                valueInput.value = defaults.headerValue;
+                                scopeInput.value = defaults.scope || '';
+
+                                // Refresh UI
+                                refreshIconIndicator(rules.length);
+                                loadRequestRules(rulesListEl);
+                                resolve();
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    });
+}
+
+/**
  * Main listener of the extension popup menu. Render all declarative net request
  * rules managed by the extension and handle rule removal.
  */
@@ -231,6 +326,9 @@ async function popupListener() {
     ) as HTMLInputElement;
     const saveBtn = document.getElementById(
         ELEMENT_IDS.SAVE_BTN
+    ) as HTMLButtonElement;
+    const resetBtn = document.getElementById(
+        ELEMENT_IDS.RESET_BTN
     ) as HTMLButtonElement;
 
     // Load existing rules and form values
@@ -258,6 +356,30 @@ async function popupListener() {
             alert(STRINGS.ERR_SAVE_PREFIX + (err as Error).message);
             saveBtn.textContent = STRINGS.BTN_SAVE;
             saveBtn.disabled = false;
+        }
+    });
+
+    // Handle reset button click
+    resetBtn.addEventListener('click', async () => {
+        resetBtn.disabled = true;
+        resetBtn.textContent = STRINGS.BTN_RESETTING;
+
+        try {
+            await resetToDefaults(
+                nameInput,
+                valueInput,
+                scopeInput,
+                rulesListEl
+            );
+            resetBtn.textContent = STRINGS.BTN_RESET_DONE;
+            setTimeout(() => {
+                resetBtn.textContent = STRINGS.BTN_RESET;
+                resetBtn.disabled = false;
+            }, 1500);
+        } catch (err) {
+            alert(STRINGS.ERR_RESET_PREFIX + (err as Error).message);
+            resetBtn.textContent = STRINGS.BTN_RESET;
+            resetBtn.disabled = false;
         }
     });
 }

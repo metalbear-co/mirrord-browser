@@ -182,13 +182,12 @@
                 font-weight: 600;
                 font-family: inherit;
                 height: 32px;
-                width: 100%;
+                flex: 1;
                 background: hsl(var(--primary));
                 color: hsl(var(--primary-foreground));
                 border: none;
                 cursor: pointer;
                 transition: opacity 0.15s;
-                margin-top: 2px;
             }
 
             #saveBtn:hover {
@@ -196,6 +195,39 @@
             }
 
             #saveBtn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .button-row {
+                display: flex;
+                gap: 8px;
+                margin-top: 2px;
+            }
+
+            #resetBtn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: calc(var(--radius) - 4px);
+                font-size: 11px;
+                font-weight: 500;
+                font-family: inherit;
+                height: 32px;
+                flex: 1;
+                background: transparent;
+                color: hsl(var(--muted-foreground));
+                border: 1px solid hsl(var(--border));
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+
+            #resetBtn:hover {
+                background: hsl(var(--muted));
+                color: hsl(var(--foreground));
+            }
+
+            #resetBtn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
             }
@@ -240,7 +272,10 @@
                         placeholder="Leave empty for all URLs"
                     />
                 </div>
-                <button id="saveBtn">Save</button>
+                <div class="button-row">
+                    <button id="resetBtn">Reset to Default</button>
+                    <button id="saveBtn">Save</button>
+                </div>
             </div>
         </div>
     </body>
