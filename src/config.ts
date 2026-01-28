@@ -1,5 +1,6 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
+import { Config, StoredConfig, STORAGE_KEYS } from './types';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -43,6 +44,35 @@ export function decodeConfig(encoded: string): Config {
 }
 
 /**
+ * Store the given header configuration as defaults in chrome.storage.local.
+ * @param headerName the HTTP header name
+ * @param headerValue the HTTP header value
+ * @returns Promise that resolves when storage is complete
+ */
+export function storeDefaults(
+    headerName: string,
+    headerValue: string
+): Promise<void> {
+    return new Promise((resolve) => {
+        const defaults: StoredConfig = {
+            headerName,
+            headerValue,
+        };
+        chrome.storage.local.set({ [STORAGE_KEYS.DEFAULTS]: defaults }, () => {
+            if (chrome.runtime.lastError) {
+                console.error(
+                    'Failed to store defaults:',
+                    chrome.runtime.lastError.message
+                );
+            } else {
+                console.log('Defaults stored successfully.');
+            }
+            resolve();
+        });
+    });
+}
+
+/**
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  * @returns
@@ -69,69 +99,78 @@ export function promptForValidHeader(pattern: string): string {
     return header;
 }
 
-function setHeaderRule(header: string) {
-    let key: string, value: string;
+function setHeaderRule(header: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        let key: string, value: string;
 
-    try {
-        ({ key, value } = parseHeader(header));
-    } catch (err) {
-        alert((err as Error).message);
-        return;
-    }
+        try {
+            ({ key, value } = parseHeader(header));
+        } catch (err) {
+            alert((err as Error).message);
+            reject(err);
+            return;
+        }
 
-    const rules = [
-        {
-            id: 1,
-            priority: 1,
-            action: {
-                type: chrome.declarativeNetRequest.RuleActionType
-                    .MODIFY_HEADERS,
-                requestHeaders: [
-                    {
-                        header: key.trim(),
-                        operation:
-                            chrome.declarativeNetRequest.HeaderOperation.SET,
-                        value: value.trim(),
-                    },
-                ],
-            },
-            condition: {
-                urlFilter: '|', // Apply to all URLs
-                resourceTypes: [
-                    chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST,
-                    chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
-                    chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
-                ],
-            },
-        },
-    ];
-
-    // remove all existing rules and add new ones
-    chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
-        chrome.declarativeNetRequest.updateDynamicRules(
+        const rules = [
             {
-                removeRuleIds: rules
-                    .map(({ id }) => id)
-                    .concat(existingRules.map((rule) => rule.id)),
-                addRules: rules,
+                id: 1,
+                priority: 1,
+                action: {
+                    type: chrome.declarativeNetRequest.RuleActionType
+                        .MODIFY_HEADERS,
+                    requestHeaders: [
+                        {
+                            header: key.trim(),
+                            operation:
+                                chrome.declarativeNetRequest.HeaderOperation
+                                    .SET,
+                            value: value.trim(),
+                        },
+                    ],
+                },
+                condition: {
+                    urlFilter: '|', // Apply to all URLs
+                    resourceTypes: [
+                        chrome.declarativeNetRequest.ResourceType
+                            .XMLHTTPREQUEST,
+                        chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
+                        chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
+                    ],
+                },
             },
-            () => {
-                if (chrome.runtime.lastError) {
-                    console.error(
-                        'Failed to set header:',
-                        chrome.runtime.lastError.message
-                    );
-                } else {
-                    console.log('Header rule set successfully.');
-                    refreshIconIndicator(rules.length);
+        ];
+
+        // remove all existing rules and add new ones
+        chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
+            chrome.declarativeNetRequest.updateDynamicRules(
+                {
+                    removeRuleIds: rules
+                        .map(({ id }) => id)
+                        .concat(existingRules.map((rule) => rule.id)),
+                    addRules: rules,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error(
+                            'Failed to set header:',
+                            chrome.runtime.lastError.message
+                        );
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        console.log('Header rule set successfully.');
+                        refreshIconIndicator(rules.length);
+
+                        // Store defaults in chrome.storage
+                        storeDefaults(key.trim(), value.trim()).then(resolve);
+                    }
                 }
-            }
-        );
+            );
+        });
     });
 }
 
 // Listener for the configuration link page
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(location.search);
     const encoded = params.get('payload');
 
@@ -162,10 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
         ? promptForValidHeader(config.header_filter)
         : config.header_filter;
 
-    setHeaderRule(header);
-    alert('Header set successfully!');
+    try {
+        await setHeaderRule(header);
+        alert('Header set successfully!');
+    } catch (err) {
+        alert('Failed to set header: ' + (err as Error).message);
+    }
 });
-
-export type Config = {
-    header_filter: string;
-};

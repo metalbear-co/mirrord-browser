@@ -3,7 +3,23 @@ import {
     parseHeader,
     decodeConfig,
     promptForValidHeader,
+    storeDefaults,
 } from '../config';
+import { STORAGE_KEYS } from '../types';
+
+// Mock the chrome API for storage tests
+const mockStorageSet = jest.fn();
+
+globalThis.chrome = {
+    storage: {
+        local: {
+            set: mockStorageSet,
+        },
+    },
+    runtime: {
+        lastError: null,
+    },
+} as any;
 
 describe('isRegex', () => {
     it('detects simple regex-like strings', () => {
@@ -80,5 +96,58 @@ describe('promptForValidHeader', () => {
         expect(header).toBe('X-MIRRORD-USER: 456');
         expect(mockPrompt).toHaveBeenCalledTimes(3);
         expect(mockAlert).toHaveBeenCalledTimes(2); // 2 alerts: empty + invalid
+    });
+});
+
+describe('storeDefaults', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (chrome.runtime as any).lastError = null;
+    });
+
+    it('stores header name and value in chrome.storage.local', async () => {
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+
+        await storeDefaults('X-Test-Header', 'test-value');
+
+        expect(mockStorageSet).toHaveBeenCalledWith(
+            {
+                [STORAGE_KEYS.DEFAULTS]: {
+                    headerName: 'X-Test-Header',
+                    headerValue: 'test-value',
+                },
+            },
+            expect.any(Function)
+        );
+    });
+
+    it('resolves even when storage fails', async () => {
+        (chrome.runtime as any).lastError = { message: 'Storage error' };
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+        const consoleSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+
+        await storeDefaults('X-Test-Header', 'test-value');
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Failed to store defaults:',
+            'Storage error'
+        );
+        consoleSpy.mockRestore();
+    });
+
+    it('logs success message when storage succeeds', async () => {
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+        const consoleSpy = jest
+            .spyOn(console, 'log')
+            .mockImplementation(() => {});
+
+        await storeDefaults('X-Test-Header', 'test-value');
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'Defaults stored successfully.'
+        );
+        consoleSpy.mockRestore();
     });
 });
