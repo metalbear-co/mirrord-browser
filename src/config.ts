@@ -1,6 +1,7 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
 import { Config, StoredConfig, STORAGE_KEYS } from './types';
+import { STRINGS } from './constants';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -24,7 +25,7 @@ export function isRegex(str: string): boolean {
 export function parseHeader(header: string): { key: string; value: string } {
     const [key, value] = header.split(':').map((s) => s.trim());
     if (!key || !value) {
-        throw new Error('Invalid header format.');
+        throw new Error(STRINGS.ERR_INVALID_HEADER);
     }
     return { key, value };
 }
@@ -39,7 +40,7 @@ export function decodeConfig(encoded: string): Config {
     try {
         return JSON.parse(decoded) as Config;
     } catch (error) {
-        throw new Error('Invalid configuration');
+        throw new Error(STRINGS.ERR_INVALID_CONFIG);
     }
 }
 
@@ -64,11 +65,11 @@ export function storeDefaults(
         chrome.storage.local.set({ [STORAGE_KEYS.DEFAULTS]: defaults }, () => {
             if (chrome.runtime.lastError) {
                 console.error(
-                    'Failed to store defaults:',
+                    STRINGS.ERR_STORE_DEFAULTS,
                     chrome.runtime.lastError.message
                 );
             } else {
-                console.log('Defaults stored successfully.');
+                console.log(STRINGS.MSG_DEFAULTS_STORED);
             }
             resolve();
         });
@@ -85,15 +86,13 @@ export function promptForValidHeader(pattern: string): string {
     let header: string | null = null;
 
     while (!header) {
-        const input = prompt(
-            `Enter a header that matches pattern:\n${pattern}`
-        );
+        const input = prompt(STRINGS.MSG_ENTER_HEADER_PATTERN + pattern);
         if (!input) {
-            alert('No input provided.');
+            alert(STRINGS.MSG_NO_INPUT);
             continue;
         }
         if (!regex.test(input)) {
-            alert('Input does not match the required pattern.');
+            alert(STRINGS.MSG_PATTERN_MISMATCH);
             continue;
         }
         header = input;
@@ -161,12 +160,12 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
                 () => {
                     if (chrome.runtime.lastError) {
                         console.error(
-                            'Failed to set header:',
+                            STRINGS.ERR_SET_HEADER,
                             chrome.runtime.lastError.message
                         );
                         reject(new Error(chrome.runtime.lastError.message));
                     } else {
-                        console.log('Header rule set successfully.');
+                        console.log(STRINGS.MSG_HEADER_RULE_SET);
                         refreshIconIndicator(rules.length);
 
                         // Store defaults in chrome.storage
@@ -186,9 +185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const encoded = params.get('payload');
 
     if (!encoded) {
-        alert(
-            'Configuration data missing, please make sure to copy the complete link.'
-        );
+        alert(STRINGS.ERR_CONFIG_MISSING);
         return;
     }
 
@@ -204,7 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (!config.header_filter) {
-        console.error('no header filter in the config');
+        console.error(STRINGS.ERR_NO_HEADER_FILTER);
         return;
     }
 
@@ -218,9 +215,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         await setHeaderRule(header, scope);
-        const scopeMsg = scope ? ` (scope: ${scope})` : ' (all URLs)';
-        alert('Header set successfully!' + scopeMsg);
+        const scopeMsg = scope
+            ? STRINGS.MSG_SCOPE_PREFIX + scope + ')'
+            : STRINGS.MSG_SCOPE_ALL;
+        alert(STRINGS.MSG_HEADER_SET_SUCCESS + scopeMsg);
     } catch (err) {
-        alert('Failed to set header: ' + (err as Error).message);
+        alert(STRINGS.ERR_SET_HEADER + ' ' + (err as Error).message);
     }
 });

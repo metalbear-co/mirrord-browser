@@ -5,6 +5,7 @@ import {
     saveOverride,
 } from '../popup';
 import { STORAGE_KEYS } from '../types';
+import { STRINGS, BADGE } from '../constants';
 
 // Mock the chrome API globally
 const mockGetDynamicRules = jest.fn();
@@ -56,7 +57,7 @@ describe('renderRequestRules', () => {
     it('displays "No active header" when rules are empty', () => {
         renderRequestRules([], container);
 
-        expect(container.textContent).toContain('No active header');
+        expect(container.textContent).toContain(STRINGS.MSG_NO_ACTIVE_HEADER);
         expect(container.querySelector('.no-rules-message')).not.toBeNull();
     });
 
@@ -95,7 +96,9 @@ describe('renderRequestRules', () => {
         const ruleItem = container.querySelector('.rule-item');
         expect(ruleItem).not.toBeNull();
         expect(ruleItem?.textContent).toContain('X-MIRRORD-USER: someone');
-        expect(container.querySelector('button')?.textContent).toBe('Remove');
+        expect(container.querySelector('button')?.textContent).toBe(
+            STRINGS.BTN_REMOVE
+        );
     });
 });
 
@@ -143,9 +146,9 @@ describe('loadRequestRules', () => {
 
         expect(mockGetDynamicRules).toHaveBeenCalled();
         expect(mockSetBadgeTextColor).toHaveBeenCalledWith({
-            color: '#ADD8E6',
+            color: BADGE.COLOR,
         });
-        expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '✓' });
+        expect(mockSetBadgeText).toHaveBeenCalledWith({ text: BADGE.ACTIVE });
     });
 
     it('sets empty badge if no rules returned', () => {

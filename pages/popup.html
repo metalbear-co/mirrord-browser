@@ -22,20 +22,20 @@
                 min-width: 320px;
                 font-family: 'Poppins', system-ui, sans-serif;
                 font-size: 11px;
-                background: #232141;
-                color: #fafafd;
+                background: hsl(var(--background));
+                color: hsl(var(--foreground));
             }
 
             /* Header */
             .header {
                 padding: 12px 16px;
-                border-bottom: 1px solid #3e3c5e;
+                border-bottom: 1px solid hsl(var(--border));
             }
 
             .header-title {
                 font-size: 13px;
                 font-weight: 600;
-                color: #fafafd;
+                color: hsl(var(--foreground));
             }
 
             /* Main content */
@@ -52,15 +52,15 @@
                 flex-direction: column;
                 gap: 10px;
                 padding: 12px;
-                background: #1c1a38;
-                border-radius: 6px;
-                border: 1px solid #3e3c5e;
+                background: hsl(var(--card));
+                border-radius: calc(var(--radius) - 2px);
+                border: 1px solid hsl(var(--border));
             }
 
             .card h3 {
                 font-size: 11px;
                 font-weight: 600;
-                color: #fafafd;
+                color: hsl(var(--foreground));
             }
 
             /* Active rules section */
@@ -71,11 +71,11 @@
             }
 
             .no-rules-message {
-                color: #acacac;
+                color: hsl(var(--muted-foreground));
                 text-align: center;
                 padding: 12px;
-                border-radius: 4px;
-                border: 1px dashed #3e3c5e;
+                border-radius: calc(var(--radius) - 4px);
+                border: 1px dashed hsl(var(--border));
             }
 
             /* Rule item */
@@ -84,9 +84,9 @@
                 flex-direction: column;
                 gap: 6px;
                 padding: 10px 12px;
-                border-radius: 4px;
-                border: 1px solid #3e3c5e;
-                background: #232141;
+                border-radius: calc(var(--radius) - 4px);
+                border: 1px solid hsl(var(--border));
+                background: hsl(var(--background));
             }
 
             .rule-item-row {
@@ -98,33 +98,33 @@
 
             .rule-header {
                 font-family: 'SF Mono', Monaco, Consolas, monospace;
-                color: #ffcb7d;
+                color: hsl(var(--secondary));
                 font-weight: 500;
             }
 
             .rule-scope {
-                color: #acacac;
+                color: hsl(var(--muted-foreground));
                 word-break: break-all;
             }
 
             .rule-item button {
                 flex-shrink: 0;
                 background: transparent;
-                border: 1px solid #3e3c5e;
-                border-radius: 4px;
+                border: 1px solid hsl(var(--border));
+                border-radius: calc(var(--radius) - 4px);
                 cursor: pointer;
                 padding: 4px 8px;
                 font-size: 10px;
                 font-weight: 500;
-                color: #acacac;
+                color: hsl(var(--muted-foreground));
                 transition: all 0.15s;
                 font-family: inherit;
             }
 
             .rule-item button:hover {
-                background: #f36869;
-                border-color: #f36869;
-                color: white;
+                background: hsl(var(--destructive));
+                border-color: hsl(var(--destructive));
+                color: hsl(var(--destructive-foreground));
             }
 
             /* Form section */
@@ -137,7 +137,7 @@
 
             .form-group label {
                 font-weight: 500;
-                color: #acacac;
+                color: hsl(var(--muted-foreground));
             }
 
             .hint {
@@ -148,43 +148,43 @@
 
             .hint:hover {
                 opacity: 1;
-                color: #756df3;
+                color: hsl(var(--primary));
             }
 
             .form-group input {
                 height: 32px;
                 width: 100%;
-                border-radius: 4px;
-                border: 1px solid #3e3c5e;
-                background: #232141;
+                border-radius: calc(var(--radius) - 4px);
+                border: 1px solid hsl(var(--input));
+                background: hsl(var(--background));
                 padding: 0 10px;
                 font-size: 11px;
                 font-family: 'SF Mono', Monaco, Consolas, monospace;
-                color: #fafafd;
+                color: hsl(var(--foreground));
                 transition: border-color 0.15s;
             }
 
             .form-group input::placeholder {
-                color: #6b6b8a;
+                color: hsl(var(--muted-foreground) / 0.6);
             }
 
             .form-group input:focus {
                 outline: none;
-                border-color: #756df3;
+                border-color: hsl(var(--ring));
             }
 
             #saveBtn {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 4px;
+                border-radius: calc(var(--radius) - 4px);
                 font-size: 11px;
                 font-weight: 600;
                 font-family: inherit;
                 height: 32px;
                 width: 100%;
-                background: #756df3;
-                color: white;
+                background: hsl(var(--primary));
+                color: hsl(var(--primary-foreground));
                 border: none;
                 cursor: pointer;
                 transition: opacity 0.15s;

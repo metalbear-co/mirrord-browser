@@ -1,6 +1,7 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
 import { StoredConfig, STORAGE_KEYS } from './types';
+import { STRINGS, ELEMENT_IDS } from './constants';
 
 /**
  * Render rules managed by the extension in the given HTML element and
@@ -35,7 +36,7 @@ export function renderRequestRules(
     if (rules.length === 0) {
         const message = document.createElement('div');
         message.className = 'no-rules-message';
-        message.textContent = 'No active header';
+        message.textContent = STRINGS.MSG_NO_ACTIVE_HEADER;
         rulesListEl.appendChild(message);
         return;
     }
@@ -56,7 +57,9 @@ export function renderRequestRules(
             // Get scope from urlFilter ('|' means all URLs)
             const urlFilter = rule.condition?.urlFilter;
             const scope =
-                urlFilter === '|' ? 'All URLs' : urlFilter || 'All URLs';
+                urlFilter === '|'
+                    ? STRINGS.MSG_ALL_URLS
+                    : urlFilter || STRINGS.MSG_ALL_URLS;
 
             const headerLabel = document.createElement('div');
             headerLabel.className = 'rule-header';
@@ -70,7 +73,7 @@ export function renderRequestRules(
             scopeLabel.textContent = scope;
 
             const removeBtn = document.createElement('button');
-            removeBtn.textContent = 'Remove';
+            removeBtn.textContent = STRINGS.BTN_REMOVE;
             removeBtn.onclick = () => {
                 chrome.declarativeNetRequest.updateDynamicRules(
                     { removeRuleIds: [rule.id] },
@@ -80,7 +83,7 @@ export function renderRequestRules(
                             loadRequestRules(rulesListEl);
                         } else {
                             console.error(
-                                'Failed to remove rule:',
+                                STRINGS.ERR_REMOVE_RULE,
                                 chrome.runtime.lastError
                             );
                         }
@@ -132,7 +135,7 @@ export function saveOverride(
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         if (!headerName || !headerValue) {
-            reject(new Error('Header name and value are required'));
+            reject(new Error(STRINGS.ERR_HEADER_REQUIRED));
             return;
         }
 
@@ -214,13 +217,21 @@ export function saveOverride(
  * rules managed by the extension and handle rule removal.
  */
 async function popupListener() {
-    const rulesListEl = document.getElementById('rulesList') as HTMLDivElement;
-    const nameInput = document.getElementById('headerName') as HTMLInputElement;
-    const valueInput = document.getElementById(
-        'headerValue'
+    const rulesListEl = document.getElementById(
+        ELEMENT_IDS.RULES_LIST
+    ) as HTMLDivElement;
+    const nameInput = document.getElementById(
+        ELEMENT_IDS.HEADER_NAME
     ) as HTMLInputElement;
-    const scopeInput = document.getElementById('scope') as HTMLInputElement;
-    const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
+    const valueInput = document.getElementById(
+        ELEMENT_IDS.HEADER_VALUE
+    ) as HTMLInputElement;
+    const scopeInput = document.getElementById(
+        ELEMENT_IDS.SCOPE
+    ) as HTMLInputElement;
+    const saveBtn = document.getElementById(
+        ELEMENT_IDS.SAVE_BTN
+    ) as HTMLButtonElement;
 
     // Load existing rules and form values
     loadRequestRules(rulesListEl);
@@ -229,7 +240,7 @@ async function popupListener() {
     // Handle save button click
     saveBtn.addEventListener('click', async () => {
         saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
+        saveBtn.textContent = STRINGS.BTN_SAVING;
 
         try {
             await saveOverride(
@@ -238,14 +249,14 @@ async function popupListener() {
                 scopeInput.value.trim() || undefined,
                 rulesListEl
             );
-            saveBtn.textContent = 'Saved!';
+            saveBtn.textContent = STRINGS.BTN_SAVED;
             setTimeout(() => {
-                saveBtn.textContent = 'Save';
+                saveBtn.textContent = STRINGS.BTN_SAVE;
                 saveBtn.disabled = false;
             }, 1500);
         } catch (err) {
-            alert('Failed to save: ' + (err as Error).message);
-            saveBtn.textContent = 'Save';
+            alert(STRINGS.ERR_SAVE_PREFIX + (err as Error).message);
+            saveBtn.textContent = STRINGS.BTN_SAVE;
             saveBtn.disabled = false;
         }
     });

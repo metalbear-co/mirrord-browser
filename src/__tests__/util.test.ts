@@ -1,4 +1,5 @@
 import { refreshIconIndicator } from '../util';
+import { BADGE } from '../constants';
 
 describe('refreshIconIndicator', () => {
     beforeEach(() => {
@@ -14,17 +15,21 @@ describe('refreshIconIndicator', () => {
         refreshIconIndicator(1);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
-            color: '#ADD8E6',
+            color: BADGE.COLOR,
         });
-        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓' });
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({
+            text: BADGE.ACTIVE,
+        });
     });
 
     it('sets badge color and clears text when num is 0', () => {
         refreshIconIndicator(0);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
-            color: '#ADD8E6',
+            color: BADGE.COLOR,
         });
-        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({
+            text: BADGE.INACTIVE,
+        });
     });
 });
