@@ -4,10 +4,10 @@
  */
 export const STRINGS = {
     // Page titles
-    HEADER_TITLE: 'mirrord Headers',
+    HEADER_TITLE: 'Mirrord Header Injector',
 
     // Section titles
-    SECTION_ACTIVE_HEADERS: 'Active Headers',
+    SECTION_ACTIVE_HEADER: 'Active Header',
     SECTION_CONFIGURE_HEADER: 'Configure Header',
 
     // Form labels

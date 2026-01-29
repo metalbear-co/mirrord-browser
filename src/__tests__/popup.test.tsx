@@ -24,13 +24,29 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
-    Badge: ({
+    CardHeader: ({ children }: React.PropsWithChildren) => (
+        <div>{children}</div>
+    ),
+    CardTitle: ({
         children,
         className,
     }: React.PropsWithChildren<{ className?: string }>) => (
-        <span className={className}>{children}</span>
+        <h2 className={className}>{children}</h2>
+    ),
+    CardContent: ({ children }: React.PropsWithChildren) => (
+        <div>{children}</div>
+    ),
+    CardFooter: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
     ),
     Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    TooltipContent: ({ children }: React.PropsWithChildren) => (
+        <span>{children}</span>
+    ),
     TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
     Input: ({
         id,
@@ -241,7 +257,7 @@ describe('Popup', () => {
         });
 
         // Click the remove button
-        const removeButton = screen.getByRole('button', { name: '✕' });
+        const removeButton = screen.getByRole('button', { name: 'Remove' });
         fireEvent.click(removeButton);
 
         expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
