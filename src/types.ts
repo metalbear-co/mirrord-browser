@@ -20,6 +20,16 @@ export type StoredConfig = {
 };
 
 /**
+ * Parsed header rule for display in the popup UI.
+ */
+export type HeaderRule = {
+    id: number;
+    header: string;
+    value: string;
+    scope: string;
+};
+
+/**
  * Keys used in chrome.storage.local.
  */
 export const STORAGE_KEYS = {
