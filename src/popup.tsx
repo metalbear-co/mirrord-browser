@@ -1,7 +1,7 @@
 import { StrictMode, useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
-import { Button, Card, Badge, Tooltip } from '@metalbear/ui';
+import { Button, Card, Badge, Tooltip, TooltipProvider } from '@metalbear/ui';
 import { refreshIconIndicator } from './util';
 
 type HeaderRule = {
@@ -142,7 +142,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <Popup />
+            <TooltipProvider>
+                <Popup />
+            </TooltipProvider>
         </StrictMode>
     );
 }
