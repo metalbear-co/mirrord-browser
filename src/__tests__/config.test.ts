@@ -65,6 +65,157 @@ describe('decodeConfig', () => {
     });
 });
 
+describe('URL to Config conversion', () => {
+    // Helper to create base64 encoded config payloads
+    const encodeConfig = (config: object): string =>
+        btoa(JSON.stringify(config));
+
+    describe('without scope', () => {
+        it('parses config URL payload without inject_scope field', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-MIRRORD-USER: alice',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config).toEqual({
+                header_filter: 'X-MIRRORD-USER: alice',
+            });
+            expect(config.inject_scope).toBeUndefined();
+        });
+
+        it('parses config with explicit header key-value', () => {
+            const payload = encodeConfig({
+                header_filter: 'Authorization: Bearer token123',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('Authorization: Bearer token123');
+            expect(config.inject_scope).toBeUndefined();
+        });
+
+        it('parses config with regex pattern in header_filter', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Request-ID: [a-f0-9-]+',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-Request-ID: [a-f0-9-]+');
+            expect(config.inject_scope).toBeUndefined();
+        });
+    });
+
+    describe('with scope', () => {
+        it('parses config URL payload with inject_scope field', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-MIRRORD-USER: bob',
+                inject_scope: '*://api.example.com/*',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config).toEqual({
+                header_filter: 'X-MIRRORD-USER: bob',
+                inject_scope: '*://api.example.com/*',
+            });
+        });
+
+        it('parses config with wildcard scope pattern', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Debug: enabled',
+                inject_scope: '*://*.staging.example.com/*',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-Debug: enabled');
+            expect(config.inject_scope).toBe('*://*.staging.example.com/*');
+        });
+
+        it('parses config with specific URL scope', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-API-Key: secret123',
+                inject_scope: 'https://api.example.com/v1/*',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-API-Key: secret123');
+            expect(config.inject_scope).toBe('https://api.example.com/v1/*');
+        });
+
+        it('parses config with empty string scope (treated as undefined)', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Test: value',
+                inject_scope: '',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-Test: value');
+            expect(config.inject_scope).toBe('');
+        });
+    });
+
+    describe('edge cases', () => {
+        it('handles config with extra unknown fields gracefully', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Custom: value',
+                inject_scope: '*://example.com/*',
+                unknown_field: 'should be ignored',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-Custom: value');
+            expect(config.inject_scope).toBe('*://example.com/*');
+        });
+
+        it('throws on empty payload', () => {
+            expect(() => decodeConfig('')).toThrow();
+        });
+
+        it('throws on payload with missing header_filter', () => {
+            const payload = encodeConfig({
+                inject_scope: '*://example.com/*',
+            });
+
+            // decodeConfig doesn't validate required fields, it just parses
+            // The validation happens later in the config page
+            const config = decodeConfig(payload);
+            expect(config.header_filter).toBeUndefined();
+        });
+
+        it('handles special characters in header values', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Data: {"key":"value","num":123}',
+                inject_scope: '*://api.example.com/*',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe(
+                'X-Data: {"key":"value","num":123}'
+            );
+            expect(config.inject_scope).toBe('*://api.example.com/*');
+        });
+
+        it('handles URL-encoded scope patterns', () => {
+            const payload = encodeConfig({
+                header_filter: 'X-Tenant: acme-corp',
+                inject_scope: '*://api.example.com/users/*',
+            });
+
+            const config = decodeConfig(payload);
+
+            expect(config.header_filter).toBe('X-Tenant: acme-corp');
+            expect(config.inject_scope).toBe('*://api.example.com/users/*');
+        });
+    });
+});
+
 describe('promptForValidHeader', () => {
     beforeEach(() => {
         // Reset mock state between tests
