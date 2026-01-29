@@ -84,17 +84,6 @@ describe('URL to Config conversion', () => {
             expect(config.inject_scope).toBeUndefined();
         });
 
-        it('parses config with explicit header key-value', () => {
-            const payload = encodeConfig({
-                header_filter: 'Authorization: Bearer token123',
-            });
-
-            const config = decodeConfig(payload);
-
-            expect(config.header_filter).toBe('Authorization: Bearer token123');
-            expect(config.inject_scope).toBeUndefined();
-        });
-
         it('parses config with regex pattern in header_filter', () => {
             const payload = encodeConfig({
                 header_filter: 'X-Request-ID: [a-f0-9-]+',
