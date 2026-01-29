@@ -51,8 +51,19 @@ export function renderRequestRules(
             const headers = rule.action.requestHeaders
                 .map((h) => `${h.header}: ${h.value}`)
                 .join(', ');
-            const label = document.createElement('span');
-            label.textContent = headers;
+
+            // Get scope from urlFilter ('|' means all URLs)
+            const urlFilter = rule.condition?.urlFilter;
+            const scope =
+                urlFilter === '|' ? 'All URLs' : urlFilter || 'All URLs';
+
+            const headerLabel = document.createElement('div');
+            headerLabel.className = 'rule-header';
+            headerLabel.textContent = headers;
+
+            const scopeLabel = document.createElement('div');
+            scopeLabel.className = 'rule-scope';
+            scopeLabel.textContent = `Scope: ${scope}`;
 
             const removeBtn = document.createElement('button');
             removeBtn.textContent = '❌';
@@ -73,7 +84,8 @@ export function renderRequestRules(
                 );
             };
 
-            div.appendChild(label);
+            div.appendChild(headerLabel);
+            div.appendChild(scopeLabel);
             div.appendChild(removeBtn);
             rulesListEl.appendChild(div);
         }

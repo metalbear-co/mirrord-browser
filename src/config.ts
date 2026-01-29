@@ -47,16 +47,19 @@ export function decodeConfig(encoded: string): Config {
  * Store the given header configuration as defaults in chrome.storage.local.
  * @param headerName the HTTP header name
  * @param headerValue the HTTP header value
+ * @param scope optional URL pattern for scoping header injection
  * @returns Promise that resolves when storage is complete
  */
 export function storeDefaults(
     headerName: string,
-    headerValue: string
+    headerValue: string,
+    scope?: string
 ): Promise<void> {
     return new Promise((resolve) => {
         const defaults: StoredConfig = {
             headerName,
             headerValue,
+            scope,
         };
         chrome.storage.local.set({ [STORAGE_KEYS.DEFAULTS]: defaults }, () => {
             if (chrome.runtime.lastError) {
@@ -99,7 +102,7 @@ export function promptForValidHeader(pattern: string): string {
     return header;
 }
 
-function setHeaderRule(header: string): Promise<void> {
+function setHeaderRule(header: string, scope?: string): Promise<void> {
     return new Promise((resolve, reject) => {
         let key: string, value: string;
 
@@ -110,6 +113,12 @@ function setHeaderRule(header: string): Promise<void> {
             reject(err);
             return;
         }
+
+        // Use scope if provided, otherwise apply to all URLs.
+        // '|' is a left anchor in Chrome DNR urlFilter syntax meaning "start of URL",
+        // so '|' alone matches all URLs.
+        // See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-RuleCondition
+        const urlFilter = scope || '|';
 
         const rules = [
             {
@@ -129,7 +138,7 @@ function setHeaderRule(header: string): Promise<void> {
                     ],
                 },
                 condition: {
-                    urlFilter: '|', // Apply to all URLs
+                    urlFilter,
                     resourceTypes: [
                         chrome.declarativeNetRequest.ResourceType
                             .XMLHTTPREQUEST,
@@ -161,7 +170,9 @@ function setHeaderRule(header: string): Promise<void> {
                         refreshIconIndicator(rules.length);
 
                         // Store defaults in chrome.storage
-                        storeDefaults(key.trim(), value.trim()).then(resolve);
+                        storeDefaults(key.trim(), value.trim(), scope).then(
+                            resolve
+                        );
                     }
                 }
             );
@@ -201,9 +212,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? promptForValidHeader(config.header_filter)
         : config.header_filter;
 
+    // Scope is set by user via popup UI, not provided by CLI.
+    // This field exists for future use but will be undefined here.
+    const scope = config.inject_scope;
+
     try {
-        await setHeaderRule(header);
-        alert('Header set successfully!');
+        await setHeaderRule(header, scope);
+        const scopeMsg = scope ? ` (scope: ${scope})` : ' (all URLs)';
+        alert('Header set successfully!' + scopeMsg);
     } catch (err) {
         alert('Failed to set header: ' + (err as Error).message);
     }
