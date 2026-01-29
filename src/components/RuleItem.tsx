@@ -15,8 +15,8 @@ export function RuleItem({ rule, onRemove }: RuleItemProps) {
             >
                 {rule.header}: {rule.value}
             </code>
-            <div className="flex items-center justify-between gap-2 mt-2">
-                <span className="text-[10px] text-muted-foreground truncate min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2 mt-2 overflow-hidden">
+                <span className="text-[10px] text-muted-foreground truncate min-w-0 flex-1 w-0">
                     {rule.scope}
                 </span>
                 <Button
