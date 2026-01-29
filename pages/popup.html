@@ -9,7 +9,7 @@
             href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
             rel="stylesheet"
         />
-        <script type="module" src="../src/popup.ts"></script>
+        <script type="module" src="../src/popup.tsx"></script>
         <style>
             html,
             body {
@@ -20,48 +20,9 @@
             body {
                 font-family: 'Poppins', system-ui, sans-serif;
             }
-            #content {
-                padding: 12px;
-            }
-            #rulesList {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-            }
-            .no-rules-message {
-                font-size: 14px;
-            }
-            .rule-item {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-                gap: 4px 8px;
-            }
-            .rule-header {
-                font-size: 14px;
-                font-family: Monaco, Consolas, monospace;
-                word-break: break-all;
-                flex: 1 1 100%;
-            }
-            .rule-scope {
-                font-size: 12px;
-                opacity: 0.7;
-                flex: 1;
-            }
-            .rule-item button {
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px;
-                font-size: 12px;
-                flex-shrink: 0;
-            }
         </style>
     </head>
     <body class="bg-background text-foreground">
-        <div id="content">
-            <div id="rulesList"></div>
-        </div>
+        <div id="root"></div>
     </body>
 </html>
