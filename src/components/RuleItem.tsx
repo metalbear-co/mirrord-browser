@@ -1,33 +1,27 @@
-import { Button } from '@metalbear/ui';
 import { HeaderRule } from '../types';
 
 type RuleItemProps = {
     rule: HeaderRule;
-    onRemove: (id: number) => void;
 };
 
-export function RuleItem({ rule, onRemove }: RuleItemProps) {
+export function RuleItem({ rule }: RuleItemProps) {
     return (
-        <div className="p-3 rounded-md bg-muted/30">
+        <div className="p-2 rounded-md bg-muted/30 overflow-hidden">
             <code
-                className="text-xs font-mono break-all block"
-                style={{ color: 'hsl(var(--brand-yellow))' }}
+                className="text-xs font-mono block"
+                style={{
+                    color: 'hsl(var(--brand-yellow))',
+                    overflowWrap: 'anywhere',
+                }}
             >
                 {rule.header}: {rule.value}
             </code>
-            <div className="flex items-center justify-between gap-2 mt-2 overflow-hidden">
-                <span className="text-[10px] text-muted-foreground truncate min-w-0 flex-1 w-0">
-                    {rule.scope}
-                </span>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemove(rule.id)}
-                    className="h-6 text-[10px] px-2 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                >
-                    Remove
-                </Button>
-            </div>
+            <span
+                className="text-[10px] text-muted-foreground block mt-1"
+                style={{ overflowWrap: 'anywhere' }}
+            >
+                {rule.scope}
+            </span>
         </div>
     );
 }

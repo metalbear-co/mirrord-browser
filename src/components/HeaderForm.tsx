@@ -25,9 +25,9 @@ export function HeaderForm({
     onScopeChange,
 }: HeaderFormProps) {
     return (
-        <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-                <Label htmlFor="headerName" className="text-xs">
+        <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+                <Label htmlFor="headerName" className="text-[10px]">
                     {STRINGS.LABEL_HEADER_NAME}
                 </Label>
                 <Input
@@ -35,11 +35,11 @@ export function HeaderForm({
                     value={headerName}
                     onChange={(e) => onHeaderNameChange(e.target.value)}
                     placeholder={STRINGS.PLACEHOLDER_HEADER_NAME}
-                    className="h-8 text-xs"
+                    className="h-7 text-xs"
                 />
             </div>
-            <div className="flex flex-col gap-1.5">
-                <Label htmlFor="headerValue" className="text-xs">
+            <div className="flex flex-col gap-1">
+                <Label htmlFor="headerValue" className="text-[10px]">
                     {STRINGS.LABEL_HEADER_VALUE}
                 </Label>
                 <Input
@@ -47,12 +47,12 @@ export function HeaderForm({
                     value={headerValue}
                     onChange={(e) => onHeaderValueChange(e.target.value)}
                     placeholder={STRINGS.PLACEHOLDER_HEADER_VALUE}
-                    className="h-8 text-xs"
+                    className="h-7 text-xs"
                 />
             </div>
-            <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5">
-                    <Label htmlFor="scope" className="text-xs">
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                    <Label htmlFor="scope" className="text-[10px]">
                         {STRINGS.LABEL_URL_SCOPE}
                     </Label>
                     <Tooltip>
@@ -71,7 +71,7 @@ export function HeaderForm({
                     value={scope}
                     onChange={(e) => onScopeChange(e.target.value)}
                     placeholder={STRINGS.PLACEHOLDER_SCOPE}
-                    className="h-8 text-xs"
+                    className="h-7 text-xs"
                 />
             </div>
         </div>

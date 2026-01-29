@@ -41,9 +41,9 @@ export function Popup() {
 
     return (
         <TooltipProvider>
-            <div className="w-[320px] p-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between pb-2 border-b border-border">
-                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <div className="w-[320px] p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between pb-1 border-b border-border">
+                    <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         mirrord
                     </span>
                     <span className="text-[10px] text-muted-foreground">
@@ -52,7 +52,7 @@ export function Popup() {
                 </div>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="p-3 pb-2">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                                 <CardTitle className="text-xs">
@@ -71,24 +71,39 @@ export function Popup() {
                             </div>
                             <Badge
                                 variant={isActive ? 'default' : 'secondary'}
-                                className="text-[10px] px-2 py-0.5"
+                                className="text-[10px] px-1.5 py-0"
                             >
                                 {isActive ? 'Active' : 'Inactive'}
                             </Badge>
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <RulesList rules={rules} onRemove={handleRemove} />
+                    <CardContent className="px-3 py-2">
+                        <RulesList rules={rules} />
                     </CardContent>
+                    {isActive && (
+                        <CardFooter className="p-3 pt-0">
+                            {rules.map((rule) => (
+                                <Button
+                                    key={rule.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemove(rule.id)}
+                                    className="h-6 text-[10px] px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                    Remove
+                                </Button>
+                            ))}
+                        </CardFooter>
+                    )}
                 </Card>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="p-3 pb-2">
                         <CardTitle className="text-xs">
                             {STRINGS.SECTION_CONFIGURE_HEADER}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 py-2">
                         <HeaderForm
                             headerName={headerName}
                             headerValue={headerValue}
@@ -98,11 +113,11 @@ export function Popup() {
                             onScopeChange={setScope}
                         />
                     </CardContent>
-                    <CardFooter className="flex gap-2">
+                    <CardFooter className="p-3 pt-0 flex gap-2">
                         <Button
                             onClick={handleSave}
                             disabled={saveState !== 'idle'}
-                            className="flex-1 h-8 text-xs"
+                            className="flex-1 h-7 text-[10px]"
                             size="sm"
                         >
                             {getSaveButtonText()}
@@ -112,7 +127,7 @@ export function Popup() {
                                 variant="outline"
                                 onClick={handleReset}
                                 disabled={resetState !== 'idle'}
-                                className="flex-1 h-8 text-xs"
+                                className="flex-1 h-7 text-[10px]"
                                 size="sm"
                             >
                                 {getResetButtonText()}

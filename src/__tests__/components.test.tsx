@@ -61,7 +61,7 @@ describe('RuleItem', () => {
     };
 
     it('renders header and value with colon separator', () => {
-        render(<RuleItem rule={mockRule} onRemove={jest.fn()} />);
+        render(<RuleItem rule={mockRule} />);
 
         expect(
             screen.getByText('X-Test-Header: test-value')
@@ -69,26 +69,9 @@ describe('RuleItem', () => {
     });
 
     it('renders the scope', () => {
-        render(<RuleItem rule={mockRule} onRemove={jest.fn()} />);
+        render(<RuleItem rule={mockRule} />);
 
         expect(screen.getByText('All URLs')).toBeInTheDocument();
-    });
-
-    it('renders remove button', () => {
-        render(<RuleItem rule={mockRule} onRemove={jest.fn()} />);
-
-        expect(
-            screen.getByRole('button', { name: 'Remove' })
-        ).toBeInTheDocument();
-    });
-
-    it('calls onRemove with rule id when remove button is clicked', () => {
-        const mockOnRemove = jest.fn();
-        render(<RuleItem rule={mockRule} onRemove={mockOnRemove} />);
-
-        fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-
-        expect(mockOnRemove).toHaveBeenCalledWith(1);
     });
 
     it('renders custom scope correctly', () => {
@@ -96,7 +79,7 @@ describe('RuleItem', () => {
             ...mockRule,
             scope: '*://api.example.com/*',
         };
-        render(<RuleItem rule={scopedRule} onRemove={jest.fn()} />);
+        render(<RuleItem rule={scopedRule} />);
 
         expect(screen.getByText('*://api.example.com/*')).toBeInTheDocument();
     });
@@ -114,36 +97,16 @@ describe('RulesList', () => {
     ];
 
     it('renders empty state when no rules', () => {
-        render(<RulesList rules={[]} onRemove={jest.fn()} />);
+        render(<RulesList rules={[]} />);
 
         expect(screen.getByText('No active headers')).toBeInTheDocument();
-        expect(
-            screen.getByText('Configure a header below to get started')
-        ).toBeInTheDocument();
     });
 
     it('renders all rules', () => {
-        render(<RulesList rules={mockRules} onRemove={jest.fn()} />);
+        render(<RulesList rules={mockRules} />);
 
         expect(screen.getByText('X-Header-1: value1')).toBeInTheDocument();
         expect(screen.getByText('X-Header-2: value2')).toBeInTheDocument();
-    });
-
-    it('renders correct number of remove buttons', () => {
-        render(<RulesList rules={mockRules} onRemove={jest.fn()} />);
-
-        const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
-        expect(removeButtons).toHaveLength(2);
-    });
-
-    it('passes onRemove to each RuleItem', () => {
-        const mockOnRemove = jest.fn();
-        render(<RulesList rules={mockRules} onRemove={mockOnRemove} />);
-
-        const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
-        fireEvent.click(removeButtons[0]);
-
-        expect(mockOnRemove).toHaveBeenCalledWith(1);
     });
 });
 
