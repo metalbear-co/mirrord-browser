@@ -4,6 +4,12 @@ import React from 'react';
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
+    Badge: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <span className={className}>{children}</span>
+    ),
     Button: ({
         children,
         onClick,
@@ -24,14 +30,23 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
-    CardHeader: ({ children }: React.PropsWithChildren) => (
-        <div>{children}</div>
+    CardHeader: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
     ),
     CardTitle: ({
         children,
         className,
     }: React.PropsWithChildren<{ className?: string }>) => (
         <h2 className={className}>{children}</h2>
+    ),
+    CardDescription: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <p className={className}>{children}</p>
     ),
     CardContent: ({ children }: React.PropsWithChildren) => (
         <div>{children}</div>
@@ -171,7 +186,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText(/X-MIRRORD-USER.*testuser/)
+                screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
         });
@@ -211,7 +226,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText(/X-API-KEY.*secret123/)
+                screen.getByText('X-API-KEY: secret123')
             ).toBeInTheDocument();
             expect(
                 screen.getByText('*://api.example.com/*')
@@ -253,7 +268,7 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText(/X-TEST.*value/)).toBeInTheDocument();
+            expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
         // Click the remove button

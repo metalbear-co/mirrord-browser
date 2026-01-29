@@ -26,7 +26,7 @@ export function HeaderForm({
 }: HeaderFormProps) {
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
                 <Label htmlFor="headerName" className="text-xs">
                     {STRINGS.LABEL_HEADER_NAME}
                 </Label>
@@ -38,7 +38,7 @@ export function HeaderForm({
                     className="h-8 text-xs"
                 />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
                 <Label htmlFor="headerValue" className="text-xs">
                     {STRINGS.LABEL_HEADER_VALUE}
                 </Label>
@@ -50,18 +50,18 @@ export function HeaderForm({
                     className="h-8 text-xs"
                 />
             </div>
-            <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1">
+            <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5">
                     <Label htmlFor="scope" className="text-xs">
                         {STRINGS.LABEL_URL_SCOPE}
                     </Label>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-xs">
+                            <span className="text-muted-foreground cursor-help text-[10px]">
                                 ⓘ
                             </span>
                         </TooltipTrigger>
-                        <TooltipContent className="text-xs max-w-[180px]">
+                        <TooltipContent className="text-xs max-w-[200px]">
                             {STRINGS.TOOLTIP_SCOPE}
                         </TooltipContent>
                     </Tooltip>

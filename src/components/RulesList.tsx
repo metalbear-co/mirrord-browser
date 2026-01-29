@@ -10,8 +10,14 @@ type RulesListProps = {
 export function RulesList({ rules, onRemove }: RulesListProps) {
     if (rules.length === 0) {
         return (
-            <div className="text-xs text-muted-foreground text-center py-2">
-                {STRINGS.MSG_NO_ACTIVE_HEADERS}
+            <div className="text-center py-3">
+                <div className="text-muted-foreground/50 text-base mb-2">○</div>
+                <p className="text-xs text-muted-foreground">
+                    {STRINGS.MSG_NO_ACTIVE_HEADERS}
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    Configure a header below to get started
+                </p>
             </div>
         );
     }
