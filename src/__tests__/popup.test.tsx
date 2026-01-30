@@ -4,6 +4,12 @@ import React from 'react';
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
+    Badge: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <span className={className}>{children}</span>
+    ),
     Button: ({
         children,
         onClick,
@@ -24,13 +30,38 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
-    Badge: ({
+    CardHeader: ({
         children,
         className,
     }: React.PropsWithChildren<{ className?: string }>) => (
-        <span className={className}>{children}</span>
+        <div className={className}>{children}</div>
+    ),
+    CardTitle: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <h2 className={className}>{children}</h2>
+    ),
+    CardDescription: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <p className={className}>{children}</p>
+    ),
+    CardContent: ({ children }: React.PropsWithChildren) => (
+        <div>{children}</div>
+    ),
+    CardFooter: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
     ),
     Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    TooltipContent: ({ children }: React.PropsWithChildren) => (
+        <span>{children}</span>
+    ),
     TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
     Input: ({
         id,
@@ -155,7 +186,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText(/X-MIRRORD-USER.*testuser/)
+                screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
         });
@@ -195,7 +226,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText(/X-API-KEY.*secret123/)
+                screen.getByText('X-API-KEY: secret123')
             ).toBeInTheDocument();
             expect(
                 screen.getByText('*://api.example.com/*')
@@ -237,11 +268,11 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText(/X-TEST.*value/)).toBeInTheDocument();
+            expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
         // Click the remove button
-        const removeButton = screen.getByRole('button', { name: '✕' });
+        const removeButton = screen.getByRole('button', { name: 'Remove' });
         fireEvent.click(removeButton);
 
         expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
@@ -453,5 +484,216 @@ describe('Popup', () => {
                 expect.any(Function)
             );
         });
+    });
+
+    it('displays Active badge when rules exist', async () => {
+        const rules: chrome.declarativeNetRequest.Rule[] = [
+            {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: chrome.declarativeNetRequest.RuleActionType
+                        .MODIFY_HEADERS,
+                    requestHeaders: [
+                        {
+                            header: 'X-TEST',
+                            operation:
+                                chrome.declarativeNetRequest.HeaderOperation
+                                    .SET,
+                            value: 'value',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            },
+        ];
+
+        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Active')).toBeInTheDocument();
+        });
+    });
+
+    it('displays Inactive badge when no rules exist', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
+        });
+    });
+
+    it('shows alert when saving with empty header name', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        const mockAlert = jest.spyOn(window, 'alert').mockImplementation();
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        // Leave header name empty, fill only value
+        fireEvent.change(screen.getByLabelText('Header Value'), {
+            target: { value: 'somevalue' },
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(mockAlert).toHaveBeenCalledWith(
+            'Header name and value are required'
+        );
+
+        mockAlert.mockRestore();
+    });
+
+    it('shows alert when saving with empty header value', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        const mockAlert = jest.spyOn(window, 'alert').mockImplementation();
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        // Fill header name, leave value empty
+        fireEvent.change(screen.getByLabelText('Header Name'), {
+            target: { value: 'X-Test' },
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(mockAlert).toHaveBeenCalledWith(
+            'Header name and value are required'
+        );
+
+        mockAlert.mockRestore();
+    });
+
+    it('saves header with URL scope', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+        mockStorageSet.mockImplementation((_data, cb) => cb());
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        // Fill in the form with scope
+        fireEvent.change(screen.getByLabelText('Header Name'), {
+            target: { value: 'X-Scoped' },
+        });
+        fireEvent.change(screen.getByLabelText('Header Value'), {
+            target: { value: 'scopedvalue' },
+        });
+        fireEvent.change(screen.getByLabelText('URL Scope'), {
+            target: { value: '*://api.test.com/*' },
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    addRules: expect.arrayContaining([
+                        expect.objectContaining({
+                            condition: expect.objectContaining({
+                                urlFilter: '*://api.test.com/*',
+                            }),
+                        }),
+                    ]),
+                }),
+                expect.any(Function)
+            );
+        });
+    });
+
+    it('stores override config when saving', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+        mockStorageSet.mockImplementation((_data, cb) => cb());
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        fireEvent.change(screen.getByLabelText('Header Name'), {
+            target: { value: 'X-Override' },
+        });
+        fireEvent.change(screen.getByLabelText('Header Value'), {
+            target: { value: 'overridevalue' },
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(mockStorageSet).toHaveBeenCalledWith(
+                {
+                    override: {
+                        headerName: 'X-Override',
+                        headerValue: 'overridevalue',
+                        scope: undefined,
+                    },
+                },
+                expect.any(Function)
+            );
+        });
+    });
+
+    it('prefers override config over defaults when loading', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockStorageGet.mockImplementation((_keys, cb) =>
+            cb({
+                defaults: {
+                    headerName: 'X-DEFAULT',
+                    headerValue: 'defaultval',
+                },
+                override: {
+                    headerName: 'X-OVERRIDE',
+                    headerValue: 'overrideval',
+                },
+            })
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByDisplayValue('X-OVERRIDE')).toBeInTheDocument();
+            expect(screen.getByDisplayValue('overrideval')).toBeInTheDocument();
+        });
+    });
+
+    it('renders mirrord branding header', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('mirrord')).toBeInTheDocument();
+            expect(screen.getByText('Header Injector')).toBeInTheDocument();
+        });
+    });
+
+    it('renders tooltip info icon next to Active Header', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Active Header')).toBeInTheDocument();
+        });
+
+        // There should be tooltip icons (ⓘ) in the UI
+        const infoIcons = screen.getAllByText('ⓘ');
+        expect(infoIcons.length).toBeGreaterThan(0);
     });
 });
