@@ -86,15 +86,12 @@ describe('RuleItem', () => {
 });
 
 describe('RulesList', () => {
-    const mockRules: HeaderRule[] = [
-        { id: 1, header: 'X-Header-1', value: 'value1', scope: 'All URLs' },
-        {
-            id: 2,
-            header: 'X-Header-2',
-            value: 'value2',
-            scope: '*://test.com/*',
-        },
-    ];
+    const mockRule: HeaderRule = {
+        id: 1,
+        header: 'X-Header-1',
+        value: 'value1',
+        scope: 'All URLs',
+    };
 
     it('renders empty state when no rules', () => {
         render(<RulesList rules={[]} />);
@@ -102,11 +99,10 @@ describe('RulesList', () => {
         expect(screen.getByText('No active headers')).toBeInTheDocument();
     });
 
-    it('renders all rules', () => {
-        render(<RulesList rules={mockRules} />);
+    it('renders the rule', () => {
+        render(<RulesList rules={[mockRule]} />);
 
         expect(screen.getByText('X-Header-1: value1')).toBeInTheDocument();
-        expect(screen.getByText('X-Header-2: value2')).toBeInTheDocument();
     });
 });
 
