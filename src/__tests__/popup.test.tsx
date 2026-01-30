@@ -8,11 +8,13 @@ jest.mock('@metalbear/ui', () => ({
         children,
         onClick,
         className,
+        disabled,
     }: React.PropsWithChildren<{
         onClick?: () => void;
         className?: string;
+        disabled?: boolean;
     }>) => (
-        <button onClick={onClick} className={className}>
+        <button onClick={onClick} className={className} disabled={disabled}>
             {children}
         </button>
     ),
@@ -30,6 +32,30 @@ jest.mock('@metalbear/ui', () => ({
     ),
     Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
     TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    Input: ({
+        id,
+        value,
+        onChange,
+        placeholder,
+    }: {
+        id?: string;
+        value?: string;
+        onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+        placeholder?: string;
+    }) => (
+        <input
+            id={id}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+        />
+    ),
+    Label: ({
+        children,
+        htmlFor,
+    }: React.PropsWithChildren<{ htmlFor?: string }>) => (
+        <label htmlFor={htmlFor}>{children}</label>
+    ),
 }));
 
 // Mock chrome API
@@ -37,6 +63,9 @@ const mockGetDynamicRules = jest.fn();
 const mockUpdateDynamicRules = jest.fn();
 const mockSetBadgeText = jest.fn();
 const mockSetBadgeTextColor = jest.fn();
+const mockStorageGet = jest.fn();
+const mockStorageSet = jest.fn();
+const mockStorageRemove = jest.fn();
 
 globalThis.chrome = {
     declarativeNetRequest: {
@@ -61,6 +90,13 @@ globalThis.chrome = {
     runtime: {
         lastError: null,
     },
+    storage: {
+        local: {
+            get: mockStorageGet,
+            set: mockStorageSet,
+            remove: mockStorageRemove,
+        },
+    },
 } as unknown as typeof chrome;
 
 // Import after mocks are set up
@@ -72,6 +108,7 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
+        mockStorageGet.mockImplementation((_keys, cb) => cb({}));
     });
 
     it('displays "No active headers" when rules are empty', async () => {
@@ -260,6 +297,161 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
+        });
+    });
+
+    it('renders the configure header form', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Configure Header')).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Value')).toBeInTheDocument();
+            expect(screen.getByLabelText('URL Scope')).toBeInTheDocument();
+            expect(
+                screen.getByRole('button', { name: 'Save' })
+            ).toBeInTheDocument();
+        });
+    });
+
+    it('loads stored config into form fields', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockStorageGet.mockImplementation((_keys, cb) =>
+            cb({
+                defaults: {
+                    headerName: 'X-STORED',
+                    headerValue: 'storedvalue',
+                    scope: '*://example.com/*',
+                },
+            })
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByDisplayValue('X-STORED')).toBeInTheDocument();
+            expect(screen.getByDisplayValue('storedvalue')).toBeInTheDocument();
+            expect(
+                screen.getByDisplayValue('*://example.com/*')
+            ).toBeInTheDocument();
+        });
+    });
+
+    it('shows reset button when defaults exist', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockStorageGet.mockImplementation((_keys, cb) =>
+            cb({
+                defaults: {
+                    headerName: 'X-DEFAULT',
+                    headerValue: 'defaultval',
+                },
+            })
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: 'Reset to Default' })
+            ).toBeInTheDocument();
+        });
+    });
+
+    it('hides reset button when no defaults exist', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockStorageGet.mockImplementation((_keys, cb) => cb({}));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Configure Header')).toBeInTheDocument();
+        });
+
+        expect(
+            screen.queryByRole('button', { name: 'Reset to Default' })
+        ).not.toBeInTheDocument();
+    });
+
+    it('saves header when save button is clicked', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+        mockStorageSet.mockImplementation((_data, cb) => cb());
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        // Fill in the form
+        fireEvent.change(screen.getByLabelText('Header Name'), {
+            target: { value: 'X-NEW-HEADER' },
+        });
+        fireEvent.change(screen.getByLabelText('Header Value'), {
+            target: { value: 'newvalue' },
+        });
+
+        // Click save
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    addRules: expect.arrayContaining([
+                        expect.objectContaining({
+                            action: expect.objectContaining({
+                                requestHeaders: [
+                                    expect.objectContaining({
+                                        header: 'X-NEW-HEADER',
+                                        value: 'newvalue',
+                                    }),
+                                ],
+                            }),
+                        }),
+                    ]),
+                }),
+                expect.any(Function)
+            );
+        });
+    });
+
+    it('resets to defaults when reset button is clicked', async () => {
+        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockStorageGet.mockImplementation((_keys, cb) =>
+            cb({
+                defaults: {
+                    headerName: 'X-DEFAULT',
+                    headerValue: 'defaultval',
+                    scope: '*://default.com/*',
+                },
+                override: {
+                    headerName: 'X-OVERRIDE',
+                    headerValue: 'overrideval',
+                },
+            })
+        );
+        mockStorageRemove.mockImplementation((_keys, cb) => cb());
+        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: 'Reset to Default' })
+            ).toBeInTheDocument();
+        });
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Reset to Default' })
+        );
+
+        await waitFor(() => {
+            expect(mockStorageRemove).toHaveBeenCalledWith(
+                ['override'],
+                expect.any(Function)
+            );
         });
     });
 });
