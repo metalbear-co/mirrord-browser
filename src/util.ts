@@ -22,6 +22,15 @@ export function refreshIconIndicator(num: number) {
  * @param rules Chrome declarativeNetRequest rules
  * @returns Parsed header rules for display
  */
+/**
+ * Determine the display scope from a URL filter.
+ * Returns "All URLs" for wildcard/empty filters, otherwise the actual filter.
+ */
+function getDisplayScope(urlFilter: string | undefined): string {
+    const isWildcard = !urlFilter || urlFilter === '|';
+    return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
+}
+
 export function parseRules(
     rules: chrome.declarativeNetRequest.Rule[]
 ): HeaderRule[] {
@@ -39,10 +48,7 @@ export function parseRules(
                 id: rule.id,
                 header: requestHeader?.header || '',
                 value: requestHeader?.value || '',
-                scope:
-                    urlFilter === '|'
-                        ? STRINGS.MSG_ALL_URLS
-                        : urlFilter || STRINGS.MSG_ALL_URLS,
+                scope: getDisplayScope(urlFilter),
             };
         });
 }

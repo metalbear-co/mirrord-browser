@@ -1,0 +1,40 @@
+name: ReviewPal
+on:
+    pull_request:
+        types: [opened, synchronize]
+    pull_request_review_comment:
+        types: [created]
+    issue_comment:
+        types: [created]
+
+jobs:
+    review:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'pull_request'
+        permissions:
+            contents: read
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: metalbear-co/reviewpal@v2
+              with:
+                  anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    reply:
+        runs-on: ubuntu-latest
+        if: |
+            (github.event_name == 'pull_request_review_comment' ||
+             github.event_name == 'issue_comment') &&
+            github.event.comment.user.login != 'github-actions[bot]'
+        permissions:
+            contents: read
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: metalbear-co/reviewpal/reply@v2
+              with:
+                  anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
