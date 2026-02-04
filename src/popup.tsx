@@ -117,8 +117,7 @@ export function Popup() {
                         <Button
                             onClick={handleSave}
                             disabled={saveState !== 'idle'}
-                            className="flex-1 h-7 text-[10px]"
-                            size="sm"
+                            className="flex-1 h-9 text-xs"
                         >
                             {getSaveButtonText()}
                         </Button>
@@ -127,8 +126,7 @@ export function Popup() {
                                 variant="outline"
                                 onClick={handleReset}
                                 disabled={resetState !== 'idle'}
-                                className="flex-1 h-7 text-[10px]"
-                                size="sm"
+                                className="flex-1 h-9 text-xs"
                             >
                                 {getResetButtonText()}
                             </Button>
