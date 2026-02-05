@@ -51,20 +51,28 @@ test.describe('mirrord browser extension', () => {
         context,
         popupPage,
     }) => {
-        // Add a header scoped to localhost:3456
+        // Add a header scoped to /scoped/* path only
         await popupPage.locator('#headerName').fill('X-Scoped-Header');
         await popupPage.locator('#headerValue').fill('scoped-value');
-        await popupPage.locator('#scope').fill('*://localhost:3456/*');
+        await popupPage.locator('#scope').fill('*://localhost:3456/scoped/*');
         await popupPage.getByRole('button', { name: 'Save' }).click();
         await expect(popupPage.getByText('Saved!')).toBeVisible();
 
         // Header should be present on matching URL
         const matchingPage = await context.newPage();
-        await matchingPage.goto(`${TEST_SERVER}/headers`);
+        await matchingPage.goto(`${TEST_SERVER}/scoped/headers`);
 
         const matchBody = await matchingPage.locator('body').innerText();
         const matchHeaders = JSON.parse(matchBody);
         expect(matchHeaders['x-scoped-header']).toBe('scoped-value');
+
+        // Header should NOT be present on non-matching URL
+        const nonMatchingPage = await context.newPage();
+        await nonMatchingPage.goto(`${TEST_SERVER}/headers`);
+
+        const noMatchBody = await nonMatchingPage.locator('body').innerText();
+        const noMatchHeaders = JSON.parse(noMatchBody);
+        expect(noMatchHeaders['x-scoped-header']).toBeUndefined();
     });
 
     test('remove header', async ({ context, popupPage }) => {
