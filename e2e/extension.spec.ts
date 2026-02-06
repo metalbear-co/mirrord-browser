@@ -1,6 +1,22 @@
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 
 const TEST_SERVER = 'http://localhost:3456';
+
+async function addHeader(
+    popupPage: Page,
+    headerName: string,
+    headerValue: string,
+    scope?: string
+) {
+    await popupPage.locator('#headerName').fill(headerName);
+    await popupPage.locator('#headerValue').fill(headerValue);
+    if (scope) {
+        await popupPage.locator('#scope').fill(scope);
+    }
+    await popupPage.getByRole('button', { name: 'Save' }).click();
+    await expect(popupPage.getByText('Saved!')).toBeVisible();
+}
 
 test.describe('mirrord browser extension', () => {
     test('popup shows inactive state on fresh install', async ({
@@ -13,11 +29,8 @@ test.describe('mirrord browser extension', () => {
     test('add a header and verify it appears in popup', async ({
         popupPage,
     }) => {
-        await popupPage.locator('#headerName').fill('X-Mirrord-Test');
-        await popupPage.locator('#headerValue').fill('test-value-123');
-        await popupPage.getByRole('button', { name: 'Save' }).click();
+        await addHeader(popupPage, 'X-Mirrord-Test', 'test-value-123');
 
-        await expect(popupPage.getByText('Saved!')).toBeVisible();
         await expect(
             popupPage.getByText('Active', { exact: true })
         ).toBeVisible();
@@ -31,11 +44,7 @@ test.describe('mirrord browser extension', () => {
         context,
         popupPage,
     }) => {
-        // Add a header via popup
-        await popupPage.locator('#headerName').fill('X-Mirrord-Test');
-        await popupPage.locator('#headerValue').fill('test-value-123');
-        await popupPage.getByRole('button', { name: 'Save' }).click();
-        await expect(popupPage.getByText('Saved!')).toBeVisible();
+        await addHeader(popupPage, 'X-Mirrord-Test', 'test-value-123');
 
         // Navigate to test server in a new tab
         const page = await context.newPage();
@@ -51,12 +60,12 @@ test.describe('mirrord browser extension', () => {
         context,
         popupPage,
     }) => {
-        // Add a header scoped to /scoped/* path only
-        await popupPage.locator('#headerName').fill('X-Scoped-Header');
-        await popupPage.locator('#headerValue').fill('scoped-value');
-        await popupPage.locator('#scope').fill('*://localhost:3456/scoped/*');
-        await popupPage.getByRole('button', { name: 'Save' }).click();
-        await expect(popupPage.getByText('Saved!')).toBeVisible();
+        await addHeader(
+            popupPage,
+            'X-Scoped-Header',
+            'scoped-value',
+            '*://localhost:3456/scoped/*'
+        );
 
         // Header should be present on matching URL
         const matchingPage = await context.newPage();
@@ -76,11 +85,7 @@ test.describe('mirrord browser extension', () => {
     });
 
     test('remove header', async ({ context, popupPage }) => {
-        // Add a header first
-        await popupPage.locator('#headerName').fill('X-Remove-Me');
-        await popupPage.locator('#headerValue').fill('remove-value');
-        await popupPage.getByRole('button', { name: 'Save' }).click();
-        await expect(popupPage.getByText('Saved!')).toBeVisible();
+        await addHeader(popupPage, 'X-Remove-Me', 'remove-value');
         await expect(
             popupPage.getByText('Active', { exact: true })
         ).toBeVisible();
@@ -125,13 +130,22 @@ test.describe('mirrord browser extension', () => {
         await bgPage.close();
 
         // Override with a different header
-        await popupPage.locator('#headerName').fill('X-Override');
-        await popupPage.locator('#headerValue').fill('override-val');
-        await popupPage.getByRole('button', { name: 'Save' }).click();
-        await expect(popupPage.getByText('Saved!')).toBeVisible();
+        await addHeader(popupPage, 'X-Override', 'override-val');
 
         // Reload popup to pick up defaults flag
         await popupPage.reload();
+
+        // Verify the override header is active before resetting
+        await expect(
+            popupPage.getByText('X-Override: override-val')
+        ).toBeVisible();
+
+        const overridePage = await context.newPage();
+        await overridePage.goto(`${TEST_SERVER}/headers`);
+        const overrideBody = await overridePage.locator('body').innerText();
+        const overrideHeaders = JSON.parse(overrideBody);
+        expect(overrideHeaders['x-override']).toBe('override-val');
+        await overridePage.close();
 
         // Reset to defaults
         await expect(
