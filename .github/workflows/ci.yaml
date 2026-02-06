@@ -6,6 +6,9 @@ on:
     pull_request:
         branches: [main]
 
+permissions:
+    contents: read
+
 jobs:
     lint-and-format:
         name: Lint and Format Check
@@ -18,7 +21,7 @@ jobs:
             - name: Set up Node.js
               uses: actions/setup-node@v3
               with:
-                  node-version: '20'
+                  node-version: '24'
 
             - name: Install pnpm
               run: npm install -g pnpm
@@ -41,7 +44,7 @@ jobs:
             - name: Set up Node.js
               uses: actions/setup-node@v3
               with:
-                  node-version: '20'
+                  node-version: '24'
 
             - name: Install pnpm
               run: npm install -g pnpm
@@ -51,3 +54,39 @@ jobs:
 
             - name: Run Tests
               run: pnpm test
+
+    e2e:
+        name: E2E Tests
+        runs-on: ubuntu-latest
+        needs: lint-and-format
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: '24'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build extension
+              run: pnpm build
+
+            - name: Install Playwright Chromium
+              run: pnpm exec playwright install chromium --with-deps
+
+            - name: Run E2E tests
+              run: xvfb-run pnpm test:e2e
+
+            - name: Upload Playwright report
+              uses: actions/upload-artifact@v4
+              if: failure()
+              with:
+                  name: playwright-report
+                  path: playwright-report/
