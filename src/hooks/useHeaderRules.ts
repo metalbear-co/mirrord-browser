@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { usePostHog } from 'posthog-js/react';
 import { refreshIconIndicator, parseRules } from '../util';
 import { StoredConfig, HeaderRule, STORAGE_KEYS } from '../types';
 import { STRINGS } from '../constants';
@@ -7,6 +8,7 @@ type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
 
 export function useHeaderRules() {
+    const posthog = usePostHog();
     const [rules, setRules] = useState<HeaderRule[]>([]);
     const [headerName, setHeaderName] = useState('');
     const [headerValue, setHeaderValue] = useState('');
@@ -54,6 +56,11 @@ export function useHeaderRules() {
                 () => {
                     if (!chrome.runtime.lastError) {
                         loadRules();
+                        try {
+                            posthog.capture('extension_header_rule_removed');
+                        } catch (e) {
+                            console.warn('PostHog error:', e);
+                        }
                     } else {
                         console.error(
                             STRINGS.ERR_REMOVE_RULE,
@@ -63,7 +70,7 @@ export function useHeaderRules() {
                 }
             );
         },
-        [loadRules]
+        [loadRules, posthog]
     );
 
     const handleSave = useCallback(async () => {
@@ -140,12 +147,19 @@ export function useHeaderRules() {
                             loadRules();
                             setSaveState('saved');
                             setTimeout(() => setSaveState('idle'), 1500);
+                            try {
+                                posthog.capture('extension_header_rule_saved', {
+                                    has_scope: !!scope.trim(),
+                                });
+                            } catch (e) {
+                                console.warn('PostHog error:', e);
+                            }
                         }
                     );
                 }
             );
         });
-    }, [headerName, headerValue, scope, loadRules]);
+    }, [headerName, headerValue, scope, loadRules, posthog]);
 
     const handleReset = useCallback(() => {
         setResetState('resetting');
@@ -223,13 +237,20 @@ export function useHeaderRules() {
                                 loadRules();
                                 setResetState('reset');
                                 setTimeout(() => setResetState('idle'), 1500);
+                                try {
+                                    posthog.capture(
+                                        'extension_header_rule_reset'
+                                    );
+                                } catch (e) {
+                                    console.warn('PostHog error:', e);
+                                }
                             }
                         );
                     }
                 );
             });
         });
-    }, [loadRules]);
+    }, [loadRules, posthog]);
 
     const getSaveButtonText = () => {
         switch (saveState) {

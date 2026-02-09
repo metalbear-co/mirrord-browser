@@ -1,5 +1,6 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PostHogProvider, usePostHog } from 'posthog-js/react';
 import '@metalbear/ui/styles.css';
 import {
     Badge,
@@ -17,8 +18,10 @@ import {
 import { RulesList, HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
 import { STRINGS } from './constants';
+import { POSTHOG_KEY, posthogConfig } from './analytics';
 
 export function Popup() {
+    const posthog = usePostHog();
     const {
         rules,
         headerName,
@@ -38,6 +41,14 @@ export function Popup() {
     } = useHeaderRules();
 
     const isActive = rules.length > 0;
+
+    useEffect(() => {
+        try {
+            posthog.capture('extension_popup_opened');
+        } catch (e) {
+            console.warn('PostHog error:', e);
+        }
+    }, []);
 
     return (
         <TooltipProvider>
@@ -143,7 +154,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <Popup />
+            <PostHogProvider apiKey={POSTHOG_KEY} options={posthogConfig}>
+                <Popup />
+            </PostHogProvider>
         </StrictMode>
     );
 }
