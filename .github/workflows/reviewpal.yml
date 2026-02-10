@@ -23,6 +23,19 @@ jobs:
               with:
                   anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
+    auto-reviewers:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        permissions:
+            contents: read
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: metalbear-co/reviewpal/auto-reviewers@v2
+
     reply:
         runs-on: ubuntu-latest
         if: |
