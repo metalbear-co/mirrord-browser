@@ -679,26 +679,26 @@ describe('Popup', () => {
     });
 
     describe('PostHog analytics', () => {
-        it('captures extension_popup_opened on mount', async () => {
+        // extension_popup_opened is now fired at module level (before React renders)
+        // for reliability in extension popups that close quickly.
+        // That event is tested in e2e/analytics.spec.ts instead.
+
+        it('does not fire popup_opened from React lifecycle (moved to module level)', async () => {
             mockGetDynamicRules.mockImplementation((cb) => cb([]));
 
             render(<Popup />);
 
             await waitFor(() => {
-                expect(mockCapture).toHaveBeenCalledWith(
-                    'extension_popup_opened'
-                );
+                expect(
+                    screen.getByText('Configure Header')
+                ).toBeInTheDocument();
             });
-        });
 
-        it('calls capture exactly once on mount', async () => {
-            mockGetDynamicRules.mockImplementation((cb) => cb([]));
-
-            render(<Popup />);
-
-            await waitFor(() => {
-                expect(mockCapture).toHaveBeenCalledTimes(1);
-            });
+            // The usePostHog() mock should NOT have captured popup_opened
+            // since it's now fired via module-level initPostHog()
+            expect(mockCapture).not.toHaveBeenCalledWith(
+                'extension_popup_opened'
+            );
         });
     });
 });

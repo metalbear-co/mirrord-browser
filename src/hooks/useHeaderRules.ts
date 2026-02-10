@@ -66,6 +66,14 @@ export function useHeaderRules() {
                             STRINGS.ERR_REMOVE_RULE,
                             chrome.runtime.lastError
                         );
+                        try {
+                            posthog.capture('extension_error', {
+                                action: 'remove',
+                                error: chrome.runtime.lastError.message,
+                            });
+                        } catch (e) {
+                            console.warn('PostHog error:', e);
+                        }
                     }
                 }
             );
@@ -130,6 +138,15 @@ export function useHeaderRules() {
                             `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                         );
                         setSaveState('idle');
+                        try {
+                            posthog.capture('extension_error', {
+                                action: 'save',
+                                step: 'update_rules',
+                                error: chrome.runtime.lastError.message,
+                            });
+                        } catch (e) {
+                            console.warn('PostHog error:', e);
+                        }
                         return;
                     }
 
@@ -141,6 +158,15 @@ export function useHeaderRules() {
                                     `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                                 );
                                 setSaveState('idle');
+                                try {
+                                    posthog.capture('extension_error', {
+                                        action: 'save',
+                                        step: 'storage_write',
+                                        error: chrome.runtime.lastError.message,
+                                    });
+                                } catch (e) {
+                                    console.warn('PostHog error:', e);
+                                }
                                 return;
                             }
 
@@ -180,6 +206,15 @@ export function useHeaderRules() {
                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                     );
                     setResetState('idle');
+                    try {
+                        posthog.capture('extension_error', {
+                            action: 'reset',
+                            step: 'storage_remove',
+                            error: chrome.runtime.lastError.message,
+                        });
+                    } catch (e) {
+                        console.warn('PostHog error:', e);
+                    }
                     return;
                 }
 
@@ -228,6 +263,16 @@ export function useHeaderRules() {
                                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                                     );
                                     setResetState('idle');
+                                    try {
+                                        posthog.capture('extension_error', {
+                                            action: 'reset',
+                                            step: 'update_rules',
+                                            error: chrome.runtime.lastError
+                                                .message,
+                                        });
+                                    } catch (e) {
+                                        console.warn('PostHog error:', e);
+                                    }
                                     return;
                                 }
 

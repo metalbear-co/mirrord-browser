@@ -10,6 +10,8 @@ export const posthogConfig = {
     capture_pageview: false,
     capture_pageleave: false,
     persistence: 'localStorage' as const,
+    disable_external_dependency_loading: true,
+    request_batching: false,
 };
 
 export { POSTHOG_KEY };
