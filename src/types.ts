@@ -38,3 +38,25 @@ export const STORAGE_KEYS = {
     /** User's custom overrides from popup UI */
     OVERRIDE: 'override',
 } as const;
+
+/**
+ * All resource types for declarativeNetRequest rules.
+ * Chrome's MODIFY_HEADERS rules exclude main_frame by default when resourceTypes
+ * is omitted, so we must explicitly list all types to ensure headers are injected
+ * on every request type (scripts, stylesheets, images, fonts, etc.).
+ * See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-ResourceType
+ */
+export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
+    'main_frame' as chrome.declarativeNetRequest.ResourceType,
+    'sub_frame' as chrome.declarativeNetRequest.ResourceType,
+    'stylesheet' as chrome.declarativeNetRequest.ResourceType,
+    'script' as chrome.declarativeNetRequest.ResourceType,
+    'image' as chrome.declarativeNetRequest.ResourceType,
+    'font' as chrome.declarativeNetRequest.ResourceType,
+    'object' as chrome.declarativeNetRequest.ResourceType,
+    'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType,
+    'ping' as chrome.declarativeNetRequest.ResourceType,
+    'media' as chrome.declarativeNetRequest.ResourceType,
+    'websocket' as chrome.declarativeNetRequest.ResourceType,
+    'other' as chrome.declarativeNetRequest.ResourceType,
+];

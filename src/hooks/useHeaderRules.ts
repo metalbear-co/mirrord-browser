@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { refreshIconIndicator, parseRules } from '../util';
-import { StoredConfig, HeaderRule, STORAGE_KEYS } from '../types';
+import {
+    StoredConfig,
+    HeaderRule,
+    STORAGE_KEYS,
+    ALL_RESOURCE_TYPES,
+} from '../types';
 import { STRINGS } from '../constants';
 
 type SaveState = 'idle' | 'saving' | 'saved';
@@ -101,12 +106,7 @@ export function useHeaderRules() {
                 },
                 condition: {
                     urlFilter,
-                    resourceTypes: [
-                        chrome.declarativeNetRequest.ResourceType
-                            .XMLHTTPREQUEST,
-                        chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
-                        chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
-                    ],
+                    resourceTypes: ALL_RESOURCE_TYPES,
                 },
             },
         ];
@@ -189,14 +189,7 @@ export function useHeaderRules() {
                         },
                         condition: {
                             urlFilter,
-                            resourceTypes: [
-                                chrome.declarativeNetRequest.ResourceType
-                                    .XMLHTTPREQUEST,
-                                chrome.declarativeNetRequest.ResourceType
-                                    .MAIN_FRAME,
-                                chrome.declarativeNetRequest.ResourceType
-                                    .SUB_FRAME,
-                            ],
+                            resourceTypes: ALL_RESOURCE_TYPES,
                         },
                     },
                 ];
