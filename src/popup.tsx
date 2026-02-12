@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PostHogProvider } from 'posthog-js/react';
 import '@metalbear/ui/styles.css';
 import {
     Badge,
@@ -17,6 +18,36 @@ import {
 import { RulesList, HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
 import { STRINGS } from './constants';
+import { initPostHog } from './analytics';
+
+// Initialize PostHog eagerly and fire popup_opened before React renders.
+// Extension popups can close before useEffect runs, so this must happen at module level.
+const posthogClient = initPostHog();
+const popupOpenedAt = Date.now();
+try {
+    posthogClient.capture('extension_popup_opened');
+} catch (e) {
+    console.warn('PostHog error:', e);
+}
+
+// Track popup close with duration. Extension popups get destroyed immediately,
+// so use sendBeacon directly — it's the only reliable way to get a request out
+// during teardown. PostHog's capture() uses fetch/XHR which get cancelled.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    const payload = JSON.stringify([
+        {
+            event: 'extension_popup_closed',
+            api_key: 'phc_wIZh92nyk4vu6HidiLFUzjW6piZlZszuWZZFBS7yHHe',
+            distinct_id: posthogClient.get_distinct_id(),
+            properties: {
+                duration_ms: Date.now() - popupOpenedAt,
+            },
+            timestamp: new Date().toISOString(),
+        },
+    ]);
+    navigator.sendBeacon('https://hog.metalbear.com/batch/', payload);
+});
 
 export function Popup() {
     const {
@@ -143,7 +174,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <Popup />
+            <PostHogProvider client={posthogClient}>
+                <Popup />
+            </PostHogProvider>
         </StrictMode>
     );
 }

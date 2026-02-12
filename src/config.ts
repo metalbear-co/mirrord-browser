@@ -6,6 +6,7 @@ import {
     STORAGE_KEYS,
     ALL_RESOURCE_TYPES,
 } from './types';
+import { initPostHog } from './analytics';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -182,6 +183,13 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
 
 // Listener for the configuration link page
 document.addEventListener('DOMContentLoaded', async () => {
+    let posthog: ReturnType<typeof initPostHog> | null = null;
+    try {
+        posthog = initPostHog();
+    } catch (e) {
+        console.warn('PostHog init error:', e);
+    }
+
     const params = new URLSearchParams(location.search);
     const encoded = params.get('payload');
 
@@ -219,6 +227,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await setHeaderRule(header, scope);
         const scopeMsg = scope ? ` (scope: ${scope})` : ' (all URLs)';
+        try {
+            posthog?.capture('extension_config_received', {
+                is_regex: isRegex(config.header_filter),
+                has_scope: !!scope,
+            });
+        } catch (e) {
+            console.warn('PostHog error:', e);
+        }
         alert('Header set successfully!' + scopeMsg);
     } catch (err) {
         alert('Failed to set header: ' + (err as Error).message);
