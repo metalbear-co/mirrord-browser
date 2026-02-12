@@ -1,0 +1,70 @@
+name: Release
+
+on:
+    push:
+        tags: ['v*']
+
+permissions:
+    contents: write
+
+jobs:
+    build-and-publish:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Validate version matches tag
+              run: |
+                  TAG_VERSION="${GITHUB_REF_NAME#v}"
+                  PKG_VERSION=$(node -p "require('./package.json').version")
+                  MANIFEST_VERSION=$(node -p "require('./src/manifest.json').version")
+                  echo "Tag version: $TAG_VERSION"
+                  echo "package.json version: $PKG_VERSION"
+                  echo "manifest.json version: $MANIFEST_VERSION"
+                  if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+                    echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+                    exit 1
+                  fi
+                  # manifest.json may use shorter format (e.g. "0.3" vs "0.3.0")
+                  # Strip trailing ".0" segments from tag for comparison
+                  TAG_SHORT=$(echo "$TAG_VERSION" | sed 's/\.0$//')
+                  if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ] && [ "$MANIFEST_VERSION" != "$TAG_SHORT" ]; then
+                    echo "::error::manifest.json version ($MANIFEST_VERSION) does not match tag ($TAG_VERSION or $TAG_SHORT)"
+                    exit 1
+                  fi
+
+            - name: Run tests
+              run: pnpm test
+
+            - name: Build extension
+              run: pnpm build
+
+            - name: Zip extension
+              run: cd dist && zip -r ../extension.zip .
+
+            - name: Upload to Chrome Web Store
+              uses: mnao305/chrome-extension-upload@v5.0.0
+              with:
+                  file-path: extension.zip
+                  extension-id: ${{ secrets.CWS_EXTENSION_ID }}
+                  client-id: ${{ secrets.CWS_CLIENT_ID }}
+                  client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
+                  refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
+
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh release create "$GITHUB_REF_NAME" extension.zip --generate-notes
