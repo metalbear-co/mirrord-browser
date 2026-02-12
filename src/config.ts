@@ -1,6 +1,11 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
-import { Config, StoredConfig, STORAGE_KEYS } from './types';
+import {
+    Config,
+    StoredConfig,
+    STORAGE_KEYS,
+    ALL_RESOURCE_TYPES,
+} from './types';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -139,12 +144,7 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
                 },
                 condition: {
                     urlFilter,
-                    resourceTypes: [
-                        chrome.declarativeNetRequest.ResourceType
-                            .XMLHTTPREQUEST,
-                        chrome.declarativeNetRequest.ResourceType.MAIN_FRAME,
-                        chrome.declarativeNetRequest.ResourceType.SUB_FRAME,
-                    ],
+                    resourceTypes: ALL_RESOURCE_TYPES,
                 },
             },
         ];

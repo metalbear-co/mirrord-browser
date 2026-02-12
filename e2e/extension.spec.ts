@@ -105,6 +105,48 @@ test.describe('mirrord browser extension', () => {
         expect(headers['x-remove-me']).toBeUndefined();
     });
 
+    test('header is injected into asset requests (scripts, stylesheets, images)', async ({
+        context,
+        popupPage,
+    }) => {
+        await addHeader(popupPage, 'X-Mirrord-Test', 'asset-injection');
+
+        // Reset recorded headers on the test server
+        const resetPage = await context.newPage();
+        await resetPage.goto(`${TEST_SERVER}/asset-headers/reset`);
+        await resetPage.close();
+
+        // Navigate to a page that loads script, stylesheet, and image assets
+        const page = await context.newPage();
+        await page.goto(`${TEST_SERVER}/asset-page`);
+
+        // Wait for the page and its assets to load
+        await page.locator('#status').waitFor();
+        // Give assets time to complete loading
+        await page.waitForTimeout(1000);
+
+        // Fetch the recorded asset headers from the test server
+        const resultsPage = await context.newPage();
+        await resultsPage.goto(`${TEST_SERVER}/asset-headers`);
+        const body = await resultsPage.locator('body').innerText();
+        const assetHeaders = JSON.parse(body);
+
+        // Verify header was injected into script requests
+        expect(assetHeaders['script.js']?.['x-mirrord-test']).toBe(
+            'asset-injection'
+        );
+
+        // Verify header was injected into stylesheet requests
+        expect(assetHeaders['style.css']?.['x-mirrord-test']).toBe(
+            'asset-injection'
+        );
+
+        // Verify header was injected into image requests
+        expect(assetHeaders['logo.png']?.['x-mirrord-test']).toBe(
+            'asset-injection'
+        );
+    });
+
     test('reset to defaults restores CLI-provided config', async ({
         context,
         extensionId,
