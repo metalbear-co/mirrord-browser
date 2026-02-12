@@ -56,13 +56,33 @@ jobs:
               run: cd dist && zip -r ../extension.zip .
 
             - name: Upload to Chrome Web Store
-              uses: mnao305/chrome-extension-upload@v5.0.0
-              with:
-                  file-path: extension.zip
-                  extension-id: ${{ secrets.CWS_EXTENSION_ID }}
-                  client-id: ${{ secrets.CWS_CLIENT_ID }}
-                  client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
-                  refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
+              run: |
+                  ACCESS_TOKEN=$(curl -sf -X POST https://oauth2.googleapis.com/token \
+                    -d "client_id=${{ secrets.CWS_CLIENT_ID }}" \
+                    -d "client_secret=${{ secrets.CWS_CLIENT_SECRET }}" \
+                    -d "refresh_token=${{ secrets.CWS_REFRESH_TOKEN }}" \
+                    -d "grant_type=refresh_token" | jq -r '.access_token')
+
+                  echo "Uploading extension..."
+                  UPLOAD_RESPONSE=$(curl -s -X PUT \
+                    "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${{ secrets.CWS_EXTENSION_ID }}" \
+                    -H "Authorization: Bearer $ACCESS_TOKEN" \
+                    -H "x-goog-api-version: 2" \
+                    -T extension.zip)
+                  echo "$UPLOAD_RESPONSE"
+
+                  UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | jq -r '.uploadState')
+                  if [ "$UPLOAD_STATUS" != "SUCCESS" ]; then
+                    echo "::error::Upload failed with status: $UPLOAD_STATUS"
+                    exit 1
+                  fi
+
+                  echo "Publishing extension..."
+                  PUBLISH_RESPONSE=$(curl -s -X POST \
+                    "https://www.googleapis.com/chromewebstore/v1.1/items/${{ secrets.CWS_EXTENSION_ID }}/publish" \
+                    -H "Authorization: Bearer $ACCESS_TOKEN" \
+                    -H "x-goog-api-version: 2")
+                  echo "$PUBLISH_RESPONSE"
 
             - name: Create GitHub Release
               env:
