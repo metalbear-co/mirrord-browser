@@ -2,15 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
-const mockCapture = jest.fn();
-
-// Mock posthog-js/react
-jest.mock('posthog-js/react', () => ({
-    usePostHog: () => ({
-        capture: mockCapture,
-    }),
-}));
-
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
     Badge: ({
@@ -98,19 +89,46 @@ jest.mock('@metalbear/ui', () => ({
     ),
 }));
 
-import {
-    setupChromeMock,
-    resetChromeMock,
-    mockGetDynamicRules,
-    mockUpdateDynamicRules,
-    mockSetBadgeText,
-    mockSetBadgeTextColor,
-    mockStorageGet,
-    mockStorageSet,
-    mockStorageRemove,
-} from './setup/chromeMock';
+// Mock chrome API
+const mockGetDynamicRules = jest.fn();
+const mockUpdateDynamicRules = jest.fn();
+const mockSetBadgeText = jest.fn();
+const mockSetBadgeTextColor = jest.fn();
+const mockStorageGet = jest.fn();
+const mockStorageSet = jest.fn();
+const mockStorageRemove = jest.fn();
 
-setupChromeMock();
+globalThis.chrome = {
+    declarativeNetRequest: {
+        getDynamicRules: mockGetDynamicRules,
+        updateDynamicRules: mockUpdateDynamicRules,
+        RuleActionType: {
+            MODIFY_HEADERS: 'modifyHeaders',
+        },
+        HeaderOperation: {
+            SET: 'set',
+        },
+        ResourceType: {
+            XMLHTTPREQUEST: 'xml_http_request',
+            MAIN_FRAME: 'main_frame',
+            SUB_FRAME: 'sub_frame',
+        },
+    },
+    action: {
+        setBadgeText: mockSetBadgeText,
+        setBadgeTextColor: mockSetBadgeTextColor,
+    },
+    runtime: {
+        lastError: null,
+    },
+    storage: {
+        local: {
+            get: mockStorageGet,
+            set: mockStorageSet,
+            remove: mockStorageRemove,
+        },
+    },
+} as unknown as typeof chrome;
 
 // Import after mocks are set up
 import { Popup } from '../popup';
@@ -118,8 +136,9 @@ import { Popup } from '../popup';
 describe('Popup', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        mockCapture.mockClear();
-        resetChromeMock();
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = null;
         mockStorageGet.mockImplementation((_keys, cb) => cb({}));
     });
 
@@ -676,29 +695,5 @@ describe('Popup', () => {
         // There should be tooltip icons (ⓘ) in the UI
         const infoIcons = screen.getAllByText('ⓘ');
         expect(infoIcons.length).toBeGreaterThan(0);
-    });
-
-    describe('PostHog analytics', () => {
-        // extension_popup_opened is now fired at module level (before React renders)
-        // for reliability in extension popups that close quickly.
-        // That event is tested in e2e/analytics.spec.ts instead.
-
-        it('does not fire popup_opened from React lifecycle (moved to module level)', async () => {
-            mockGetDynamicRules.mockImplementation((cb) => cb([]));
-
-            render(<Popup />);
-
-            await waitFor(() => {
-                expect(
-                    screen.getByText('Configure Header')
-                ).toBeInTheDocument();
-            });
-
-            // The usePostHog() mock should NOT have captured popup_opened
-            // since it's now fired via module-level initPostHog()
-            expect(mockCapture).not.toHaveBeenCalledWith(
-                'extension_popup_opened'
-            );
-        });
     });
 });

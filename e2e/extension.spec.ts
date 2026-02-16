@@ -1,7 +1,22 @@
 import { test, expect } from './fixtures';
-import { addHeader } from './helpers';
+import type { Page } from '@playwright/test';
 
 const TEST_SERVER = 'http://localhost:3456';
+
+async function addHeader(
+    popupPage: Page,
+    headerName: string,
+    headerValue: string,
+    scope?: string
+) {
+    await popupPage.locator('#headerName').fill(headerName);
+    await popupPage.locator('#headerValue').fill(headerValue);
+    if (scope) {
+        await popupPage.locator('#scope').fill(scope);
+    }
+    await popupPage.getByRole('button', { name: 'Save' }).click();
+    await expect(popupPage.getByText('Saved!')).toBeVisible();
+}
 
 test.describe('mirrord browser extension', () => {
     test('popup shows inactive state on fresh install', async ({

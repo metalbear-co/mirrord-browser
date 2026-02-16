@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { usePostHog } from 'posthog-js/react';
 import { refreshIconIndicator, parseRules } from '../util';
 import {
     StoredConfig,
@@ -13,7 +12,6 @@ type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
 
 export function useHeaderRules() {
-    const posthog = usePostHog();
     const [rules, setRules] = useState<HeaderRule[]>([]);
     const [headerName, setHeaderName] = useState('');
     const [headerValue, setHeaderValue] = useState('');
@@ -61,29 +59,16 @@ export function useHeaderRules() {
                 () => {
                     if (!chrome.runtime.lastError) {
                         loadRules();
-                        try {
-                            posthog.capture('extension_header_rule_removed');
-                        } catch (e) {
-                            console.warn('PostHog error:', e);
-                        }
                     } else {
                         console.error(
                             STRINGS.ERR_REMOVE_RULE,
                             chrome.runtime.lastError
                         );
-                        try {
-                            posthog.capture('extension_error', {
-                                action: 'remove',
-                                error: chrome.runtime.lastError.message,
-                            });
-                        } catch (e) {
-                            console.warn('PostHog error:', e);
-                        }
                     }
                 }
             );
         },
-        [loadRules, posthog]
+        [loadRules]
     );
 
     const handleSave = useCallback(async () => {
@@ -138,15 +123,6 @@ export function useHeaderRules() {
                             `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                         );
                         setSaveState('idle');
-                        try {
-                            posthog.capture('extension_error', {
-                                action: 'save',
-                                step: 'update_rules',
-                                error: chrome.runtime.lastError.message,
-                            });
-                        } catch (e) {
-                            console.warn('PostHog error:', e);
-                        }
                         return;
                     }
 
@@ -158,34 +134,18 @@ export function useHeaderRules() {
                                     `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                                 );
                                 setSaveState('idle');
-                                try {
-                                    posthog.capture('extension_error', {
-                                        action: 'save',
-                                        step: 'storage_write',
-                                        error: chrome.runtime.lastError.message,
-                                    });
-                                } catch (e) {
-                                    console.warn('PostHog error:', e);
-                                }
                                 return;
                             }
 
                             loadRules();
                             setSaveState('saved');
                             setTimeout(() => setSaveState('idle'), 1500);
-                            try {
-                                posthog.capture('extension_header_rule_saved', {
-                                    has_scope: !!scope.trim(),
-                                });
-                            } catch (e) {
-                                console.warn('PostHog error:', e);
-                            }
                         }
                     );
                 }
             );
         });
-    }, [headerName, headerValue, scope, loadRules, posthog]);
+    }, [headerName, headerValue, scope, loadRules]);
 
     const handleReset = useCallback(() => {
         setResetState('resetting');
@@ -206,15 +166,6 @@ export function useHeaderRules() {
                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                     );
                     setResetState('idle');
-                    try {
-                        posthog.capture('extension_error', {
-                            action: 'reset',
-                            step: 'storage_remove',
-                            error: chrome.runtime.lastError.message,
-                        });
-                    } catch (e) {
-                        console.warn('PostHog error:', e);
-                    }
                     return;
                 }
 
@@ -256,16 +207,6 @@ export function useHeaderRules() {
                                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                                     );
                                     setResetState('idle');
-                                    try {
-                                        posthog.capture('extension_error', {
-                                            action: 'reset',
-                                            step: 'update_rules',
-                                            error: chrome.runtime.lastError
-                                                .message,
-                                        });
-                                    } catch (e) {
-                                        console.warn('PostHog error:', e);
-                                    }
                                     return;
                                 }
 
@@ -275,20 +216,13 @@ export function useHeaderRules() {
                                 loadRules();
                                 setResetState('reset');
                                 setTimeout(() => setResetState('idle'), 1500);
-                                try {
-                                    posthog.capture(
-                                        'extension_header_rule_reset'
-                                    );
-                                } catch (e) {
-                                    console.warn('PostHog error:', e);
-                                }
                             }
                         );
                     }
                 );
             });
         });
-    }, [loadRules, posthog]);
+    }, [loadRules]);
 
     const getSaveButtonText = () => {
         switch (saveState) {
