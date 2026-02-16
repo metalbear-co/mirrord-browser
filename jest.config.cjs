@@ -8,5 +8,5 @@ module.exports = {
     moduleNameMapper: {
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     },
-    testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/__tests__/setup/'],
+    testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
 };
