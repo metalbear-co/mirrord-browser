@@ -17,6 +17,21 @@ import {
 import { RulesList, HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
 import { STRINGS } from './constants';
+import { capture, captureBeacon } from './analytics';
+
+// Fire popup_opened before React renders.
+// Extension popups can close before useEffect runs, so this must happen at module level.
+const popupOpenedAt = Date.now();
+capture('extension_popup_opened');
+
+// Track popup close with duration. Extension popups get destroyed immediately,
+// so use sendBeacon — it's the only reliable way to get a request out during teardown.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    captureBeacon('extension_popup_closed', {
+        duration_ms: Date.now() - popupOpenedAt,
+    });
+});
 
 export function Popup() {
     const {

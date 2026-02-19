@@ -6,6 +6,7 @@ import {
     STORAGE_KEYS,
     ALL_RESOURCE_TYPES,
 } from './types';
+import { capture } from './analytics';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -219,6 +220,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await setHeaderRule(header, scope);
         const scopeMsg = scope ? ` (scope: ${scope})` : ' (all URLs)';
+        capture('extension_config_received', {
+            is_regex: isRegex(config.header_filter),
+            has_scope: !!scope,
+        });
         alert('Header set successfully!' + scopeMsg);
     } catch (err) {
         alert('Failed to set header: ' + (err as Error).message);

@@ -7,6 +7,7 @@ import {
     ALL_RESOURCE_TYPES,
 } from '../types';
 import { STRINGS } from '../constants';
+import { capture } from '../analytics';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
@@ -59,11 +60,16 @@ export function useHeaderRules() {
                 () => {
                     if (!chrome.runtime.lastError) {
                         loadRules();
+                        capture('extension_header_rule_removed');
                     } else {
                         console.error(
                             STRINGS.ERR_REMOVE_RULE,
                             chrome.runtime.lastError
                         );
+                        capture('extension_error', {
+                            action: 'remove',
+                            error: chrome.runtime.lastError.message,
+                        });
                     }
                 }
             );
@@ -123,6 +129,11 @@ export function useHeaderRules() {
                             `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                         );
                         setSaveState('idle');
+                        capture('extension_error', {
+                            action: 'save',
+                            step: 'update_rules',
+                            error: chrome.runtime.lastError.message,
+                        });
                         return;
                     }
 
@@ -134,12 +145,20 @@ export function useHeaderRules() {
                                     `${STRINGS.ERR_SAVE_FAILED}: ${chrome.runtime.lastError.message}`
                                 );
                                 setSaveState('idle');
+                                capture('extension_error', {
+                                    action: 'save',
+                                    step: 'storage_write',
+                                    error: chrome.runtime.lastError.message,
+                                });
                                 return;
                             }
 
                             loadRules();
                             setSaveState('saved');
                             setTimeout(() => setSaveState('idle'), 1500);
+                            capture('extension_header_rule_saved', {
+                                has_scope: !!scope.trim(),
+                            });
                         }
                     );
                 }
@@ -166,6 +185,11 @@ export function useHeaderRules() {
                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                     );
                     setResetState('idle');
+                    capture('extension_error', {
+                        action: 'reset',
+                        step: 'storage_remove',
+                        error: chrome.runtime.lastError.message,
+                    });
                     return;
                 }
 
@@ -207,6 +231,11 @@ export function useHeaderRules() {
                                         `${STRINGS.ERR_RESET_FAILED}: ${chrome.runtime.lastError.message}`
                                     );
                                     setResetState('idle');
+                                    capture('extension_error', {
+                                        action: 'reset',
+                                        step: 'update_rules',
+                                        error: chrome.runtime.lastError.message,
+                                    });
                                     return;
                                 }
 
@@ -216,6 +245,7 @@ export function useHeaderRules() {
                                 loadRules();
                                 setResetState('reset');
                                 setTimeout(() => setResetState('idle'), 1500);
+                                capture('extension_header_rule_reset');
                             }
                         );
                     }

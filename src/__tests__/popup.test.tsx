@@ -2,6 +2,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+// Mock analytics module (must be before popup import since it fires at module level)
+jest.mock('../analytics', () => ({
+    capture: jest.fn(),
+    captureBeacon: jest.fn(),
+}));
+
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
     Badge: ({
