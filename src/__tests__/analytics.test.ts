@@ -37,12 +37,53 @@ Object.defineProperty(globalThis, 'localStorage', {
     writable: true,
 });
 
-import { capture, captureBeacon } from '../analytics';
+// Mock chrome.storage.local
+const chromeStore: Record<string, unknown> = {};
+const mockChromeStorage = {
+    get: jest.fn((keys: string | string[]) => {
+        const result: Record<string, unknown> = {};
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        for (const k of keyList) {
+            if (k in chromeStore) result[k] = chromeStore[k];
+        }
+        return Promise.resolve(result);
+    }),
+    set: jest.fn((items: Record<string, unknown>) => {
+        Object.assign(chromeStore, items);
+        return Promise.resolve();
+    }),
+    remove: jest.fn((keys: string | string[]) => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        for (const k of keyList) delete chromeStore[k];
+        return Promise.resolve();
+    }),
+};
+
+Object.defineProperty(globalThis, 'chrome', {
+    value: {
+        storage: {
+            local: mockChromeStorage,
+        },
+    },
+    writable: true,
+});
+
+import {
+    capture,
+    captureBeacon,
+    setOptOut,
+    loadOptOutState,
+    optOutReady,
+} from '../analytics';
 
 describe('analytics', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         jest.clearAllMocks();
         mockLocalStorage.clear();
+        for (const key of Object.keys(chromeStore)) delete chromeStore[key];
+        // Wait for module-level optOutReady to settle, then reset
+        await optOutReady;
+        await setOptOut(false);
     });
 
     describe('capture', () => {
@@ -115,6 +156,53 @@ describe('analytics', () => {
 
             expect(body1.distinct_id).toBeTruthy();
             expect(body1.distinct_id).toBe(body2.distinct_id);
+        });
+    });
+
+    describe('opt-out', () => {
+        it('capture does nothing when opted out', async () => {
+            await setOptOut(true);
+            capture('test_event');
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('captureBeacon does nothing when opted out', async () => {
+            await setOptOut(true);
+            captureBeacon('test_event');
+            expect(mockSendBeacon).not.toHaveBeenCalled();
+        });
+
+        it('setOptOut(true) prevents events, setOptOut(false) re-enables them', async () => {
+            await setOptOut(true);
+            capture('blocked_event');
+            expect(mockFetch).not.toHaveBeenCalled();
+
+            await setOptOut(false);
+            capture('allowed_event');
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+            expect(body.event).toBe('allowed_event');
+        });
+
+        it('setOptOut(true) persists to chrome.storage.local', async () => {
+            await setOptOut(true);
+            expect(mockChromeStorage.set).toHaveBeenCalledWith({
+                analytics_opt_out: true,
+            });
+        });
+
+        it('setOptOut(false) removes key from chrome.storage.local', async () => {
+            await setOptOut(false);
+            expect(mockChromeStorage.remove).toHaveBeenCalledWith(
+                'analytics_opt_out'
+            );
+        });
+
+        it('loadOptOutState reads from chrome.storage.local', async () => {
+            chromeStore['analytics_opt_out'] = true;
+            await loadOptOutState();
+            capture('test_event');
+            expect(mockFetch).not.toHaveBeenCalled();
         });
     });
 });

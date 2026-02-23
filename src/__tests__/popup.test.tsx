@@ -6,6 +6,7 @@ import React from 'react';
 jest.mock('../analytics', () => ({
     capture: jest.fn(),
     captureBeacon: jest.fn(),
+    optOutReady: Promise.resolve(),
 }));
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps

@@ -42,6 +42,12 @@ export const STRINGS = {
     ERR_SAVE_FAILED: 'Failed to save',
     ERR_NO_DEFAULTS: 'No defaults available',
     ERR_RESET_FAILED: 'Failed to reset',
+
+    // Settings page
+    SETTINGS_TITLE: 'Settings',
+    SETTINGS_ANALYTICS_LABEL: 'Usage analytics',
+    SETTINGS_ANALYTICS_DESCRIPTION:
+        'Help improve mirrord by sending anonymous usage data.',
 } as const;
 
 /**

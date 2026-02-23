@@ -12,6 +12,7 @@ export default defineConfig({
             input: {
                 config: resolve(__dirname, 'pages/config.html'),
                 popup: resolve(__dirname, 'pages/popup.html'),
+                options: resolve(__dirname, 'pages/options.html'),
             },
             output: {
                 assetFileNames: '[name].[ext]',
