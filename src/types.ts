@@ -37,6 +37,8 @@ export const STORAGE_KEYS = {
     DEFAULTS: 'defaults',
     /** User's custom overrides from popup UI */
     OVERRIDE: 'override',
+    /** Analytics opt-out flag (true = opted out) */
+    ANALYTICS_OPT_OUT: 'analytics_opt_out',
 } as const;
 
 /**

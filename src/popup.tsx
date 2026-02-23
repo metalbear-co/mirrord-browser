@@ -14,15 +14,17 @@ import {
     TooltipContent,
     TooltipProvider,
 } from '@metalbear/ui';
+import { Settings } from 'lucide-react';
 import { RulesList, HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
 import { STRINGS } from './constants';
-import { capture, captureBeacon } from './analytics';
+import { capture, captureBeacon, optOutReady } from './analytics';
 
-// Fire popup_opened before React renders.
-// Extension popups can close before useEffect runs, so this must happen at module level.
+// Fire popup_opened after opt-out preference is loaded.
+// optOutReady resolves almost instantly (single chrome.storage.local read) but we must
+// await it so the opt-out flag is set before we call capture().
 const popupOpenedAt = Date.now();
-capture('extension_popup_opened');
+optOutReady.then(() => capture('extension_popup_opened'));
 
 // Track popup close with duration. Extension popups get destroyed immediately,
 // so use sendBeacon — it's the only reliable way to get a request out during teardown.
@@ -61,9 +63,19 @@ export function Popup() {
                     <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         mirrord
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
-                        Header Injector
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">
+                            Header Injector
+                        </span>
+                        <button
+                            onClick={() => chrome.runtime.openOptionsPage()}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Settings"
+                            aria-label="Settings"
+                        >
+                            <Settings size={12} />
+                        </button>
+                    </div>
                 </div>
 
                 <Card>
