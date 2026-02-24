@@ -97,7 +97,7 @@ describe('useHeaderRules resource types', () => {
 
         const { result } = renderHook(() => useHeaderRules());
 
-        act(() => {
+        await act(async () => {
             result.current.handleReset();
         });
 

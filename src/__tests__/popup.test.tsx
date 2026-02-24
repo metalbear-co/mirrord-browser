@@ -11,12 +11,6 @@ jest.mock('../analytics', () => ({
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
-    Badge: ({
-        children,
-        className,
-    }: React.PropsWithChildren<{ className?: string }>) => (
-        <span className={className}>{children}</span>
-    ),
     Button: ({
         children,
         onClick,
@@ -43,18 +37,6 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
-    CardTitle: ({
-        children,
-        className,
-    }: React.PropsWithChildren<{ className?: string }>) => (
-        <h2 className={className}>{children}</h2>
-    ),
-    CardDescription: ({
-        children,
-        className,
-    }: React.PropsWithChildren<{ className?: string }>) => (
-        <p className={className}>{children}</p>
-    ),
     CardContent: ({ children }: React.PropsWithChildren) => (
         <div>{children}</div>
     ),
@@ -63,6 +45,26 @@ jest.mock('@metalbear/ui', () => ({
         className,
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
+    ),
+    Separator: () => <hr />,
+    Switch: ({
+        checked,
+        onCheckedChange,
+        disabled,
+        'aria-label': ariaLabel,
+    }: {
+        checked?: boolean;
+        onCheckedChange?: (checked: boolean) => void;
+        disabled?: boolean;
+        'aria-label'?: string;
+    }) => (
+        <button
+            role="switch"
+            aria-checked={checked}
+            aria-label={ariaLabel}
+            disabled={disabled}
+            onClick={() => onCheckedChange?.(!checked)}
+        />
     ),
     Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
     TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
@@ -105,6 +107,10 @@ const mockStorageGet = jest.fn();
 const mockStorageSet = jest.fn();
 const mockStorageRemove = jest.fn();
 
+Object.assign(navigator, {
+    clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
+});
+
 globalThis.chrome = {
     declarativeNetRequest: {
         getDynamicRules: mockGetDynamicRules,
@@ -127,6 +133,8 @@ globalThis.chrome = {
     },
     runtime: {
         lastError: null,
+        id: 'test-extension-id',
+        openOptionsPage: jest.fn(),
     },
     storage: {
         local: {
@@ -146,20 +154,22 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
-        mockStorageGet.mockImplementation((_keys, cb) => cb({}));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
     });
 
-    it('displays "No active headers" when rules are empty', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+    it('shows Inactive status when no rules', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('No active headers')).toBeInTheDocument();
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
         });
     });
 
-    it('renders header rules', async () => {
+    it('shows Active status with rule preview when rules exist', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 1,
@@ -187,11 +197,12 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
 
         render(<Popup />);
 
         await waitFor(() => {
+            expect(screen.getByText('Active')).toBeInTheDocument();
             expect(
                 screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
@@ -227,7 +238,7 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
 
         render(<Popup />);
 
@@ -241,7 +252,7 @@ describe('Popup', () => {
         });
     });
 
-    it('removes rule when remove button is clicked', async () => {
+    it('toggles rule off via switch', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 42,
@@ -269,8 +280,10 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
-        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
 
         render(<Popup />);
 
@@ -278,14 +291,60 @@ describe('Popup', () => {
             expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
-        // Click the remove button
-        const removeButton = screen.getByRole('button', { name: 'Remove' });
-        fireEvent.click(removeButton);
+        const toggle = screen.getByRole('switch');
+        fireEvent.click(toggle);
 
-        expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-            { removeRuleIds: [42] },
-            expect.any(Function)
+        await waitFor(() => {
+            expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
+                { removeRuleIds: [42] },
+                expect.any(Function)
+            );
+        });
+    });
+
+    it('toggles rule on via switch when config exists', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({
+                defaults: {
+                    headerName: 'X-Test',
+                    headerValue: 'val',
+                },
+            })
         );
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
+        });
+
+        const toggle = screen.getByRole('switch');
+        expect(toggle).not.toBeDisabled();
+        fireEvent.click(toggle);
+
+        await waitFor(() => {
+            expect(mockUpdateDynamicRules).toHaveBeenCalled();
+        });
+    });
+
+    it('switch is disabled when inactive and no stored config', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
+        });
+
+        const toggle = screen.getByRole('switch');
+        expect(toggle).toBeDisabled();
     });
 
     it('updates badge indicator on load', async () => {
@@ -316,7 +375,7 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
 
         render(<Popup />);
 
@@ -329,7 +388,7 @@ describe('Popup', () => {
     });
 
     it('sets empty badge when no rules', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
@@ -339,12 +398,11 @@ describe('Popup', () => {
     });
 
     it('renders the configure header form', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Configure Header')).toBeInTheDocument();
             expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
             expect(screen.getByLabelText('Header Value')).toBeInTheDocument();
             expect(screen.getByLabelText('URL Scope')).toBeInTheDocument();
@@ -355,8 +413,8 @@ describe('Popup', () => {
     });
 
     it('loads stored config into form fields', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockStorageGet.mockImplementation((_keys, cb) =>
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({
                 defaults: {
                     headerName: 'X-STORED',
@@ -378,8 +436,8 @@ describe('Popup', () => {
     });
 
     it('shows reset button when defaults exist', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockStorageGet.mockImplementation((_keys, cb) =>
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({
                 defaults: {
                     headerName: 'X-DEFAULT',
@@ -398,13 +456,15 @@ describe('Popup', () => {
     });
 
     it('hides reset button when no defaults exist', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockStorageGet.mockImplementation((_keys, cb) => cb({}));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Configure Header')).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
         expect(
@@ -413,9 +473,13 @@ describe('Popup', () => {
     });
 
     it('saves header when save button is clicked', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
-        mockStorageSet.mockImplementation((_data, cb) => cb());
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
+        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+            cb()
+        );
 
         render(<Popup />);
 
@@ -423,7 +487,6 @@ describe('Popup', () => {
             expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
-        // Fill in the form
         fireEvent.change(screen.getByLabelText('Header Name'), {
             target: { value: 'X-NEW-HEADER' },
         });
@@ -431,7 +494,6 @@ describe('Popup', () => {
             target: { value: 'newvalue' },
         });
 
-        // Click save
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         await waitFor(() => {
@@ -456,8 +518,8 @@ describe('Popup', () => {
     });
 
     it('resets to defaults when reset button is clicked', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockStorageGet.mockImplementation((_keys, cb) =>
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({
                 defaults: {
                     headerName: 'X-DEFAULT',
@@ -470,8 +532,12 @@ describe('Popup', () => {
                 },
             })
         );
-        mockStorageRemove.mockImplementation((_keys, cb) => cb());
-        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
+        mockStorageRemove.mockImplementation((_keys: string[], cb: Function) =>
+            cb()
+        );
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
 
         render(<Popup />);
 
@@ -493,50 +559,8 @@ describe('Popup', () => {
         });
     });
 
-    it('displays Active badge when rules exist', async () => {
-        const rules: chrome.declarativeNetRequest.Rule[] = [
-            {
-                id: 1,
-                priority: 1,
-                action: {
-                    type: chrome.declarativeNetRequest.RuleActionType
-                        .MODIFY_HEADERS,
-                    requestHeaders: [
-                        {
-                            header: 'X-TEST',
-                            operation:
-                                chrome.declarativeNetRequest.HeaderOperation
-                                    .SET,
-                            value: 'value',
-                        },
-                    ],
-                },
-                condition: { urlFilter: '|' },
-            },
-        ];
-
-        mockGetDynamicRules.mockImplementation((cb) => cb(rules));
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Active')).toBeInTheDocument();
-        });
-    });
-
-    it('displays Inactive badge when no rules exist', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-    });
-
-    it('shows alert when saving with empty header name', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        const mockAlert = jest.spyOn(window, 'alert').mockImplementation();
+    it('shows inline error when saving with empty header name', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
@@ -544,23 +568,22 @@ describe('Popup', () => {
             expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
-        // Leave header name empty, fill only value
         fireEvent.change(screen.getByLabelText('Header Value'), {
             target: { value: 'somevalue' },
         });
 
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(mockAlert).toHaveBeenCalledWith(
-            'Header name and value are required'
-        );
-
-        mockAlert.mockRestore();
+        await waitFor(() => {
+            const errorEl = screen.getByRole('alert');
+            expect(errorEl).toHaveTextContent(
+                'Header name and value are required'
+            );
+        });
     });
 
-    it('shows alert when saving with empty header value', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        const mockAlert = jest.spyOn(window, 'alert').mockImplementation();
+    it('shows inline error when saving with empty header value', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
@@ -568,24 +591,28 @@ describe('Popup', () => {
             expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
-        // Fill header name, leave value empty
         fireEvent.change(screen.getByLabelText('Header Name'), {
             target: { value: 'X-Test' },
         });
 
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(mockAlert).toHaveBeenCalledWith(
-            'Header name and value are required'
-        );
-
-        mockAlert.mockRestore();
+        await waitFor(() => {
+            const errorEl = screen.getByRole('alert');
+            expect(errorEl).toHaveTextContent(
+                'Header name and value are required'
+            );
+        });
     });
 
     it('saves header with URL scope', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
-        mockStorageSet.mockImplementation((_data, cb) => cb());
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
+        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+            cb()
+        );
 
         render(<Popup />);
 
@@ -593,7 +620,6 @@ describe('Popup', () => {
             expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
-        // Fill in the form with scope
         fireEvent.change(screen.getByLabelText('Header Name'), {
             target: { value: 'X-Scoped' },
         });
@@ -623,9 +649,13 @@ describe('Popup', () => {
     });
 
     it('stores override config when saving', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
-        mockStorageSet.mockImplementation((_data, cb) => cb());
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: Function) => cb()
+        );
+        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+            cb()
+        );
 
         render(<Popup />);
 
@@ -657,8 +687,8 @@ describe('Popup', () => {
     });
 
     it('prefers override config over defaults when loading', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
-        mockStorageGet.mockImplementation((_keys, cb) =>
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({
                 defaults: {
                     headerName: 'X-DEFAULT',
@@ -680,7 +710,7 @@ describe('Popup', () => {
     });
 
     it('renders mirrord branding header', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
@@ -690,17 +720,65 @@ describe('Popup', () => {
         });
     });
 
-    it('renders tooltip info icon next to Active Header', async () => {
-        mockGetDynamicRules.mockImplementation((cb) => cb([]));
+    it('renders tooltip info icon', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Active Header')).toBeInTheDocument();
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
         });
 
-        // There should be tooltip icons (ⓘ) in the UI
         const infoIcons = screen.getAllByText('ⓘ');
         expect(infoIcons.length).toBeGreaterThan(0);
+    });
+
+    it('renders share button', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(
+                screen.getByLabelText('Share configuration')
+            ).toBeInTheDocument();
+        });
+    });
+
+    it('share button is disabled when form is empty', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
+        });
+
+        const shareBtn = screen.getByLabelText('Share configuration');
+        expect(shareBtn).toBeDisabled();
+    });
+
+    it('share button is enabled when form has values', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({
+                defaults: {
+                    headerName: 'X-Test',
+                    headerValue: 'value',
+                },
+            })
+        );
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByDisplayValue('X-Test')).toBeInTheDocument();
+        });
+
+        const shareBtn = screen.getByLabelText('Share configuration');
+        expect(shareBtn).not.toBeDisabled();
     });
 });
