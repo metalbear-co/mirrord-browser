@@ -1,5 +1,13 @@
-import { refreshIconIndicator, parseRules } from '../util';
+import {
+    refreshIconIndicator,
+    parseRules,
+    buildDnrRule,
+    encodeConfig,
+    buildShareUrl,
+} from '../util';
+import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
+import { ALL_RESOURCE_TYPES } from '../types';
 
 describe('refreshIconIndicator', () => {
     beforeEach(() => {
@@ -165,5 +173,141 @@ describe('parseRules', () => {
         const result = parseRules(rules);
 
         expect(result[0].scope).toBe(STRINGS.MSG_ALL_URLS);
+    });
+});
+
+describe('buildDnrRule', () => {
+    beforeEach(() => {
+        globalThis.chrome = {
+            declarativeNetRequest: {
+                RuleActionType: {
+                    MODIFY_HEADERS: 'modifyHeaders',
+                },
+                HeaderOperation: {
+                    SET: 'set',
+                },
+            },
+        } as any;
+    });
+
+    it('builds a rule with correct structure', () => {
+        const rules = buildDnrRule('X-Test', 'testvalue');
+
+        expect(rules).toHaveLength(1);
+        expect(rules[0]).toEqual({
+            id: 1,
+            priority: 1,
+            action: {
+                type: 'modifyHeaders',
+                requestHeaders: [
+                    {
+                        header: 'X-Test',
+                        operation: 'set',
+                        value: 'testvalue',
+                    },
+                ],
+            },
+            condition: {
+                urlFilter: '|',
+                resourceTypes: ALL_RESOURCE_TYPES,
+            },
+        });
+    });
+
+    it('defaults scope to | when not provided', () => {
+        const rules = buildDnrRule('X-Test', 'value');
+
+        expect(rules[0].condition.urlFilter).toBe('|');
+    });
+
+    it('uses provided scope as urlFilter', () => {
+        const rules = buildDnrRule('X-Test', 'value', '*://api.example.com/*');
+
+        expect(rules[0].condition.urlFilter).toBe('*://api.example.com/*');
+    });
+
+    it('includes ALL_RESOURCE_TYPES', () => {
+        const rules = buildDnrRule('X-Test', 'value');
+
+        expect(rules[0].condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
+    });
+});
+
+describe('encodeConfig', () => {
+    it('produces valid base64 that decodeConfig can read back', () => {
+        const config = {
+            header_filter: 'X-Test: value',
+            inject_scope: '*://example.com/*',
+        };
+
+        const encoded = encodeConfig(config);
+        const decoded = decodeConfig(encoded);
+
+        expect(decoded).toEqual(config);
+    });
+
+    it('handles config without inject_scope', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const encoded = encodeConfig(config);
+        const decoded = decodeConfig(encoded);
+
+        expect(decoded).toEqual(config);
+    });
+});
+
+describe('buildShareUrl', () => {
+    beforeEach(() => {
+        globalThis.chrome = {
+            ...globalThis.chrome,
+            runtime: {
+                id: 'test-extension-id',
+            },
+        } as any;
+    });
+
+    it('builds URL with chrome-extension:// prefix', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const url = buildShareUrl(config);
+
+        expect(url).toMatch(/^chrome-extension:\/\//);
+    });
+
+    it('includes extension ID in URL', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const url = buildShareUrl(config);
+
+        expect(url).toContain('test-extension-id');
+    });
+
+    it('includes payload query parameter', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const url = buildShareUrl(config);
+
+        expect(url).toContain('?payload=');
+    });
+
+    it('contains encoded config that can be decoded', () => {
+        const config = {
+            header_filter: 'X-Test: value',
+            inject_scope: '*://api.test.com/*',
+        };
+
+        const url = buildShareUrl(config);
+        const payload = url.split('?payload=')[1];
+        const decoded = decodeConfig(payload);
+
+        expect(decoded).toEqual(config);
+    });
+
+    it('points to config.html page', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const url = buildShareUrl(config);
+
+        expect(url).toContain('/pages/config.html');
     });
 });

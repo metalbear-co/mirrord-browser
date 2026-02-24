@@ -2,20 +2,21 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import {
-    Badge,
     Button,
     Card,
     CardHeader,
-    CardTitle,
     CardContent,
     CardFooter,
+    MirrordIconWhite,
+    Separator,
+    Switch,
     Tooltip,
     TooltipTrigger,
     TooltipContent,
     TooltipProvider,
 } from '@metalbear/ui';
-import { Settings } from 'lucide-react';
-import { RulesList, HeaderForm } from './components';
+import { Settings, Share2, Check } from 'lucide-react';
+import { HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
 import { STRINGS } from './constants';
 import { capture, captureBeacon, optOutReady } from './analytics';
@@ -43,48 +44,92 @@ export function Popup() {
         scope,
         saveState,
         resetState,
+        shareState,
         hasDefaults,
+        error,
+        hasStoredConfig,
+        isToggling,
+        canShare,
         setHeaderName,
         setHeaderValue,
         setScope,
-        handleRemove,
+        handleToggle,
         handleSave,
         handleReset,
+        handleShare,
         getSaveButtonText,
         getResetButtonText,
     } = useHeaderRules();
 
     const isActive = rules.length > 0;
+    const canToggle = isActive || hasStoredConfig;
 
     return (
         <TooltipProvider>
             <div className="w-[320px] p-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between pb-1 border-b border-border">
-                    <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                        mirrord
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground">
-                            Header Injector
-                        </span>
+                <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center gap-2">
+                        <img
+                            src={MirrordIconWhite}
+                            alt=""
+                            className="h-5 w-auto opacity-90"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-semibold tracking-tight leading-none">
+                                mirrord
+                            </span>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                                Header Injector
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={handleShare}
+                            disabled={!canShare}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={
+                                shareState === 'copied'
+                                    ? 'Copied!'
+                                    : 'Copy config link'
+                            }
+                            aria-label="Share configuration"
+                        >
+                            {shareState === 'copied' ? (
+                                <Check size={16} />
+                            ) : (
+                                <Share2 size={16} />
+                            )}
+                        </button>
                         <button
                             onClick={() => chrome.runtime.openOptionsPage()}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             title="Settings"
                             aria-label="Settings"
                         >
-                            <Settings size={12} />
+                            <Settings size={16} />
                         </button>
                     </div>
                 </div>
 
-                <Card>
+                <Card
+                    className={`transition-all duration-200 ${
+                        isActive ? 'border-l-2 border-l-primary' : ''
+                    }`}
+                >
                     <CardHeader className="p-3 pb-2">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                                <CardTitle className="text-xs">
-                                    {STRINGS.SECTION_ACTIVE_HEADER}
-                                </CardTitle>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className={`inline-block w-2 h-2 rounded-full transition-colors ${
+                                        isActive
+                                            ? 'bg-green-500'
+                                            : 'bg-muted-foreground/30'
+                                    }`}
+                                />
+                                <span className="text-xs font-medium">
+                                    {isActive ? 'Active' : 'Inactive'}
+                                </span>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <span className="text-muted-foreground cursor-help text-[10px]">
@@ -96,40 +141,53 @@ export function Popup() {
                                     </TooltipContent>
                                 </Tooltip>
                             </div>
-                            <Badge
-                                variant={isActive ? 'default' : 'secondary'}
-                                className="text-[10px] px-1.5 py-0"
-                            >
-                                {isActive ? 'Active' : 'Inactive'}
-                            </Badge>
+                            <Switch
+                                checked={isActive}
+                                onCheckedChange={handleToggle}
+                                disabled={!canToggle || isToggling}
+                                aria-label="Toggle header injection"
+                            />
                         </div>
                     </CardHeader>
-                    <CardContent className="px-3 py-2">
-                        <RulesList rules={rules} />
-                    </CardContent>
-                    {isActive && (
-                        <CardFooter className="p-3 pt-0">
-                            {rules.map((rule) => (
-                                <Button
-                                    key={rule.id}
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemove(rule.id)}
-                                    className="h-6 text-[10px] px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                    Remove
-                                </Button>
-                            ))}
-                        </CardFooter>
-                    )}
-                </Card>
 
-                <Card>
-                    <CardHeader className="p-3 pb-2">
-                        <CardTitle className="text-xs">
-                            {STRINGS.SECTION_CONFIGURE_HEADER}
-                        </CardTitle>
-                    </CardHeader>
+                    {isActive && rules.length > 0 && (
+                        <>
+                            <div className="px-3">
+                                <Separator />
+                            </div>
+                            <CardContent className="px-3 py-2">
+                                {rules.map((rule) => (
+                                    <div
+                                        key={rule.id}
+                                        className="p-2 rounded-md bg-muted/30 overflow-hidden"
+                                    >
+                                        <code
+                                            className="text-xs font-mono block"
+                                            style={{
+                                                color: 'hsl(var(--brand-yellow))',
+                                                overflowWrap: 'anywhere',
+                                            }}
+                                        >
+                                            {rule.header}: {rule.value}
+                                        </code>
+                                        <span
+                                            className="text-[10px] text-muted-foreground block mt-1"
+                                            style={{
+                                                overflowWrap: 'anywhere',
+                                            }}
+                                        >
+                                            {rule.scope}
+                                        </span>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </>
+                    )}
+
+                    <div className="px-3">
+                        <Separator />
+                    </div>
+
                     <CardContent className="px-3 py-2">
                         <HeaderForm
                             headerName={headerName}
@@ -140,6 +198,18 @@ export function Popup() {
                             onScopeChange={setScope}
                         />
                     </CardContent>
+
+                    {error && (
+                        <div className="px-3 pb-1">
+                            <p
+                                className="text-[10px] text-destructive"
+                                role="alert"
+                            >
+                                {error}
+                            </p>
+                        </div>
+                    )}
+
                     <CardFooter className="p-3 pt-0 flex gap-2">
                         <Button
                             onClick={handleSave}
