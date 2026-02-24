@@ -7,7 +7,6 @@ import {
     CardHeader,
     CardContent,
     CardFooter,
-    MirrordIconWhite,
     Separator,
     Switch,
     Tooltip,
@@ -15,6 +14,7 @@ import {
     TooltipContent,
     TooltipProvider,
 } from '@metalbear/ui';
+import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
 import { HeaderForm } from './components';
 import { useHeaderRules } from './hooks';
@@ -70,9 +70,9 @@ export function Popup() {
                 <div className="flex items-center justify-between pb-2">
                     <div className="flex items-center gap-2">
                         <img
-                            src={MirrordIconWhite}
+                            src={mirrordIconDark}
                             alt=""
-                            className="h-5 w-auto opacity-90"
+                            className="h-5 w-auto"
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">
