@@ -23,7 +23,6 @@ test.describe('mirrord browser extension', () => {
         popupPage,
     }) => {
         await expect(popupPage.getByText('Inactive')).toBeVisible();
-        await expect(popupPage.getByText('No active headers')).toBeVisible();
     });
 
     test('add a header and verify it appears in popup', async ({
@@ -90,11 +89,10 @@ test.describe('mirrord browser extension', () => {
             popupPage.getByText('Active', { exact: true })
         ).toBeVisible();
 
-        // Remove it
-        await popupPage.getByRole('button', { name: 'Remove' }).click();
+        // Toggle off to remove
+        await popupPage.getByLabel('Toggle header injection').click();
 
         await expect(popupPage.getByText('Inactive')).toBeVisible();
-        await expect(popupPage.getByText('No active headers')).toBeVisible();
 
         // Verify header is no longer injected
         const page = await context.newPage();

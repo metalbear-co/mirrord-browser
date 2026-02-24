@@ -103,7 +103,7 @@ test.describe('Analytics events', () => {
         await expect(page.getByText('Inactive')).toBeVisible();
 
         await addHeader(page, 'X-Remove-Analytics', 'remove-me');
-        await page.getByRole('button', { name: 'Remove' }).click();
+        await page.getByLabel('Toggle header injection').click();
         await expect(page.getByText('Inactive')).toBeVisible();
 
         const events = await getCapturedEvents(page);
