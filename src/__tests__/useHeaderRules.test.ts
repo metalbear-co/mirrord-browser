@@ -166,7 +166,7 @@ describe('useHeaderRules analytics', () => {
 
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: false }
+                { has_scope: false, was_active: false }
             );
         });
 
@@ -191,11 +191,110 @@ describe('useHeaderRules analytics', () => {
 
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: true }
+                { has_scope: true, was_active: false }
+            );
+        });
+
+        it('does not update DNR rules when no rules are active (toggle off)', async () => {
+            // No active rules, no config — toggle is off
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([])
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                result.current.handleSave();
+            });
+
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockStorageSet).toHaveBeenCalledTimes(1);
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                { has_scope: false, was_active: false }
+            );
+        });
+
+        it('updates DNR rules when a rule is already active (toggle on)', async () => {
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Old',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'old',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+            await act(async () => {
+                // initial load
+            });
+
+            act(() => {
+                result.current.setHeaderName('X-New');
+                result.current.setHeaderValue('new');
+            });
+
+            await act(async () => {
+                result.current.handleSave();
+            });
+
+            expect(mockUpdateDynamicRules).toHaveBeenCalled();
+            expect(mockStorageSet).toHaveBeenCalledTimes(1);
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                { has_scope: false, was_active: true }
             );
         });
 
         it('sets error on update_rules failure', async () => {
+            // Must have an active rule for the update path to run on save.
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Test',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'val',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
             mockUpdateDynamicRules.mockImplementation(
                 (_opts: unknown, cb: () => void) => {
                     (
@@ -212,6 +311,9 @@ describe('useHeaderRules analytics', () => {
                 }
             );
             const { result } = renderHook(() => useHeaderRules());
+            await act(async () => {
+                // initial load
+            });
 
             act(() => {
                 result.current.setHeaderName('X-Test');

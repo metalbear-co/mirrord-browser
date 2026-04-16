@@ -63,10 +63,34 @@ describe('useHeaderRules resource types', () => {
     });
 
     it('creates rules with all resource types so headers apply to scripts, stylesheets, images, etc.', async () => {
+        // Rule already active — save refreshes it with the full resource-type list.
+        mockGetDynamicRules.mockImplementation((cb) =>
+            cb([
+                {
+                    id: 1,
+                    priority: 1,
+                    action: {
+                        type: 'modifyHeaders',
+                        requestHeaders: [
+                            {
+                                header: 'X-Old',
+                                operation: 'set',
+                                value: 'old',
+                            },
+                        ],
+                    },
+                    condition: { urlFilter: '|' },
+                },
+            ])
+        );
         mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
         mockStorageSet.mockImplementation((_data, cb) => cb());
 
         const { result } = renderHook(() => useHeaderRules());
+
+        await act(async () => {
+            // initial load
+        });
 
         act(() => {
             result.current.setHeaderName('X-Test');

@@ -121,11 +121,15 @@ export function Popup() {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span
+                                    data-testid="status-dot"
                                     className={`inline-block w-2 h-2 rounded-full transition-colors ${
-                                        isActive
-                                            ? 'bg-green-500'
-                                            : 'bg-muted-foreground/30'
+                                        isActive ? '' : 'bg-muted-foreground/30'
                                     }`}
+                                    style={
+                                        isActive
+                                            ? { backgroundColor: '#22c55e' }
+                                            : undefined
+                                    }
                                 />
                                 <span className="text-xs font-medium">
                                     {isActive ? 'Active' : 'Inactive'}

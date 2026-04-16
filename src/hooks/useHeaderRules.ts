@@ -159,29 +159,36 @@ export function useHeaderRules() {
             scope: scope.trim() || undefined,
         };
 
-        const newRules = buildDnrRule(
-            headerName.trim(),
-            headerValue.trim(),
-            scope.trim() || undefined
-        );
+        // Save is non-destructive: only refresh the active DNR rule
+        // if injection is already turned on. If the toggle is off,
+        // saving persists to storage without activating.
+        const wasActive = rules.length > 0;
 
-        try {
-            const existingRules = await getDynamicRules();
-            await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
-                addRules: newRules,
-            });
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
-            setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
-            setSaveState('idle');
-            capture('extension_error', {
-                action: 'save',
-                step: 'update_rules',
-                error: msg,
-            });
-            return;
+        if (wasActive) {
+            const newRules = buildDnrRule(
+                headerName.trim(),
+                headerValue.trim(),
+                scope.trim() || undefined
+            );
+
+            try {
+                const existingRules = await getDynamicRules();
+                await updateDynamicRules({
+                    removeRuleIds: existingRules.map((r) => r.id),
+                    addRules: newRules,
+                });
+            } catch (e) {
+                const msg =
+                    e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
+                setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
+                setSaveState('idle');
+                capture('extension_error', {
+                    action: 'save',
+                    step: 'update_rules',
+                    error: msg,
+                });
+                return;
+            }
         }
 
         try {
@@ -205,8 +212,9 @@ export function useHeaderRules() {
         setTimeout(() => setSaveState('idle'), 1500);
         capture('extension_header_rule_saved', {
             has_scope: !!scope.trim(),
+            was_active: wasActive,
         });
-    }, [headerName, headerValue, scope, loadRules]);
+    }, [headerName, headerValue, scope, loadRules, rules]);
 
     const handleReset = useCallback(async () => {
         setError(null);
