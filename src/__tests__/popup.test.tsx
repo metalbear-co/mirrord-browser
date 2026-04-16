@@ -208,6 +208,25 @@ describe('Popup', () => {
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
         });
+
+        // Active dot renders with an explicit green color so it's visible
+        // regardless of what classes the UI kit's CSS bundle includes.
+        const dot = screen.getByTestId('status-dot');
+        expect(dot.style.backgroundColor).toBe('rgb(34, 197, 94)');
+    });
+
+    it('does not set inline green color when inactive', async () => {
+        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+
+        render(<Popup />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Inactive')).toBeInTheDocument();
+        });
+
+        const dot = screen.getByTestId('status-dot');
+        expect(dot.style.backgroundColor).toBe('');
+        expect(dot.className).toContain('bg-muted-foreground/30');
     });
 
     it('renders scoped header rules', async () => {
@@ -473,7 +492,26 @@ describe('Popup', () => {
     });
 
     it('saves header when save button is clicked', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        // Rule already active — save should refresh it in place.
+        mockGetDynamicRules.mockImplementation((cb: Function) =>
+            cb([
+                {
+                    id: 1,
+                    priority: 1,
+                    action: {
+                        type: 'modifyHeaders',
+                        requestHeaders: [
+                            {
+                                header: 'X-Old',
+                                operation: 'set',
+                                value: 'old',
+                            },
+                        ],
+                    },
+                    condition: { urlFilter: '|' },
+                },
+            ])
+        );
         mockUpdateDynamicRules.mockImplementation(
             (_opts: unknown, cb: Function) => cb()
         );
@@ -606,7 +644,26 @@ describe('Popup', () => {
     });
 
     it('saves header with URL scope', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        // Rule already active — save should refresh it with the new scope.
+        mockGetDynamicRules.mockImplementation((cb: Function) =>
+            cb([
+                {
+                    id: 1,
+                    priority: 1,
+                    action: {
+                        type: 'modifyHeaders',
+                        requestHeaders: [
+                            {
+                                header: 'X-Old',
+                                operation: 'set',
+                                value: 'old',
+                            },
+                        ],
+                    },
+                    condition: { urlFilter: '|' },
+                },
+            ])
+        );
         mockUpdateDynamicRules.mockImplementation(
             (_opts: unknown, cb: Function) => cb()
         );
