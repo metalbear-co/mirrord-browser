@@ -1,6 +1,6 @@
 {
     "name": "mirrord-browser",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "description": "Browser extension for mirrord",
     "type": "module",
     "scripts": {
