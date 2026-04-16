@@ -16,6 +16,11 @@ async function addHeader(
     }
     await popupPage.getByRole('button', { name: 'Save' }).click();
     await expect(popupPage.getByText('Saved!')).toBeVisible();
+
+    // Save no longer auto-installs the DNR rule; flip the toggle on
+    // so tests that assert injected headers still pass.
+    await popupPage.getByLabel('Toggle header injection').click();
+    await expect(popupPage.getByText('Active', { exact: true })).toBeVisible();
 }
 
 test.describe('mirrord browser extension', () => {
