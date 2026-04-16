@@ -2,7 +2,9 @@ import type { Page } from '@playwright/test';
 import { expect } from './fixtures';
 
 /**
- * Fill and save a header rule via the popup UI.
+ * Fill, save, and activate a header rule via the popup UI.
+ * Save alone no longer installs the DNR rule; the toggle must be
+ * flipped on for the header to actually inject.
  */
 export async function addHeader(
     popupPage: Page,
@@ -17,4 +19,12 @@ export async function addHeader(
     }
     await popupPage.getByRole('button', { name: 'Save' }).click();
     await expect(popupPage.getByText('Saved!')).toBeVisible();
+
+    const toggle = popupPage.getByRole('switch', {
+        name: 'Toggle header injection',
+    });
+    if ((await toggle.getAttribute('aria-checked')) !== 'true') {
+        await toggle.click();
+    }
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
 }
