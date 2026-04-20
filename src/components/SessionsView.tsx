@@ -15,7 +15,6 @@ type Props = {
     onJoin: (key: string) => void;
     onClear: () => void;
     onShare: (key: string) => void;
-    onOpenManualSetup: () => void;
 };
 
 export default function SessionsView({
@@ -28,7 +27,6 @@ export default function SessionsView({
     onJoin,
     onClear,
     onShare,
-    onOpenManualSetup,
 }: Props) {
     const joinedSession = joinState.joinedSessionName
         ? sessions.find((s) => s.name === joinState.joinedSessionName)
@@ -38,7 +36,6 @@ export default function SessionsView({
         ? sessions.filter((s) => s.namespace === namespace)
         : sessions;
 
-    // Joined session on top, then the rest.
     const ordered = [...filtered].sort((a, b) => {
         const aJoined = a.name === joinState.joinedSessionName ? 0 : 1;
         const bJoined = b.name === joinState.joinedSessionName ? 0 : 1;
@@ -97,14 +94,6 @@ export default function SessionsView({
                     )}
                 </CardContent>
             </Card>
-
-            <button
-                type="button"
-                onClick={onOpenManualSetup}
-                className="self-start text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
-            >
-                ⊕ Manual setup
-            </button>
         </div>
     );
 }

@@ -16,14 +16,56 @@ jest.mock('@metalbear/ui', () => ({
         onClick,
         className,
         disabled,
+        title,
+        'aria-label': ariaLabel,
     }: React.PropsWithChildren<{
         onClick?: () => void;
         className?: string;
         disabled?: boolean;
+        title?: string;
+        'aria-label'?: string;
     }>) => (
-        <button onClick={onClick} className={className} disabled={disabled}>
+        <button
+            onClick={onClick}
+            className={className}
+            disabled={disabled}
+            title={title}
+            aria-label={ariaLabel}
+        >
             {children}
         </button>
+    ),
+    Badge: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <span className={className}>{children}</span>
+    ),
+    Tabs: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsTrigger: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <button data-value={value}>{children}</button>
+    ),
+    TabsContent: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <div data-value={value}>{children}</div>
+    ),
+    Select: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+        <button>{children}</button>
+    ),
+    SelectValue: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectItem: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <div data-value={value}>{children}</div>
     ),
     Card: ({
         children,

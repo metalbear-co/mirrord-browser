@@ -17,6 +17,44 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
+    Badge: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <span className={className}>{children}</span>
+    ),
+    Button: ({
+        children,
+        onClick,
+        className,
+        'aria-label': ariaLabel,
+    }: React.PropsWithChildren<{
+        onClick?: () => void;
+        className?: string;
+        'aria-label'?: string;
+    }>) => (
+        <button onClick={onClick} className={className} aria-label={ariaLabel}>
+            {children}
+        </button>
+    ),
+    Label: ({
+        children,
+        htmlFor,
+    }: React.PropsWithChildren<{ htmlFor?: string }>) => (
+        <label htmlFor={htmlFor}>{children}</label>
+    ),
+    Select: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+        <button>{children}</button>
+    ),
+    SelectValue: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectItem: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <div data-value={value}>{children}</div>
+    ),
 }));
 
 import SessionsView from '../components/SessionsView';
@@ -55,7 +93,6 @@ describe('SessionsView', () => {
         onJoin: jest.fn(),
         onClear: jest.fn(),
         onShare: jest.fn(),
-        onOpenManualSetup: jest.fn(),
     };
 
     test('renders a row per session with target + key', () => {
@@ -108,18 +145,5 @@ describe('SessionsView', () => {
     test('renders "no sessions visible" when list is empty', () => {
         render(<SessionsView {...baseProps} sessions={[]} />);
         expect(screen.getByText(/no sessions visible/i)).toBeInTheDocument();
-    });
-
-    test('clicking Manual setup link invokes the handler', () => {
-        const onOpenManualSetup = jest.fn();
-        render(
-            <SessionsView
-                {...baseProps}
-                sessions={sessions}
-                onOpenManualSetup={onOpenManualSetup}
-            />
-        );
-        fireEvent.click(screen.getByText(/manual setup/i));
-        expect(onOpenManualSetup).toHaveBeenCalled();
     });
 });

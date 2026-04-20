@@ -1,4 +1,5 @@
 import { Share2 } from 'lucide-react';
+import { Badge, Button } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { formatRelativeTime } from '../util';
 
@@ -31,36 +32,36 @@ export default function SessionRow({ session, tag, onJoin, onShare }: Props) {
                 </span>
             </div>
             {tag && (
-                <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold shrink-0 ${
-                        tag === 'joined'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                    }`}
+                <Badge
+                    variant={tag === 'joined' ? 'default' : 'secondary'}
+                    className="text-[9px] uppercase tracking-wider shrink-0"
                 >
                     {tag === 'joined' ? 'my own session' : 'local session'}
-                </span>
+                </Badge>
             )}
             <div className="flex items-center gap-1 shrink-0">
                 {key && tag !== 'joined' && (
-                    <button
+                    <Button
                         type="button"
-                        className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:opacity-90"
+                        size="sm"
+                        className="h-6 text-xs px-2"
                         aria-label={`Join ${key}`}
                         onClick={() => onJoin(key)}
                     >
                         Join
-                    </button>
+                    </Button>
                 )}
                 {key && (
-                    <button
+                    <Button
                         type="button"
-                        className="p-1 rounded hover:bg-muted text-muted-foreground"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
                         aria-label={`Share ${key}`}
                         onClick={() => onShare(key)}
                     >
                         <Share2 size={12} />
-                    </button>
+                    </Button>
                 )}
             </div>
         </div>

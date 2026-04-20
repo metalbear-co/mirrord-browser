@@ -1,4 +1,4 @@
-import { StrictMode, useMemo, useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import {
@@ -7,6 +7,10 @@ import {
     CardContent,
     Separator,
     Switch,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
     Tooltip,
     TooltipContent,
     TooltipProvider,
@@ -29,7 +33,7 @@ document.addEventListener('visibilitychange', () => {
     });
 });
 
-type Screen = 'sessions' | 'manual' | 'onboarding';
+type Tab = 'sessions' | 'manual';
 
 export function Popup() {
     const headerRules = useHeaderRules();
@@ -38,17 +42,14 @@ export function Popup() {
     const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
     const hasManualConfig =
         headerRules.rules.length > 0 || headerRules.hasStoredConfig;
-    const [manualOverride, setManualOverride] = useState(false);
 
-    // Decide the starting screen based on state. Once a user navigates
-    // explicitly (clicks Manual setup / Back Sessions), manualOverride
-    // pins us to the chosen screen until next popup open.
-    const screen: Screen = useMemo(() => {
-        if (manualOverride) return 'manual';
-        if (sessionMode) return 'sessions';
-        if (hasManualConfig) return 'manual';
-        return 'onboarding';
-    }, [manualOverride, sessionMode, hasManualConfig]);
+    // Default-tab logic: if a backend is connected and the user hasn't
+    // saved any manual config, start on Sessions. Otherwise manual.
+    const defaultTab: Tab =
+        sessionMode && !hasManualConfig ? 'sessions' : 'manual';
+    const [tab, setTab] = useState<Tab>(defaultTab);
+
+    const showOnboarding = !sessionMode && !hasManualConfig;
 
     return (
         <TooltipProvider>
@@ -70,79 +71,99 @@ export function Popup() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        {screen === 'manual' && (
-                            <button
+                        {tab === 'manual' && !showOnboarding && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
                                 onClick={headerRules.handleShare}
                                 disabled={!headerRules.canShare}
-                                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title={
                                     headerRules.shareState === 'copied'
                                         ? 'Copied!'
                                         : 'Copy config link'
                                 }
                                 aria-label="Share configuration"
+                                className="h-7 w-7"
                             >
                                 {headerRules.shareState === 'copied' ? (
                                     <Check size={16} />
                                 ) : (
                                     <Share2 size={16} />
                                 )}
-                            </button>
+                            </Button>
                         )}
-                        <button
+                        <Button
+                            size="icon"
+                            variant="ghost"
                             onClick={() => chrome.runtime.openOptionsPage()}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             title="Settings"
                             aria-label="Settings"
+                            className="h-7 w-7"
                         >
                             <Settings size={16} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
-                {screen === 'sessions' && (
-                    <SessionsView
-                        sessions={mirrordUi.sessions?.sessions ?? []}
-                        namespaces={mirrordUi.namespaces}
-                        namespace={mirrordUi.namespace}
-                        setNamespace={mirrordUi.setNamespace}
-                        joinState={mirrordUi.joinState}
-                        status={mirrordUi.status}
-                        onJoin={mirrordUi.join}
-                        onClear={mirrordUi.clearJoin}
-                        onShare={(key) => {
-                            const url = mirrordUi.buildShareUrl(key);
-                            navigator.clipboard.writeText(url).catch(() => {});
-                        }}
-                        onOpenManualSetup={() => setManualOverride(true)}
-                    />
+                {showOnboarding && (
+                    <Onboarding onChooseManual={() => setTab('manual')} />
                 )}
 
-                {screen === 'manual' && (
-                    <ManualSetup
-                        headerRules={headerRules}
-                        showBack={sessionMode}
-                        onBack={() => setManualOverride(false)}
-                    />
+                {!showOnboarding && sessionMode && (
+                    <Tabs
+                        value={tab}
+                        onValueChange={(v: string) => setTab(v as Tab)}
+                        className="flex flex-col gap-2"
+                    >
+                        <TabsList className="grid grid-cols-2 w-full">
+                            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                            <TabsTrigger value="manual">Manual</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="sessions" className="mt-0">
+                            <SessionsScreen mirrordUi={mirrordUi} />
+                        </TabsContent>
+                        <TabsContent value="manual" className="mt-0">
+                            <ManualSetup headerRules={headerRules} />
+                        </TabsContent>
+                    </Tabs>
                 )}
 
-                {screen === 'onboarding' && (
-                    <Onboarding
-                        onChooseManual={() => setManualOverride(true)}
-                    />
+                {!showOnboarding && !sessionMode && (
+                    <ManualSetup headerRules={headerRules} />
                 )}
             </div>
         </TooltipProvider>
     );
 }
 
+function SessionsScreen({
+    mirrordUi,
+}: {
+    mirrordUi: ReturnType<typeof useMirrordUi>;
+}) {
+    return (
+        <SessionsView
+            sessions={mirrordUi.sessions?.sessions ?? []}
+            namespaces={mirrordUi.namespaces}
+            namespace={mirrordUi.namespace}
+            setNamespace={mirrordUi.setNamespace}
+            joinState={mirrordUi.joinState}
+            status={mirrordUi.status}
+            onJoin={mirrordUi.join}
+            onClear={mirrordUi.clearJoin}
+            onShare={(key) => {
+                const url = mirrordUi.buildShareUrl(key);
+                navigator.clipboard.writeText(url).catch(() => {});
+            }}
+        />
+    );
+}
+
 type ManualSetupProps = {
     headerRules: ReturnType<typeof useHeaderRules>;
-    showBack: boolean;
-    onBack: () => void;
 };
 
-function ManualSetup({ headerRules, showBack, onBack }: ManualSetupProps) {
+function ManualSetup({ headerRules }: ManualSetupProps) {
     const {
         rules,
         headerName,
@@ -267,16 +288,6 @@ function ManualSetup({ headerRules, showBack, onBack }: ManualSetupProps) {
                     )}
                 </CardContent>
             </Card>
-
-            {showBack && (
-                <button
-                    type="button"
-                    onClick={onBack}
-                    className="self-start text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
-                >
-                    ← Back to sessions
-                </button>
-            )}
         </div>
     );
 }

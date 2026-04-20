@@ -1,34 +1,62 @@
+import {
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@metalbear/ui';
+
 type Props = {
     namespaces: string[];
     value: string;
     onChange: (ns: string) => void;
 };
 
+const ALL_VALUE = '__all__';
+
 export default function NamespaceFilter({
     namespaces,
     value,
     onChange,
 }: Props) {
+    // Radix <Select> rejects empty-string `value` so we map `'' → __all__`
+    // on the wire while keeping the external contract as empty-string for
+    // "all namespaces."
+    const selectValue = value === '' ? ALL_VALUE : value;
+
     return (
         <div className="flex items-center gap-2 px-3 py-2">
-            <label
-                className="text-[11px] text-muted-foreground"
+            <Label
                 htmlFor="ns-select"
+                className="text-[11px] text-muted-foreground"
             >
                 Namespace
-            </label>
-            <select
-                id="ns-select"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="text-xs border rounded px-1 py-0.5 bg-background"
+            </Label>
+            <Select
+                value={selectValue}
+                onValueChange={(v: string) =>
+                    onChange(v === ALL_VALUE ? '' : v)
+                }
             >
-                {namespaces.map((ns) => (
-                    <option key={ns || '__all'} value={ns}>
-                        {ns === '' ? 'All' : ns}
-                    </option>
-                ))}
-            </select>
+                <SelectTrigger
+                    id="ns-select"
+                    className="h-7 text-xs flex-1"
+                    aria-label="Filter by namespace"
+                >
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {namespaces.map((ns) => (
+                        <SelectItem
+                            key={ns === '' ? ALL_VALUE : ns}
+                            value={ns === '' ? ALL_VALUE : ns}
+                        >
+                            {ns === '' ? 'All' : ns}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         </div>
     );
 }
