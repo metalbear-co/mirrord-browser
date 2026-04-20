@@ -211,16 +211,11 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(
-                screen.getByText(/Currently injecting/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText('Active')).toBeInTheDocument();
             expect(
                 screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
-            expect(
-                screen.getByRole('button', { name: 'Clear' })
-            ).toBeInTheDocument();
         });
     });
 
@@ -266,7 +261,7 @@ describe('Popup', () => {
         });
     });
 
-    it('clears rule when Clear is clicked on the active card', async () => {
+    it('toggling off the Active switch removes the DNR rule', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 42,
@@ -305,7 +300,7 @@ describe('Popup', () => {
             expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
-        fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+        fireEvent.click(screen.getByRole('switch'));
 
         await waitFor(() => {
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(

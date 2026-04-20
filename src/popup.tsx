@@ -6,7 +6,11 @@ import {
     Card,
     CardContent,
     Separator,
+    Switch,
+    Tooltip,
+    TooltipContent,
     TooltipProvider,
+    TooltipTrigger,
 } from '@metalbear/ui';
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
@@ -147,6 +151,8 @@ function ManualSetup({ headerRules, showBack, onBack }: ManualSetupProps) {
         saveState,
         resetState,
         hasDefaults,
+        hasStoredConfig,
+        isToggling,
         error,
         setHeaderName,
         setHeaderValue,
@@ -159,25 +165,52 @@ function ManualSetup({ headerRules, showBack, onBack }: ManualSetupProps) {
     } = headerRules;
 
     const activeRule = rules[0];
+    const isActive = !!activeRule;
+    const canToggle = isActive || hasStoredConfig;
 
     return (
         <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                    <span
+                        data-testid="status-dot"
+                        className={`inline-block w-2 h-2 rounded-full transition-colors ${
+                            isActive ? '' : 'bg-muted-foreground/30'
+                        }`}
+                        style={
+                            isActive
+                                ? { backgroundColor: '#22c55e' }
+                                : undefined
+                        }
+                    />
+                    <span className="text-xs font-medium">
+                        {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="text-muted-foreground cursor-help text-[10px]">
+                                ⓘ
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-[220px]">
+                            When on, the extension injects the saved header into
+                            matching requests. Toggle off to pause injection
+                            without losing your config.
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
+                <Switch
+                    checked={isActive}
+                    onCheckedChange={handleToggle}
+                    disabled={!canToggle || isToggling}
+                    aria-label="Toggle header injection"
+                />
+            </div>
+
             {activeRule && (
                 <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/10">
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                            Currently injecting
-                        </span>
-                        <button
-                            type="button"
-                            onClick={handleToggle}
-                            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                        >
-                            Clear
-                        </button>
-                    </div>
                     <code
-                        className="text-xs font-mono block mt-1"
+                        className="text-xs font-mono block"
                         style={{
                             color: 'hsl(var(--brand-yellow))',
                             overflowWrap: 'anywhere',
