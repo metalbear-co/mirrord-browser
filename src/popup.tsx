@@ -16,8 +16,9 @@ import {
 } from '@metalbear/ui';
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
-import { HeaderForm } from './components';
+import { HeaderForm, SessionsView } from './components';
 import { useHeaderRules } from './hooks';
+import { useMirrordUi } from './hooks/useMirrordUi';
 import { STRINGS } from './constants';
 import { capture, captureBeacon, optOutReady } from './analytics';
 
@@ -60,6 +61,8 @@ export function Popup() {
         getSaveButtonText,
         getResetButtonText,
     } = useHeaderRules();
+
+    const mirrordUi = useMirrordUi();
 
     const isActive = rules.length > 0;
     const canToggle = isActive || hasStoredConfig;
@@ -111,6 +114,23 @@ export function Popup() {
                         </button>
                     </div>
                 </div>
+
+                {mirrordUi.backend && mirrordUi.healthy && (
+                    <SessionsView
+                        grouped={mirrordUi.groupedFiltered}
+                        namespaces={mirrordUi.namespaces}
+                        namespace={mirrordUi.namespace}
+                        setNamespace={mirrordUi.setNamespace}
+                        joinState={mirrordUi.joinState}
+                        status={mirrordUi.status}
+                        onJoin={mirrordUi.join}
+                        onClear={mirrordUi.clearJoin}
+                        onShare={(key) => {
+                            const url = mirrordUi.buildShareUrl(key);
+                            navigator.clipboard.writeText(url).catch(() => {});
+                        }}
+                    />
+                )}
 
                 <Card
                     className={`transition-all duration-200 ${
