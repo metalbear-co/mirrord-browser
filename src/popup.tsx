@@ -4,32 +4,20 @@ import '@metalbear/ui/styles.css';
 import {
     Button,
     Card,
-    CardHeader,
     CardContent,
-    CardFooter,
     Separator,
-    Switch,
-    Tooltip,
-    TooltipTrigger,
-    TooltipContent,
     TooltipProvider,
 } from '@metalbear/ui';
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
-import { HeaderForm, SessionsView } from './components';
+import { HeaderForm, SessionsView, ActiveRuleCard } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
-import { STRINGS } from './constants';
 import { capture, captureBeacon, optOutReady } from './analytics';
 
-// Fire popup_opened after opt-out preference is loaded.
-// optOutReady resolves almost instantly (single chrome.storage.local read) but we must
-// await it so the opt-out flag is set before we call capture().
 const popupOpenedAt = Date.now();
 optOutReady.then(() => capture('extension_popup_opened'));
 
-// Track popup close with duration. Extension popups get destroyed immediately,
-// so use sendBeacon — it's the only reliable way to get a request out during teardown.
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return;
     captureBeacon('extension_popup_closed', {
@@ -38,40 +26,21 @@ document.addEventListener('visibilitychange', () => {
 });
 
 export function Popup() {
-    const {
-        rules,
-        headerName,
-        headerValue,
-        scope,
-        saveState,
-        resetState,
-        shareState,
-        hasDefaults,
-        error,
-        hasStoredConfig,
-        isToggling,
-        canShare,
-        setHeaderName,
-        setHeaderValue,
-        setScope,
-        handleToggle,
-        handleSave,
-        handleReset,
-        handleShare,
-        getSaveButtonText,
-        getResetButtonText,
-    } = useHeaderRules();
-
+    const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
 
-    const isActive = rules.length > 0;
-    const canToggle = isActive || hasStoredConfig;
     const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
+    const isJoined =
+        sessionMode &&
+        !!mirrordUi.joinState.joinedKey &&
+        !mirrordUi.joinState.sessionEnded;
+
+    const customRule = !isJoined ? headerRules.rules[0] : undefined;
 
     return (
         <TooltipProvider>
             <div className="w-[420px] p-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
                             src={mirrordIconDark}
@@ -89,17 +58,17 @@ export function Popup() {
                     </div>
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={handleShare}
-                            disabled={!canShare}
+                            onClick={headerRules.handleShare}
+                            disabled={!headerRules.canShare}
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title={
-                                shareState === 'copied'
+                                headerRules.shareState === 'copied'
                                     ? 'Copied!'
                                     : 'Copy config link'
                             }
                             aria-label="Share configuration"
                         >
-                            {shareState === 'copied' ? (
+                            {headerRules.shareState === 'copied' ? (
                                 <Check size={16} />
                             ) : (
                                 <Share2 size={16} />
@@ -115,6 +84,22 @@ export function Popup() {
                         </button>
                     </div>
                 </div>
+
+                {isJoined && mirrordUi.joinState.joinedKey && (
+                    <ActiveRuleCard
+                        mode="joined"
+                        joinedKey={mirrordUi.joinState.joinedKey}
+                        onLeave={mirrordUi.clearJoin}
+                    />
+                )}
+                {!isJoined && customRule && (
+                    <ActiveRuleCard
+                        mode="custom"
+                        rule={customRule}
+                        onClear={headerRules.handleToggle}
+                    />
+                )}
+                {!isJoined && !customRule && <ActiveRuleCard mode="idle" />}
 
                 {sessionMode && (
                     <SessionsView
@@ -133,57 +118,10 @@ export function Popup() {
                     />
                 )}
 
-                {sessionMode ? (
-                    <details className="group">
-                        <summary className="text-[11px] font-semibold uppercase tracking-wider cursor-pointer px-3 py-2 text-muted-foreground hover:text-foreground select-none list-none flex items-center gap-1">
-                            <span className="group-open:rotate-90 transition-transform inline-block">
-                                ▸
-                            </span>
-                            Custom header injection
-                        </summary>
-                        <CustomHeaderCard
-                            rules={rules}
-                            isActive={isActive}
-                            canToggle={canToggle}
-                            isToggling={isToggling}
-                            handleToggle={handleToggle}
-                            headerName={headerName}
-                            headerValue={headerValue}
-                            scope={scope}
-                            setHeaderName={setHeaderName}
-                            setHeaderValue={setHeaderValue}
-                            setScope={setScope}
-                            error={error}
-                            handleSave={handleSave}
-                            handleReset={handleReset}
-                            saveState={saveState}
-                            resetState={resetState}
-                            hasDefaults={hasDefaults}
-                            getSaveButtonText={getSaveButtonText}
-                            getResetButtonText={getResetButtonText}
-                        />
-                    </details>
-                ) : (
-                    <CustomHeaderCard
-                        rules={rules}
-                        isActive={isActive}
-                        canToggle={canToggle}
-                        isToggling={isToggling}
-                        handleToggle={handleToggle}
-                        headerName={headerName}
-                        headerValue={headerValue}
-                        scope={scope}
-                        setHeaderName={setHeaderName}
-                        setHeaderValue={setHeaderValue}
-                        setScope={setScope}
-                        error={error}
-                        handleSave={handleSave}
-                        handleReset={handleReset}
-                        saveState={saveState}
-                        resetState={resetState}
-                        hasDefaults={hasDefaults}
-                        getSaveButtonText={getSaveButtonText}
-                        getResetButtonText={getResetButtonText}
+                {!isJoined && (
+                    <CustomHeaderSection
+                        headerRules={headerRules}
+                        collapsed={sessionMode}
                     />
                 )}
             </div>
@@ -191,133 +129,61 @@ export function Popup() {
     );
 }
 
-type CustomHeaderCardProps = {
-    rules: ReturnType<typeof useHeaderRules>['rules'];
-    isActive: boolean;
-    canToggle: boolean;
-    isToggling: boolean;
-    handleToggle: ReturnType<typeof useHeaderRules>['handleToggle'];
-    headerName: string;
-    headerValue: string;
-    scope: string;
-    setHeaderName: (s: string) => void;
-    setHeaderValue: (s: string) => void;
-    setScope: (s: string) => void;
-    error: string | null;
-    handleSave: ReturnType<typeof useHeaderRules>['handleSave'];
-    handleReset: ReturnType<typeof useHeaderRules>['handleReset'];
-    saveState: 'idle' | 'saving' | 'saved';
-    resetState: 'idle' | 'resetting' | 'reset';
-    hasDefaults: boolean;
-    getSaveButtonText: () => string;
-    getResetButtonText: () => string;
+type CustomHeaderSectionProps = {
+    headerRules: ReturnType<typeof useHeaderRules>;
+    /** When a mirrord ui backend is present but the user isn't joined, keep
+     * this section collapsed so the session list stays the primary surface. */
+    collapsed: boolean;
 };
 
-function CustomHeaderCard(props: CustomHeaderCardProps) {
+function CustomHeaderSection({
+    headerRules,
+    collapsed,
+}: CustomHeaderSectionProps) {
+    const inner = <CustomHeaderBody headerRules={headerRules} />;
+
+    if (collapsed) {
+        return (
+            <details className="group">
+                <summary className="text-[11px] font-semibold uppercase tracking-wider cursor-pointer px-3 py-2 text-muted-foreground hover:text-foreground select-none list-none flex items-center gap-1">
+                    <span className="group-open:rotate-90 transition-transform inline-block">
+                        ▸
+                    </span>
+                    Custom header
+                </summary>
+                {inner}
+            </details>
+        );
+    }
+
+    return inner;
+}
+
+function CustomHeaderBody({
+    headerRules,
+}: {
+    headerRules: ReturnType<typeof useHeaderRules>;
+}) {
     const {
-        rules,
-        isActive,
-        canToggle,
-        isToggling,
-        handleToggle,
         headerName,
         headerValue,
         scope,
-        setHeaderName,
-        setHeaderValue,
-        setScope,
-        error,
-        handleSave,
-        handleReset,
         saveState,
         resetState,
         hasDefaults,
+        error,
+        setHeaderName,
+        setHeaderValue,
+        setScope,
+        handleSave,
+        handleReset,
         getSaveButtonText,
         getResetButtonText,
-    } = props;
+    } = headerRules;
 
     return (
-        <Card
-            className={`transition-all duration-200 ${
-                isActive ? 'border-l-2 border-l-primary' : ''
-            }`}
-        >
-            <CardHeader className="p-3 pb-2">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span
-                            data-testid="status-dot"
-                            className={`inline-block w-2 h-2 rounded-full transition-colors ${
-                                isActive ? '' : 'bg-muted-foreground/30'
-                            }`}
-                            style={
-                                isActive
-                                    ? { backgroundColor: '#22c55e' }
-                                    : undefined
-                            }
-                        />
-                        <span className="text-xs font-medium">
-                            {isActive ? 'Active' : 'Inactive'}
-                        </span>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="text-muted-foreground cursor-help text-[10px]">
-                                    ⓘ
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-xs max-w-[200px]">
-                                {STRINGS.TOOLTIP_HEADERS}
-                            </TooltipContent>
-                        </Tooltip>
-                    </div>
-                    <Switch
-                        checked={isActive}
-                        onCheckedChange={handleToggle}
-                        disabled={!canToggle || isToggling}
-                        aria-label="Toggle header injection"
-                    />
-                </div>
-            </CardHeader>
-
-            {isActive && rules.length > 0 && (
-                <>
-                    <div className="px-3">
-                        <Separator />
-                    </div>
-                    <CardContent className="px-3 py-2">
-                        {rules.map((rule) => (
-                            <div
-                                key={rule.id}
-                                className="p-2 rounded-md bg-muted/30 overflow-hidden"
-                            >
-                                <code
-                                    className="text-xs font-mono block"
-                                    style={{
-                                        color: 'hsl(var(--brand-yellow))',
-                                        overflowWrap: 'anywhere',
-                                    }}
-                                >
-                                    {rule.header}: {rule.value}
-                                </code>
-                                <span
-                                    className="text-[10px] text-muted-foreground block mt-1"
-                                    style={{
-                                        overflowWrap: 'anywhere',
-                                    }}
-                                >
-                                    {rule.scope}
-                                </span>
-                            </div>
-                        ))}
-                    </CardContent>
-                </>
-            )}
-
-            <div className="px-3">
-                <Separator />
-            </div>
-
-            <CardContent className="px-3 py-2">
+        <Card className="overflow-hidden">
+            <CardContent className="px-3 py-3">
                 <HeaderForm
                     headerName={headerName}
                     headerValue={headerValue}
@@ -326,17 +192,17 @@ function CustomHeaderCard(props: CustomHeaderCardProps) {
                     onHeaderValueChange={setHeaderValue}
                     onScopeChange={setScope}
                 />
-            </CardContent>
-
-            {error && (
-                <div className="px-3 pb-1">
-                    <p className="text-[10px] text-destructive" role="alert">
+                {error && (
+                    <p
+                        className="text-[10px] text-destructive mt-2"
+                        role="alert"
+                    >
                         {error}
                     </p>
-                </div>
-            )}
-
-            <CardFooter className="p-3 pt-0 flex gap-2">
+                )}
+            </CardContent>
+            <Separator />
+            <CardContent className="px-3 py-2 flex gap-2">
                 <Button
                     onClick={handleSave}
                     disabled={saveState !== 'idle'}
@@ -354,7 +220,7 @@ function CustomHeaderCard(props: CustomHeaderCardProps) {
                         {getResetButtonText()}
                     </Button>
                 )}
-            </CardFooter>
+            </CardContent>
         </Card>
     );
 }

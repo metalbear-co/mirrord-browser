@@ -7,7 +7,6 @@ type Props = {
     joinedKey: string | null;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
-    onLeave?: () => void;
 };
 
 export default function SessionGroup({
@@ -16,7 +15,6 @@ export default function SessionGroup({
     joinedKey,
     onJoin,
     onShare,
-    onLeave,
 }: Props) {
     const displayKey = groupKey === '' ? '(ungrouped)' : groupKey;
     const isJoined =
@@ -29,63 +27,41 @@ export default function SessionGroup({
             }`}
         >
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-semibold">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-xs font-semibold truncate">
                         {displayKey}
                     </span>
                     {isJoined && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-semibold uppercase tracking-wider">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-semibold uppercase tracking-wider shrink-0">
                             joined
                         </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground shrink-0">
                         {sessions.length} session
                         {sessions.length === 1 ? '' : 's'}
                     </span>
                 </div>
-                <div className="flex items-center gap-1">
-                    {groupKey !== '' &&
-                        (isJoined ? (
-                            <>
-                                <button
-                                    type="button"
-                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                                    aria-label={`Share ${groupKey}`}
-                                    onClick={() => onShare(groupKey)}
-                                >
-                                    Share
-                                </button>
-                                {onLeave && (
-                                    <button
-                                        type="button"
-                                        className="text-xs px-2 py-0.5 rounded bg-destructive/20 text-destructive hover:bg-destructive/30"
-                                        aria-label={`Leave ${groupKey}`}
-                                        onClick={onLeave}
-                                    >
-                                        Leave
-                                    </button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    type="button"
-                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                                    aria-label={`Join ${groupKey}`}
-                                    onClick={() => onJoin(groupKey)}
-                                >
-                                    Join
-                                </button>
-                                <button
-                                    type="button"
-                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                                    aria-label={`Share ${groupKey}`}
-                                    onClick={() => onShare(groupKey)}
-                                >
-                                    Share
-                                </button>
-                            </>
-                        ))}
+                <div className="flex items-center gap-1 shrink-0">
+                    {groupKey !== '' && !isJoined && (
+                        <button
+                            type="button"
+                            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                            aria-label={`Join ${groupKey}`}
+                            onClick={() => onJoin(groupKey)}
+                        >
+                            Join
+                        </button>
+                    )}
+                    {groupKey !== '' && (
+                        <button
+                            type="button"
+                            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                            aria-label={`Share ${groupKey}`}
+                            onClick={() => onShare(groupKey)}
+                        >
+                            Share
+                        </button>
+                    )}
                 </div>
             </div>
             <ul className="mt-1 flex flex-col gap-0.5">

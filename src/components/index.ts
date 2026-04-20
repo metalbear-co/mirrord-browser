@@ -5,3 +5,4 @@ export { default as SessionsView } from './SessionsView';
 export { default as SessionGroup } from './SessionGroup';
 export { default as NamespaceFilter } from './NamespaceFilter';
 export { default as SessionEndedBanner } from './SessionEndedBanner';
+export { default as ActiveRuleCard } from './ActiveRuleCard';

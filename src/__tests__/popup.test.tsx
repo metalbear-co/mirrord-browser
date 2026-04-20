@@ -159,17 +159,19 @@ describe('Popup', () => {
         );
     });
 
-    it('shows Inactive status when no rules', async () => {
+    it('shows idle state when no rules', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
+            expect(
+                screen.getByText('No header injection active')
+            ).toBeInTheDocument();
         });
     });
 
-    it('shows Active status with rule preview when rules exist', async () => {
+    it('shows active rule preview when rules exist', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 1,
@@ -202,31 +204,15 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Active')).toBeInTheDocument();
+            expect(screen.getByText('Custom header')).toBeInTheDocument();
             expect(
                 screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
+            expect(
+                screen.getByRole('button', { name: 'Clear' })
+            ).toBeInTheDocument();
         });
-
-        // Active dot renders with an explicit green color so it's visible
-        // regardless of what classes the UI kit's CSS bundle includes.
-        const dot = screen.getByTestId('status-dot');
-        expect(dot.style.backgroundColor).toBe('rgb(34, 197, 94)');
-    });
-
-    it('does not set inline green color when inactive', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const dot = screen.getByTestId('status-dot');
-        expect(dot.style.backgroundColor).toBe('');
-        expect(dot.className).toContain('bg-muted-foreground/30');
     });
 
     it('renders scoped header rules', async () => {
@@ -271,7 +257,7 @@ describe('Popup', () => {
         });
     });
 
-    it('toggles rule off via switch', async () => {
+    it('clears rule when Clear is clicked on the active card', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 42,
@@ -310,8 +296,7 @@ describe('Popup', () => {
             expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
-        const toggle = screen.getByRole('switch');
-        fireEvent.click(toggle);
+        fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
         await waitFor(() => {
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
@@ -319,51 +304,6 @@ describe('Popup', () => {
                 expect.any(Function)
             );
         });
-    });
-
-    it('toggles rule on via switch when config exists', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-Test',
-                    headerValue: 'val',
-                },
-            })
-        );
-        mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
-        );
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const toggle = screen.getByRole('switch');
-        expect(toggle).not.toBeDisabled();
-        fireEvent.click(toggle);
-
-        await waitFor(() => {
-            expect(mockUpdateDynamicRules).toHaveBeenCalled();
-        });
-    });
-
-    it('switch is disabled when inactive and no stored config', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
-        );
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const toggle = screen.getByRole('switch');
-        expect(toggle).toBeDisabled();
     });
 
     it('updates badge indicator on load', async () => {
@@ -777,13 +717,15 @@ describe('Popup', () => {
         });
     });
 
-    it('renders tooltip info icon', async () => {
+    it('renders tooltip info icon on the scope field', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
+            expect(
+                screen.getByText('No header injection active')
+            ).toBeInTheDocument();
         });
 
         const infoIcons = screen.getAllByText('ⓘ');
