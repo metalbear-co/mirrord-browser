@@ -44,6 +44,9 @@ importers:
             '@types/react-dom':
                 specifier: ^19.2.3
                 version: 19.2.3(@types/react@19.2.10)
+            '@types/ws':
+                specifier: ^8.18.1
+                version: 8.18.1
             '@typescript-eslint/parser':
                 specifier: ^8.33.1
                 version: 8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3)
@@ -89,6 +92,9 @@ importers:
             vite:
                 specifier: ^5.4.19
                 version: 5.4.19(@types/node@24.0.1)
+            ws:
+                specifier: ^8.20.0
+                version: 8.20.0
 
 packages:
     '@adobe/css-tools@4.4.4':
@@ -2026,6 +2032,12 @@ packages:
         resolution:
             {
                 integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==,
+            }
+
+    '@types/ws@8.18.1':
+        resolution:
+            {
+                integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==,
             }
 
     '@types/yargs-parser@21.0.3':
@@ -4865,10 +4877,10 @@ packages:
             }
         engines: { node: ^12.13.0 || ^14.15.0 || >=16.0.0 }
 
-    ws@8.18.2:
+    ws@8.20.0:
         resolution:
             {
-                integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==,
+                integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==,
             }
         engines: { node: '>=10.0.0' }
         peerDependencies:
@@ -6271,6 +6283,10 @@ snapshots:
 
     '@types/tough-cookie@4.0.5': {}
 
+    '@types/ws@8.18.1':
+        dependencies:
+            '@types/node': 24.0.1
+
     '@types/yargs-parser@21.0.3': {}
 
     '@types/yargs@17.0.33':
@@ -7536,7 +7552,7 @@ snapshots:
             whatwg-encoding: 3.1.1
             whatwg-mimetype: 4.0.0
             whatwg-url: 14.2.0
-            ws: 8.18.2
+            ws: 8.20.0
             xml-name-validator: 5.0.0
         transitivePeerDependencies:
             - bufferutil
@@ -8163,7 +8179,7 @@ snapshots:
             imurmurhash: 0.1.4
             signal-exit: 3.0.7
 
-    ws@8.18.2: {}
+    ws@8.20.0: {}
 
     xml-name-validator@5.0.0: {}
 

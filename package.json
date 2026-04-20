@@ -30,6 +30,7 @@
         "@types/jest": "^29.5.14",
         "@types/react": "^19.2.10",
         "@types/react-dom": "^19.2.3",
+        "@types/ws": "^8.18.1",
         "@typescript-eslint/parser": "^8.33.1",
         "@vitejs/plugin-react": "^5.1.2",
         "class-variance-authority": "^0.7.1",
@@ -44,7 +45,8 @@
         "ts-jest": "^29.3.4",
         "tsx": "^4.21.0",
         "typescript": "^5.8.3",
-        "vite": "^5.4.19"
+        "vite": "^5.4.19",
+        "ws": "^8.20.0"
     },
     "dependencies": {
         "@metalbear/ui": "^0.1.4",
