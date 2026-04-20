@@ -1,4 +1,5 @@
 import type { OperatorSessionSummary } from '../types';
+import { formatRelativeTime } from '../util';
 
 type Props = {
     groupKey: string;
@@ -6,6 +7,7 @@ type Props = {
     joinedKey: string | null;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
+    onLeave?: () => void;
 };
 
 export default function SessionGroup({
@@ -14,20 +16,25 @@ export default function SessionGroup({
     joinedKey,
     onJoin,
     onShare,
+    onLeave,
 }: Props) {
     const displayKey = groupKey === '' ? '(ungrouped)' : groupKey;
     const isJoined =
         joinedKey !== null && groupKey !== '' && groupKey === joinedKey;
 
     return (
-        <div className="border-b last:border-b-0 border-border px-3 py-2">
+        <div
+            className={`border-b last:border-b-0 border-border px-3 py-2 ${
+                isJoined ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+            }`}
+        >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold">
                         {displayKey}
                     </span>
                     {isJoined && (
-                        <span className="text-[10px] text-primary font-semibold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-semibold uppercase tracking-wider">
                             joined
                         </span>
                     )}
@@ -37,51 +44,80 @@ export default function SessionGroup({
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
-                    {groupKey !== '' && (
-                        <>
-                            <button
-                                type="button"
-                                className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                                aria-label={`Join ${groupKey}`}
-                                onClick={() => onJoin(groupKey)}
-                            >
-                                {isJoined ? 'Rejoin' : 'Join'}
-                            </button>
-                            <button
-                                type="button"
-                                className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                                aria-label={`Share ${groupKey}`}
-                                onClick={() => onShare(groupKey)}
-                            >
-                                Share
-                            </button>
-                        </>
-                    )}
+                    {groupKey !== '' &&
+                        (isJoined ? (
+                            <>
+                                <button
+                                    type="button"
+                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                                    aria-label={`Share ${groupKey}`}
+                                    onClick={() => onShare(groupKey)}
+                                >
+                                    Share
+                                </button>
+                                {onLeave && (
+                                    <button
+                                        type="button"
+                                        className="text-xs px-2 py-0.5 rounded bg-destructive/20 text-destructive hover:bg-destructive/30"
+                                        aria-label={`Leave ${groupKey}`}
+                                        onClick={onLeave}
+                                    >
+                                        Leave
+                                    </button>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                                    aria-label={`Join ${groupKey}`}
+                                    onClick={() => onJoin(groupKey)}
+                                >
+                                    Join
+                                </button>
+                                <button
+                                    type="button"
+                                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                                    aria-label={`Share ${groupKey}`}
+                                    onClick={() => onShare(groupKey)}
+                                >
+                                    Share
+                                </button>
+                            </>
+                        ))}
                 </div>
             </div>
             <ul className="mt-1 flex flex-col gap-0.5">
-                {sessions.map((sess) => (
-                    <li
-                        key={sess.name}
-                        className="text-[11px] text-muted-foreground"
-                    >
-                        <span className="font-mono">{sess.namespace}</span>
-                        {sess.target && (
-                            <>
-                                {' / '}
-                                <span className="font-mono">
-                                    {sess.target.kind}/{sess.target.name}
+                {sessions.map((sess) => {
+                    const age = formatRelativeTime(sess.createdAt);
+                    return (
+                        <li
+                            key={sess.name}
+                            className="text-[11px] text-muted-foreground flex items-center gap-1"
+                        >
+                            <span className="font-mono truncate">
+                                {sess.namespace}
+                                {sess.target && (
+                                    <>
+                                        {' / '}
+                                        {sess.target.kind}/{sess.target.name}
+                                    </>
+                                )}
+                            </span>
+                            {sess.owner && (
+                                <span className="shrink-0">
+                                    · {sess.owner.username}
                                 </span>
-                            </>
-                        )}
-                        {sess.owner && (
-                            <>
-                                {' · '}
-                                <span>{sess.owner.username}</span>
-                            </>
-                        )}
-                    </li>
-                ))}
+                            )}
+                            {age && (
+                                <span className="shrink-0 ml-auto pl-2 text-[10px] text-muted-foreground/80">
+                                    {age}
+                                </span>
+                            )}
+                        </li>
+                    );
+                })}
             </ul>
         </div>
     );

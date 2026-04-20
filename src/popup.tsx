@@ -66,10 +66,11 @@ export function Popup() {
 
     const isActive = rules.length > 0;
     const canToggle = isActive || hasStoredConfig;
+    const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
 
     return (
         <TooltipProvider>
-            <div className="w-[320px] p-3 flex flex-col gap-2">
+            <div className="w-[420px] p-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between pb-2">
                     <div className="flex items-center gap-2">
                         <img
@@ -115,7 +116,7 @@ export function Popup() {
                     </div>
                 </div>
 
-                {mirrordUi.backend && mirrordUi.healthy && (
+                {sessionMode && (
                     <SessionsView
                         grouped={mirrordUi.groupedFiltered}
                         namespaces={mirrordUi.namespaces}
@@ -132,130 +133,229 @@ export function Popup() {
                     />
                 )}
 
-                <Card
-                    className={`transition-all duration-200 ${
-                        isActive ? 'border-l-2 border-l-primary' : ''
-                    }`}
-                >
-                    <CardHeader className="p-3 pb-2">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span
-                                    data-testid="status-dot"
-                                    className={`inline-block w-2 h-2 rounded-full transition-colors ${
-                                        isActive ? '' : 'bg-muted-foreground/30'
-                                    }`}
-                                    style={
-                                        isActive
-                                            ? { backgroundColor: '#22c55e' }
-                                            : undefined
-                                    }
-                                />
-                                <span className="text-xs font-medium">
-                                    {isActive ? 'Active' : 'Inactive'}
-                                </span>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="text-muted-foreground cursor-help text-[10px]">
-                                            ⓘ
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs max-w-[200px]">
-                                        {STRINGS.TOOLTIP_HEADERS}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <Switch
-                                checked={isActive}
-                                onCheckedChange={handleToggle}
-                                disabled={!canToggle || isToggling}
-                                aria-label="Toggle header injection"
-                            />
-                        </div>
-                    </CardHeader>
-
-                    {isActive && rules.length > 0 && (
-                        <>
-                            <div className="px-3">
-                                <Separator />
-                            </div>
-                            <CardContent className="px-3 py-2">
-                                {rules.map((rule) => (
-                                    <div
-                                        key={rule.id}
-                                        className="p-2 rounded-md bg-muted/30 overflow-hidden"
-                                    >
-                                        <code
-                                            className="text-xs font-mono block"
-                                            style={{
-                                                color: 'hsl(var(--brand-yellow))',
-                                                overflowWrap: 'anywhere',
-                                            }}
-                                        >
-                                            {rule.header}: {rule.value}
-                                        </code>
-                                        <span
-                                            className="text-[10px] text-muted-foreground block mt-1"
-                                            style={{
-                                                overflowWrap: 'anywhere',
-                                            }}
-                                        >
-                                            {rule.scope}
-                                        </span>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </>
-                    )}
-
-                    <div className="px-3">
-                        <Separator />
-                    </div>
-
-                    <CardContent className="px-3 py-2">
-                        <HeaderForm
+                {sessionMode ? (
+                    <details className="group">
+                        <summary className="text-[11px] font-semibold uppercase tracking-wider cursor-pointer px-3 py-2 text-muted-foreground hover:text-foreground select-none list-none flex items-center gap-1">
+                            <span className="group-open:rotate-90 transition-transform inline-block">
+                                ▸
+                            </span>
+                            Custom header injection
+                        </summary>
+                        <CustomHeaderCard
+                            rules={rules}
+                            isActive={isActive}
+                            canToggle={canToggle}
+                            isToggling={isToggling}
+                            handleToggle={handleToggle}
                             headerName={headerName}
                             headerValue={headerValue}
                             scope={scope}
-                            onHeaderNameChange={setHeaderName}
-                            onHeaderValueChange={setHeaderValue}
-                            onScopeChange={setScope}
+                            setHeaderName={setHeaderName}
+                            setHeaderValue={setHeaderValue}
+                            setScope={setScope}
+                            error={error}
+                            handleSave={handleSave}
+                            handleReset={handleReset}
+                            saveState={saveState}
+                            resetState={resetState}
+                            hasDefaults={hasDefaults}
+                            getSaveButtonText={getSaveButtonText}
+                            getResetButtonText={getResetButtonText}
                         />
-                    </CardContent>
-
-                    {error && (
-                        <div className="px-3 pb-1">
-                            <p
-                                className="text-[10px] text-destructive"
-                                role="alert"
-                            >
-                                {error}
-                            </p>
-                        </div>
-                    )}
-
-                    <CardFooter className="p-3 pt-0 flex gap-2">
-                        <Button
-                            onClick={handleSave}
-                            disabled={saveState !== 'idle'}
-                            className="flex-1 h-9 text-xs"
-                        >
-                            {getSaveButtonText()}
-                        </Button>
-                        {hasDefaults && (
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={resetState !== 'idle'}
-                                className="flex-1 h-9 text-xs"
-                            >
-                                {getResetButtonText()}
-                            </Button>
-                        )}
-                    </CardFooter>
-                </Card>
+                    </details>
+                ) : (
+                    <CustomHeaderCard
+                        rules={rules}
+                        isActive={isActive}
+                        canToggle={canToggle}
+                        isToggling={isToggling}
+                        handleToggle={handleToggle}
+                        headerName={headerName}
+                        headerValue={headerValue}
+                        scope={scope}
+                        setHeaderName={setHeaderName}
+                        setHeaderValue={setHeaderValue}
+                        setScope={setScope}
+                        error={error}
+                        handleSave={handleSave}
+                        handleReset={handleReset}
+                        saveState={saveState}
+                        resetState={resetState}
+                        hasDefaults={hasDefaults}
+                        getSaveButtonText={getSaveButtonText}
+                        getResetButtonText={getResetButtonText}
+                    />
+                )}
             </div>
         </TooltipProvider>
+    );
+}
+
+type CustomHeaderCardProps = {
+    rules: ReturnType<typeof useHeaderRules>['rules'];
+    isActive: boolean;
+    canToggle: boolean;
+    isToggling: boolean;
+    handleToggle: ReturnType<typeof useHeaderRules>['handleToggle'];
+    headerName: string;
+    headerValue: string;
+    scope: string;
+    setHeaderName: (s: string) => void;
+    setHeaderValue: (s: string) => void;
+    setScope: (s: string) => void;
+    error: string | null;
+    handleSave: ReturnType<typeof useHeaderRules>['handleSave'];
+    handleReset: ReturnType<typeof useHeaderRules>['handleReset'];
+    saveState: 'idle' | 'saving' | 'saved';
+    resetState: 'idle' | 'resetting' | 'reset';
+    hasDefaults: boolean;
+    getSaveButtonText: () => string;
+    getResetButtonText: () => string;
+};
+
+function CustomHeaderCard(props: CustomHeaderCardProps) {
+    const {
+        rules,
+        isActive,
+        canToggle,
+        isToggling,
+        handleToggle,
+        headerName,
+        headerValue,
+        scope,
+        setHeaderName,
+        setHeaderValue,
+        setScope,
+        error,
+        handleSave,
+        handleReset,
+        saveState,
+        resetState,
+        hasDefaults,
+        getSaveButtonText,
+        getResetButtonText,
+    } = props;
+
+    return (
+        <Card
+            className={`transition-all duration-200 ${
+                isActive ? 'border-l-2 border-l-primary' : ''
+            }`}
+        >
+            <CardHeader className="p-3 pb-2">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span
+                            data-testid="status-dot"
+                            className={`inline-block w-2 h-2 rounded-full transition-colors ${
+                                isActive ? '' : 'bg-muted-foreground/30'
+                            }`}
+                            style={
+                                isActive
+                                    ? { backgroundColor: '#22c55e' }
+                                    : undefined
+                            }
+                        />
+                        <span className="text-xs font-medium">
+                            {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="text-muted-foreground cursor-help text-[10px]">
+                                    ⓘ
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs max-w-[200px]">
+                                {STRINGS.TOOLTIP_HEADERS}
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                    <Switch
+                        checked={isActive}
+                        onCheckedChange={handleToggle}
+                        disabled={!canToggle || isToggling}
+                        aria-label="Toggle header injection"
+                    />
+                </div>
+            </CardHeader>
+
+            {isActive && rules.length > 0 && (
+                <>
+                    <div className="px-3">
+                        <Separator />
+                    </div>
+                    <CardContent className="px-3 py-2">
+                        {rules.map((rule) => (
+                            <div
+                                key={rule.id}
+                                className="p-2 rounded-md bg-muted/30 overflow-hidden"
+                            >
+                                <code
+                                    className="text-xs font-mono block"
+                                    style={{
+                                        color: 'hsl(var(--brand-yellow))',
+                                        overflowWrap: 'anywhere',
+                                    }}
+                                >
+                                    {rule.header}: {rule.value}
+                                </code>
+                                <span
+                                    className="text-[10px] text-muted-foreground block mt-1"
+                                    style={{
+                                        overflowWrap: 'anywhere',
+                                    }}
+                                >
+                                    {rule.scope}
+                                </span>
+                            </div>
+                        ))}
+                    </CardContent>
+                </>
+            )}
+
+            <div className="px-3">
+                <Separator />
+            </div>
+
+            <CardContent className="px-3 py-2">
+                <HeaderForm
+                    headerName={headerName}
+                    headerValue={headerValue}
+                    scope={scope}
+                    onHeaderNameChange={setHeaderName}
+                    onHeaderValueChange={setHeaderValue}
+                    onScopeChange={setScope}
+                />
+            </CardContent>
+
+            {error && (
+                <div className="px-3 pb-1">
+                    <p className="text-[10px] text-destructive" role="alert">
+                        {error}
+                    </p>
+                </div>
+            )}
+
+            <CardFooter className="p-3 pt-0 flex gap-2">
+                <Button
+                    onClick={handleSave}
+                    disabled={saveState !== 'idle'}
+                    className="flex-1 h-9 text-xs"
+                >
+                    {getSaveButtonText()}
+                </Button>
+                {hasDefaults && (
+                    <Button
+                        variant="outline"
+                        onClick={handleReset}
+                        disabled={resetState !== 'idle'}
+                        className="flex-1 h-9 text-xs"
+                    >
+                        {getResetButtonText()}
+                    </Button>
+                )}
+            </CardFooter>
+        </Card>
     );
 }
 

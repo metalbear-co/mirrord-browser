@@ -52,6 +52,29 @@ export default function SessionsView({
                     onAcknowledge={onClear}
                 />
             )}
+            {joinState.joinedKey && !joinState.sessionEnded && (
+                <div className="px-3 py-2 bg-primary/5 border-b border-primary/20 flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Injecting header
+                        </span>
+                        <code
+                            className="text-xs font-mono"
+                            style={{ color: 'hsl(var(--brand-yellow))' }}
+                        >
+                            baggage: mirrord-session={joinState.joinedKey}
+                        </code>
+                    </div>
+                    <button
+                        type="button"
+                        className="text-xs px-2 py-1 rounded bg-destructive/20 text-destructive hover:bg-destructive/30 shrink-0"
+                        onClick={onClear}
+                        aria-label="Leave joined session"
+                    >
+                        Leave
+                    </button>
+                </div>
+            )}
             <NamespaceFilter
                 namespaces={namespaces}
                 value={namespace}
@@ -72,6 +95,7 @@ export default function SessionsView({
                             joinedKey={joinState.joinedKey}
                             onJoin={onJoin}
                             onShare={onShare}
+                            onLeave={onClear}
                         />
                     ))
                 )}
