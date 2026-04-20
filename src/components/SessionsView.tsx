@@ -1,12 +1,12 @@
-import { Card, CardContent, CardHeader, Separator } from '@metalbear/ui';
+import { Card, CardContent } from '@metalbear/ui';
+import SessionRow from './SessionRow';
+import ConnectedBanner from './ConnectedBanner';
 import NamespaceFilter from './NamespaceFilter';
-import SessionGroup from './SessionGroup';
-import SessionEndedBanner from './SessionEndedBanner';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
 
 type Props = {
-    grouped: Record<string, OperatorSessionSummary[]>;
+    sessions: OperatorSessionSummary[];
     namespaces: string[];
     namespace: string;
     setNamespace: (ns: string) => void;
@@ -15,10 +15,11 @@ type Props = {
     onJoin: (key: string) => void;
     onClear: () => void;
     onShare: (key: string) => void;
+    onOpenManualSetup: () => void;
 };
 
 export default function SessionsView({
-    grouped,
+    sessions,
     namespaces,
     namespace,
     setNamespace,
@@ -27,17 +28,39 @@ export default function SessionsView({
     onJoin,
     onClear,
     onShare,
+    onOpenManualSetup,
 }: Props) {
-    const entries = Object.entries(grouped).sort(([a], [b]) =>
-        a.localeCompare(b)
-    );
+    const joinedSession = joinState.joinedSessionName
+        ? sessions.find((s) => s.name === joinState.joinedSessionName)
+        : undefined;
+
+    const filtered = namespace
+        ? sessions.filter((s) => s.namespace === namespace)
+        : sessions;
+
+    // Joined session on top, then the rest.
+    const ordered = [...filtered].sort((a, b) => {
+        const aJoined = a.name === joinState.joinedSessionName ? 0 : 1;
+        const bJoined = b.name === joinState.joinedSessionName ? 0 : 1;
+        if (aJoined !== bJoined) return aJoined - bJoined;
+        return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+    });
 
     return (
-        <Card className="overflow-hidden p-0">
-            <CardHeader className="px-3 py-2 bg-card/50 border-b border-border">
-                <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+            {joinState.joinedKey && (
+                <ConnectedBanner
+                    joinedKey={joinState.joinedKey}
+                    session={joinedSession}
+                    sessionEnded={joinState.sessionEnded}
+                    onLeave={onClear}
+                />
+            )}
+
+            <Card className="overflow-hidden p-0">
+                <div className="px-3 py-2 bg-card/50 border-b border-border flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wider">
-                        Available sessions
+                        Live sessions
                     </span>
                     {status && (
                         <span className="text-[10px] text-muted-foreground">
@@ -45,37 +68,43 @@ export default function SessionsView({
                         </span>
                     )}
                 </div>
-            </CardHeader>
-            {joinState.sessionEnded && joinState.joinedKey && (
-                <SessionEndedBanner
-                    joinedKey={joinState.joinedKey}
-                    onAcknowledge={onClear}
+                <NamespaceFilter
+                    namespaces={namespaces}
+                    value={namespace}
+                    onChange={setNamespace}
                 />
-            )}
-            <NamespaceFilter
-                namespaces={namespaces}
-                value={namespace}
-                onChange={setNamespace}
-            />
-            <Separator />
-            <CardContent className="p-0">
-                {entries.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-3 py-4">
-                        No sessions visible with current credentials.
-                    </p>
-                ) : (
-                    entries.map(([groupKey, sessions]) => (
-                        <SessionGroup
-                            key={groupKey || '__ungrouped'}
-                            groupKey={groupKey}
-                            sessions={sessions}
-                            joinedKey={joinState.joinedKey}
-                            onJoin={onJoin}
-                            onShare={onShare}
-                        />
-                    ))
-                )}
-            </CardContent>
-        </Card>
+                <CardContent className="p-0">
+                    {ordered.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-3 py-4">
+                            No sessions visible with current credentials.
+                        </p>
+                    ) : (
+                        ordered.map((sess) => {
+                            const tag =
+                                sess.name === joinState.joinedSessionName
+                                    ? 'joined'
+                                    : null;
+                            return (
+                                <SessionRow
+                                    key={sess.name}
+                                    session={sess}
+                                    tag={tag}
+                                    onJoin={onJoin}
+                                    onShare={onShare}
+                                />
+                            );
+                        })
+                    )}
+                </CardContent>
+            </Card>
+
+            <button
+                type="button"
+                onClick={onOpenManualSetup}
+                className="self-start text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
+            >
+                ⊕ Manual setup
+            </button>
+        </div>
     );
 }

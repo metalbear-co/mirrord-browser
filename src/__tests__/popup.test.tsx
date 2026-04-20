@@ -154,19 +154,26 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
+        // Default: a stored (empty) override so the popup lands on the
+        // Manual screen, matching most legacy tests that exercise the
+        // header form. Tests that want onboarding / sessions override
+        // this in their own `mockStorageGet.mockImplementation`.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
     });
 
-    it('shows idle state when no rules', async () => {
+    it('starts on onboarding when no config and no backend', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
 
         render(<Popup />);
 
         await waitFor(() => {
             expect(
-                screen.getByText('No header injection active')
+                screen.getByText(/Choose how to set up header injection/i)
             ).toBeInTheDocument();
         });
     });
@@ -204,7 +211,9 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Custom header')).toBeInTheDocument();
+            expect(
+                screen.getByText(/Currently injecting/i)
+            ).toBeInTheDocument();
             expect(
                 screen.getByText('X-MIRRORD-USER: testuser')
             ).toBeInTheDocument();
@@ -416,8 +425,10 @@ describe('Popup', () => {
 
     it('hides reset button when no defaults exist', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        // Stored override (no DEFAULTS) keeps us on Manual screen but with
+        // hasDefaults=false, so the Reset button should not render.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
 
         render(<Popup />);
@@ -723,9 +734,7 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(
-                screen.getByText('No header injection active')
-            ).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
         const infoIcons = screen.getAllByText('ⓘ');
@@ -747,7 +756,7 @@ describe('Popup', () => {
     it('share button is disabled when form is empty', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
 
         render(<Popup />);

@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import {
@@ -10,7 +10,7 @@ import {
 } from '@metalbear/ui';
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
-import { HeaderForm, SessionsView, ActiveRuleCard } from './components';
+import { HeaderForm, SessionsView, Onboarding } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
 import { capture, captureBeacon, optOutReady } from './analytics';
@@ -25,17 +25,26 @@ document.addEventListener('visibilitychange', () => {
     });
 });
 
+type Screen = 'sessions' | 'manual' | 'onboarding';
+
 export function Popup() {
     const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
 
     const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
-    const isJoined =
-        sessionMode &&
-        !!mirrordUi.joinState.joinedKey &&
-        !mirrordUi.joinState.sessionEnded;
+    const hasManualConfig =
+        headerRules.rules.length > 0 || headerRules.hasStoredConfig;
+    const [manualOverride, setManualOverride] = useState(false);
 
-    const customRule = !isJoined ? headerRules.rules[0] : undefined;
+    // Decide the starting screen based on state. Once a user navigates
+    // explicitly (clicks Manual setup / Back Sessions), manualOverride
+    // pins us to the chosen screen until next popup open.
+    const screen: Screen = useMemo(() => {
+        if (manualOverride) return 'manual';
+        if (sessionMode) return 'sessions';
+        if (hasManualConfig) return 'manual';
+        return 'onboarding';
+    }, [manualOverride, sessionMode, hasManualConfig]);
 
     return (
         <TooltipProvider>
@@ -57,23 +66,25 @@ export function Popup() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={headerRules.handleShare}
-                            disabled={!headerRules.canShare}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={
-                                headerRules.shareState === 'copied'
-                                    ? 'Copied!'
-                                    : 'Copy config link'
-                            }
-                            aria-label="Share configuration"
-                        >
-                            {headerRules.shareState === 'copied' ? (
-                                <Check size={16} />
-                            ) : (
-                                <Share2 size={16} />
-                            )}
-                        </button>
+                        {screen === 'manual' && (
+                            <button
+                                onClick={headerRules.handleShare}
+                                disabled={!headerRules.canShare}
+                                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={
+                                    headerRules.shareState === 'copied'
+                                        ? 'Copied!'
+                                        : 'Copy config link'
+                                }
+                                aria-label="Share configuration"
+                            >
+                                {headerRules.shareState === 'copied' ? (
+                                    <Check size={16} />
+                                ) : (
+                                    <Share2 size={16} />
+                                )}
+                            </button>
+                        )}
                         <button
                             onClick={() => chrome.runtime.openOptionsPage()}
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -85,25 +96,9 @@ export function Popup() {
                     </div>
                 </div>
 
-                {isJoined && mirrordUi.joinState.joinedKey && (
-                    <ActiveRuleCard
-                        mode="joined"
-                        joinedKey={mirrordUi.joinState.joinedKey}
-                        onLeave={mirrordUi.clearJoin}
-                    />
-                )}
-                {!isJoined && customRule && (
-                    <ActiveRuleCard
-                        mode="custom"
-                        rule={customRule}
-                        onClear={headerRules.handleToggle}
-                    />
-                )}
-                {!isJoined && !customRule && <ActiveRuleCard mode="idle" />}
-
-                {sessionMode && (
+                {screen === 'sessions' && (
                     <SessionsView
-                        grouped={mirrordUi.groupedFiltered}
+                        sessions={mirrordUi.sessions?.sessions ?? []}
                         namespaces={mirrordUi.namespaces}
                         namespace={mirrordUi.namespace}
                         setNamespace={mirrordUi.setNamespace}
@@ -115,13 +110,21 @@ export function Popup() {
                             const url = mirrordUi.buildShareUrl(key);
                             navigator.clipboard.writeText(url).catch(() => {});
                         }}
+                        onOpenManualSetup={() => setManualOverride(true)}
                     />
                 )}
 
-                {!isJoined && (
-                    <CustomHeaderSection
+                {screen === 'manual' && (
+                    <ManualSetup
                         headerRules={headerRules}
-                        collapsed={sessionMode}
+                        showBack={sessionMode}
+                        onBack={() => setManualOverride(false)}
+                    />
+                )}
+
+                {screen === 'onboarding' && (
+                    <Onboarding
+                        onChooseManual={() => setManualOverride(true)}
                     />
                 )}
             </div>
@@ -129,42 +132,15 @@ export function Popup() {
     );
 }
 
-type CustomHeaderSectionProps = {
+type ManualSetupProps = {
     headerRules: ReturnType<typeof useHeaderRules>;
-    /** When a mirrord ui backend is present but the user isn't joined, keep
-     * this section collapsed so the session list stays the primary surface. */
-    collapsed: boolean;
+    showBack: boolean;
+    onBack: () => void;
 };
 
-function CustomHeaderSection({
-    headerRules,
-    collapsed,
-}: CustomHeaderSectionProps) {
-    const inner = <CustomHeaderBody headerRules={headerRules} />;
-
-    if (collapsed) {
-        return (
-            <details className="group">
-                <summary className="text-[11px] font-semibold uppercase tracking-wider cursor-pointer px-3 py-2 text-muted-foreground hover:text-foreground select-none list-none flex items-center gap-1">
-                    <span className="group-open:rotate-90 transition-transform inline-block">
-                        ▸
-                    </span>
-                    Custom header
-                </summary>
-                {inner}
-            </details>
-        );
-    }
-
-    return inner;
-}
-
-function CustomHeaderBody({
-    headerRules,
-}: {
-    headerRules: ReturnType<typeof useHeaderRules>;
-}) {
+function ManualSetup({ headerRules, showBack, onBack }: ManualSetupProps) {
     const {
+        rules,
         headerName,
         headerValue,
         scope,
@@ -177,51 +153,98 @@ function CustomHeaderBody({
         setScope,
         handleSave,
         handleReset,
+        handleToggle,
         getSaveButtonText,
         getResetButtonText,
     } = headerRules;
 
+    const activeRule = rules[0];
+
     return (
-        <Card className="overflow-hidden">
-            <CardContent className="px-3 py-3">
-                <HeaderForm
-                    headerName={headerName}
-                    headerValue={headerValue}
-                    scope={scope}
-                    onHeaderNameChange={setHeaderName}
-                    onHeaderValueChange={setHeaderValue}
-                    onScopeChange={setScope}
-                />
-                {error && (
-                    <p
-                        className="text-[10px] text-destructive mt-2"
-                        role="alert"
+        <div className="flex flex-col gap-2">
+            {activeRule && (
+                <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/10">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                            Currently injecting
+                        </span>
+                        <button
+                            type="button"
+                            onClick={handleToggle}
+                            className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    <code
+                        className="text-xs font-mono block mt-1"
+                        style={{
+                            color: 'hsl(var(--brand-yellow))',
+                            overflowWrap: 'anywhere',
+                        }}
                     >
-                        {error}
-                    </p>
-                )}
-            </CardContent>
-            <Separator />
-            <CardContent className="px-3 py-2 flex gap-2">
-                <Button
-                    onClick={handleSave}
-                    disabled={saveState !== 'idle'}
-                    className="flex-1 h-9 text-xs"
-                >
-                    {getSaveButtonText()}
-                </Button>
-                {hasDefaults && (
+                        {activeRule.header}: {activeRule.value}
+                    </code>
+                    <span
+                        className="text-[10px] text-muted-foreground block mt-0.5"
+                        style={{ overflowWrap: 'anywhere' }}
+                    >
+                        {activeRule.scope}
+                    </span>
+                </div>
+            )}
+
+            <Card className="overflow-hidden">
+                <CardContent className="px-3 py-3">
+                    <HeaderForm
+                        headerName={headerName}
+                        headerValue={headerValue}
+                        scope={scope}
+                        onHeaderNameChange={setHeaderName}
+                        onHeaderValueChange={setHeaderValue}
+                        onScopeChange={setScope}
+                    />
+                    {error && (
+                        <p
+                            className="text-[10px] text-destructive mt-2"
+                            role="alert"
+                        >
+                            {error}
+                        </p>
+                    )}
+                </CardContent>
+                <Separator />
+                <CardContent className="px-3 py-2 flex gap-2">
                     <Button
-                        variant="outline"
-                        onClick={handleReset}
-                        disabled={resetState !== 'idle'}
+                        onClick={handleSave}
+                        disabled={saveState !== 'idle'}
                         className="flex-1 h-9 text-xs"
                     >
-                        {getResetButtonText()}
+                        {getSaveButtonText()}
                     </Button>
-                )}
-            </CardContent>
-        </Card>
+                    {hasDefaults && (
+                        <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            disabled={resetState !== 'idle'}
+                            className="flex-1 h-9 text-xs"
+                        >
+                            {getResetButtonText()}
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
+
+            {showBack && (
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="self-start text-[11px] text-muted-foreground hover:text-foreground px-2 py-1"
+                >
+                    ← Back to sessions
+                </button>
+            )}
+        </div>
     );
 }
 

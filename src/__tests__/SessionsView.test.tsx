@@ -4,15 +4,8 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
 
-// Mock @metalbear/ui components to avoid ts-jest type resolution issues.
 jest.mock('@metalbear/ui', () => ({
     Card: ({
-        children,
-        className,
-    }: React.PropsWithChildren<{ className?: string }>) => (
-        <div className={className}>{children}</div>
-    ),
-    CardHeader: ({
         children,
         className,
     }: React.PropsWithChildren<{ className?: string }>) => (
@@ -24,7 +17,6 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
-    Separator: () => <hr />,
 }));
 
 import SessionsView from '../components/SessionsView';
@@ -32,24 +24,26 @@ import SessionsView from '../components/SessionsView';
 const s = (
     name: string,
     key: string | null,
-    namespace = 'ns'
+    namespace = 'ns',
+    createdAt: string | null = null
 ): OperatorSessionSummary => ({
     name,
     key,
     namespace,
     owner: { username: 'alice', k8sUsername: 'alice@ex' },
     target: { kind: 'Deployment', name: 'web', container: 'app' },
-    createdAt: null,
+    createdAt,
 });
 
 describe('SessionsView', () => {
-    const grouped = {
-        k1: [s('a', 'k1'), s('b', 'k1', 'ns-b')],
-        '': [s('u', null)],
-    };
+    const sessions = [
+        s('a', 'k1', 'ns-a'),
+        s('b', 'k2', 'ns-b'),
+        s('c', null, 'ns-a'),
+    ];
 
     const baseProps = {
-        namespaces: ['', 'ns', 'ns-b'],
+        namespaces: ['', 'ns-a', 'ns-b'],
         namespace: '',
         setNamespace: jest.fn(),
         joinState: {
@@ -61,29 +55,46 @@ describe('SessionsView', () => {
         onJoin: jest.fn(),
         onClear: jest.fn(),
         onShare: jest.fn(),
+        onOpenManualSetup: jest.fn(),
     };
 
-    test('renders a row per key group with count', () => {
-        render(<SessionsView {...baseProps} grouped={grouped} />);
-        expect(screen.getByText('k1')).toBeInTheDocument();
-        expect(screen.getByText('(ungrouped)')).toBeInTheDocument();
-        expect(screen.getByText('2 sessions')).toBeInTheDocument();
+    test('renders a row per session with target + key', () => {
+        render(<SessionsView {...baseProps} sessions={sessions} />);
+        expect(screen.getAllByText('Deployment/web').length).toBe(3);
+        expect(screen.getByText(/k1/)).toBeInTheDocument();
+        expect(screen.getByText(/k2/)).toBeInTheDocument();
     });
 
-    test('clicking a key calls onJoin(key)', () => {
+    test('clicking Join on a row calls onJoin with that session key', () => {
         const onJoin = jest.fn();
         render(
-            <SessionsView {...baseProps} grouped={grouped} onJoin={onJoin} />
+            <SessionsView {...baseProps} sessions={sessions} onJoin={onJoin} />
         );
         fireEvent.click(screen.getByRole('button', { name: /join k1/i }));
         expect(onJoin).toHaveBeenCalledWith('k1');
     });
 
-    test('renders session-ended banner when sessionEnded is true', () => {
+    test('shows a connected banner when a session is joined', () => {
         render(
             <SessionsView
                 {...baseProps}
-                grouped={{}}
+                sessions={sessions}
+                joinState={{
+                    joinedKey: 'k1',
+                    joinedSessionName: 'a',
+                    sessionEnded: false,
+                }}
+            />
+        );
+        expect(screen.getByText(/currently connected/i)).toBeInTheDocument();
+        expect(screen.getByText(/session live/i)).toBeInTheDocument();
+    });
+
+    test('shows session-ended banner when joined session was removed', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={sessions}
                 joinState={{
                     joinedKey: 'k1',
                     joinedSessionName: 'a',
@@ -94,8 +105,21 @@ describe('SessionsView', () => {
         expect(screen.getByText(/session ended/i)).toBeInTheDocument();
     });
 
-    test('renders "no sessions visible" when grouped is empty and status is watching', () => {
-        render(<SessionsView {...baseProps} grouped={{}} />);
+    test('renders "no sessions visible" when list is empty', () => {
+        render(<SessionsView {...baseProps} sessions={[]} />);
         expect(screen.getByText(/no sessions visible/i)).toBeInTheDocument();
+    });
+
+    test('clicking Manual setup link invokes the handler', () => {
+        const onOpenManualSetup = jest.fn();
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={sessions}
+                onOpenManualSetup={onOpenManualSetup}
+            />
+        );
+        fireEvent.click(screen.getByText(/manual setup/i));
+        expect(onOpenManualSetup).toHaveBeenCalled();
     });
 });
