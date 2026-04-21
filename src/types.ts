@@ -72,6 +72,10 @@ export type MirrordUiConfig = {
     token: string;
 };
 
+export type OperatorSessionHttpFilter = {
+    headerFilter: string | null;
+};
+
 export type OperatorSessionSummary = {
     name: string;
     key: string | null;
@@ -79,6 +83,7 @@ export type OperatorSessionSummary = {
     owner: { username: string; k8sUsername: string } | null;
     target: { kind: string; name: string; container: string } | null;
     createdAt: string | null;
+    httpFilter?: OperatorSessionHttpFilter | null;
 };
 
 export type OperatorWatchStatus =

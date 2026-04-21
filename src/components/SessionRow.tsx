@@ -36,7 +36,7 @@ export default function SessionRow({ session, tag, onJoin, onShare }: Props) {
                     variant={tag === 'joined' ? 'default' : 'secondary'}
                     className="text-[9px] uppercase tracking-wider shrink-0"
                 >
-                    {tag === 'joined' ? 'my own session' : 'local session'}
+                    {tag === 'joined' ? 'joined' : 'local session'}
                 </Badge>
             )}
             <div className="flex items-center gap-1 shrink-0">

@@ -18,8 +18,17 @@ import {
     buildDnrRule,
     getDynamicRules,
     updateDynamicRules,
+    deriveInjectionHint,
 } from '../util';
 
+/**
+ * Fallback injection used when a session was started by an older CLI/operator
+ * that didn't persist `http_filter` on the CR. Matches the convention
+ * documented in `mirrord-config`:
+ *   feature.network.incoming.http_filter.header_filter =
+ *     "^baggage: .*mirrord-session={{ key }}.*$"
+ * When present, the operator-populated hint always wins over this fallback.
+ */
 const BAGGAGE_HEADER_NAME = 'baggage';
 const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
@@ -172,11 +181,13 @@ export function useMirrordUi() {
                 setError(`Key "${key}" not visible in current session list`);
                 return;
             }
-            const ruleVal = `${BAGGAGE_VALUE_PREFIX}${key}`;
+            const hint = deriveInjectionHint(target.httpFilter?.headerFilter);
+            const header = hint?.header ?? BAGGAGE_HEADER_NAME;
+            const value = hint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
             const existing = await getDynamicRules();
             await updateDynamicRules({
                 removeRuleIds: existing.map((r) => r.id),
-                addRules: buildDnrRule(BAGGAGE_HEADER_NAME, ruleVal),
+                addRules: buildDnrRule(header, value),
             });
             await storageSet({
                 [STORAGE_KEYS.JOINED_KEY]: key,
