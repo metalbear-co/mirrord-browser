@@ -2,13 +2,6 @@ import { test, expect } from './fixtures';
 import { addHeader } from './helpers';
 import type { BrowserContext, Page } from '@playwright/test';
 
-/**
- * Instrument a page to capture analytics events by wrapping fetch().
- *
- * The analytics module sends events via fetch() to hog.metalbear.com/capture/.
- * We intercept those calls with addInitScript to record the event payloads
- * before they hit the network.
- */
 async function setupAnalyticsSpy(page: Page): Promise<void> {
     await page.addInitScript(() => {
         (window as any).__captured_analytics__ = [];
@@ -28,9 +21,7 @@ async function setupAnalyticsSpy(page: Page): Promise<void> {
                         properties: body.properties || {},
                     });
                 }
-            } catch {
-                // Don't break anything
-            }
+            } catch {}
             return origFetch(input, init);
         };
 
@@ -44,9 +35,7 @@ async function setupAnalyticsSpy(page: Page): Promise<void> {
                         properties: body.properties || {},
                     });
                 }
-            } catch {
-                // Don't break anything
-            }
+            } catch {}
             return origBeacon(url, data);
         };
     });

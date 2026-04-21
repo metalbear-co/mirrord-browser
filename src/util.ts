@@ -1,12 +1,6 @@
 import { Config, HeaderRule, ALL_RESOURCE_TYPES } from './types';
 import { STRINGS } from './constants';
 
-/**
- * Refresh browser extension icon badge text based on the number of
- * active request rules.
- *
- * @param num number of active request rules managed by the extension
- */
 export function refreshIconIndicator(num: number) {
     chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
     if (num > 0) {
@@ -16,21 +10,11 @@ export function refreshIconIndicator(num: number) {
     }
 }
 
-/**
- * Determine the display scope from a URL filter.
- * Returns "All URLs" for wildcard/empty filters, otherwise the actual filter.
- */
 function getDisplayScope(urlFilter: string | undefined): string {
     const isWildcard = !urlFilter || urlFilter === '|';
     return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
 }
 
-/**
- * Parse Chrome declarativeNetRequest rules into a simplified HeaderRule format.
- *
- * @param rules Chrome declarativeNetRequest rules
- * @returns Parsed header rules for display
- */
 export function parseRules(
     rules: chrome.declarativeNetRequest.Rule[]
 ): HeaderRule[] {
@@ -53,10 +37,6 @@ export function parseRules(
         });
 }
 
-/**
- * Build a declarativeNetRequest rule for header injection.
- * Conceptual inverse of parseRules.
- */
 export function buildDnrRule(
     header: string,
     value: string,
@@ -85,8 +65,6 @@ export function buildDnrRule(
         },
     ];
 }
-
-// --- Promisified Chrome API wrappers ---
 
 export function getDynamicRules(): Promise<
     chrome.declarativeNetRequest.Rule[]

@@ -40,7 +40,6 @@ export const test = base.extend<ExtensionFixtures>({
     },
 
     extensionId: async ({ context }, use) => {
-        // Wait for the service worker to register
         let serviceWorker = context.serviceWorkers()[0];
         if (!serviceWorker) {
             serviceWorker = await context.waitForEvent('serviceworker');

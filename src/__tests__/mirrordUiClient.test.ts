@@ -1,6 +1,4 @@
-/**
- * @jest-environment node
- */
+/** @jest-environment node */
 import { fetchOperatorSessions, buildWsUrl } from '../mirrordUiClient';
 
 describe('mirrordUiClient', () => {

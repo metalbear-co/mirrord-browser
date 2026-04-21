@@ -43,8 +43,6 @@ export function Popup() {
     const hasManualConfig =
         headerRules.rules.length > 0 || headerRules.hasStoredConfig;
 
-    // Default-tab logic: if a backend is connected and the user hasn't
-    // saved any manual config, start on Sessions. Otherwise manual.
     const defaultTab: Tab =
         sessionMode && !hasManualConfig ? 'sessions' : 'manual';
     const [tab, setTab] = useState<Tab>(defaultTab);

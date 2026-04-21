@@ -30,13 +30,6 @@ export type JoinState = {
     sessionEnded: boolean;
 };
 
-/**
- * Bridge between a running `mirrord ui` daemon and the React popup.
- *
- * Loads backend config from chrome.storage.local, health-probes the backend,
- * fetches the current operator session snapshot, subscribes to live
- * notifications over WebSocket, and exposes join/share/clear operations.
- */
 export function useMirrordUi() {
     const [backend, setBackend] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
@@ -55,7 +48,6 @@ export function useMirrordUi() {
 
     const wsRef = useRef<WebSocket | null>(null);
 
-    // Load backend config from storage.
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -83,7 +75,6 @@ export function useMirrordUi() {
         };
     }, []);
 
-    // Health probe.
     useEffect(() => {
         if (!backend) return;
         pingHealth(backend)
@@ -91,7 +82,6 @@ export function useMirrordUi() {
             .catch(() => setHealthy(false));
     }, [backend]);
 
-    // Fetch sessions snapshot.
     useEffect(() => {
         if (!backend || !token || healthy !== true) return;
         let cancelled = false;
@@ -111,7 +101,6 @@ export function useMirrordUi() {
         };
     }, [backend, token, healthy]);
 
-    // Websocket live updates.
     useEffect(() => {
         if (!backend || !token || healthy !== true) return;
         const url = buildWsUrl(backend, token);
@@ -132,9 +121,7 @@ export function useMirrordUi() {
                             : js
                     );
                 }
-            } catch {
-                // ignore malformed frames
-            }
+            } catch {}
         };
         ws.onerror = () => setError('websocket error');
         ws.onclose = () => {
