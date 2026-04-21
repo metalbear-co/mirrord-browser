@@ -3,6 +3,8 @@ import { STORAGE_KEYS } from '../types';
 describe('configure.tsx (entry)', () => {
     beforeEach(() => {
         document.body.innerHTML = '<div id="content"></div>';
+        // jsdom's window.location is non-configurable; use history to set the
+        // search string without navigating cross-origin.
         window.history.replaceState(
             {},
             '',

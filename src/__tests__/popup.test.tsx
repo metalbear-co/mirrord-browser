@@ -2,12 +2,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+// Mock analytics module (must be before popup import since it fires at module level)
 jest.mock('../analytics', () => ({
     capture: jest.fn(),
     captureBeacon: jest.fn(),
     optOutReady: Promise.resolve(),
 }));
 
+// Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
     Button: ({
         children,
@@ -138,6 +140,7 @@ jest.mock('@metalbear/ui', () => ({
     ),
 }));
 
+// Mock chrome API
 const mockGetDynamicRules = jest.fn();
 const mockUpdateDynamicRules = jest.fn();
 const mockSetBadgeText = jest.fn();
@@ -184,6 +187,7 @@ globalThis.chrome = {
     },
 } as unknown as typeof chrome;
 
+// Import after mocks are set up
 import { Popup } from '../popup';
 
 describe('Popup', () => {
@@ -192,6 +196,10 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
+        // Default: a stored (empty) override so the popup lands on the
+        // Manual screen, matching most legacy tests that exercise the
+        // header form. Tests that want onboarding / sessions override
+        // this in their own `mockStorageGet.mockImplementation`.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({ override: { headerName: '', headerValue: '' } })
         );
@@ -454,6 +462,8 @@ describe('Popup', () => {
 
     it('hides reset button when no defaults exist', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        // Stored override (no DEFAULTS) keeps us on Manual screen but with
+        // hasDefaults=false, so the Reset button should not render.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({ override: { headerName: '', headerValue: '' } })
         );
@@ -470,6 +480,7 @@ describe('Popup', () => {
     });
 
     it('saves header when save button is clicked', async () => {
+        // Rule already active — save should refresh it in place.
         mockGetDynamicRules.mockImplementation((cb: Function) =>
             cb([
                 {
@@ -621,6 +632,7 @@ describe('Popup', () => {
     });
 
     it('saves header with URL scope', async () => {
+        // Rule already active — save should refresh it with the new scope.
         mockGetDynamicRules.mockImplementation((cb: Function) =>
             cb([
                 {

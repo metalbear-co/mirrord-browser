@@ -1,5 +1,9 @@
 import type { OperatorSessionsResponse } from './types';
 
+/**
+ * Fetch the current operator-sessions snapshot from a running mirrord ui.
+ * Accepts an optional fetch impl for testing.
+ */
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
@@ -15,6 +19,9 @@ export async function fetchOperatorSessions(
     return (await resp.json()) as OperatorSessionsResponse;
 }
 
+/**
+ * Build the WebSocket URL for /ws from an http(s) backend base.
+ */
 export function buildWsUrl(backend: string, token: string): string {
     let scheme: string;
     if (backend.startsWith('https://')) scheme = 'wss';
@@ -27,6 +34,10 @@ export function buildWsUrl(backend: string, token: string): string {
     return `${scheme}://${hostAndRest}/ws?token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * Simple health probe against the unauthenticated /health endpoint.
+ * Returns true iff the server responded 200 within the given timeout.
+ */
 export async function pingHealth(
     backend: string,
     timeoutMs = 1500,
