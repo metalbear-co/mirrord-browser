@@ -65,7 +65,6 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
 ];
 
 /**
- * Config pointing the extension at a running `mirrord ui` daemon.
  */
 export type MirrordUiConfig = {
     backend: string;

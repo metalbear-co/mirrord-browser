@@ -196,10 +196,6 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
-        // Default: a stored (empty) override so the popup lands on the
-        // Manual screen, matching most legacy tests that exercise the
-        // header form. Tests that want onboarding / sessions override
-        // this in their own `mockStorageGet.mockImplementation`.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({ override: { headerName: '', headerValue: '' } })
         );
@@ -462,8 +458,6 @@ describe('Popup', () => {
 
     it('hides reset button when no defaults exist', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        // Stored override (no DEFAULTS) keeps us on Manual screen but with
-        // hasDefaults=false, so the Reset button should not render.
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({ override: { headerName: '', headerValue: '' } })
         );

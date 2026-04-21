@@ -20,9 +20,6 @@ export default function NamespaceFilter({
     value,
     onChange,
 }: Props) {
-    // Radix <Select> rejects empty-string `value` so we map `'' → __all__`
-    // on the wire while keeping the external contract as empty-string for
-    // "all namespaces."
     const selectValue = value === '' ? ALL_VALUE : value;
 
     return (
