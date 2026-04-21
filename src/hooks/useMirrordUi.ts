@@ -21,14 +21,6 @@ import {
     deriveInjectionHint,
 } from '../util';
 
-/**
- * Fallback injection used when a session was started by an older CLI/operator
- * that didn't persist `http_filter` on the CR. Matches the convention
- * documented in `mirrord-config`:
- *   feature.network.incoming.http_filter.header_filter =
- *     "^baggage: .*mirrord-session={{ key }}.*$"
- * When present, the operator-populated hint always wins over this fallback.
- */
 const BAGGAGE_HEADER_NAME = 'baggage';
 const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 

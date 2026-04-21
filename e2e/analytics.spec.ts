@@ -67,9 +67,6 @@ async function openPopupWithSpy(
     const page = await context.newPage();
     await setupAnalyticsSpy(page);
     await page.goto(`chrome-extension://${extensionId}/pages/popup.html`);
-    // The popup's fresh-install state is Onboarding, not the Manual form
-    // these tests expect. Seed an empty stored config so `hasStoredConfig`
-    // flips true and the Manual form renders directly.
     await page.evaluate(() =>
         chrome.storage.local.set({
             defaults: { headerName: '', headerValue: '', scope: '' },
@@ -85,8 +82,6 @@ test.describe('Analytics events', () => {
         extensionId,
     }) => {
         const page = await openPopupWithSpy(context, extensionId);
-        // The logo wordmark and the "Header Injector" subtitle both contain
-        // "mirrord"; pin to the exact wordmark to avoid strict-mode ambiguity.
         await expect(page.getByText('mirrord', { exact: true })).toBeVisible();
 
         const events = await getCapturedEvents(page);

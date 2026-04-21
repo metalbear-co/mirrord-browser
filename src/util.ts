@@ -168,28 +168,11 @@ export function buildShareUrl(config: Config): string {
     return `chrome-extension://${chrome.runtime.id}/pages/config.html?payload=${encoded}`;
 }
 
-/**
- * The shape the extension needs to inject in order to satisfy a session's
- * `http_filter.header_filter` regex. `null` means the filter couldn't be
- * reduced to a (header, value) pair — path-only filters, `all_of`/`any_of`
- * combinators, disjunctions, and other non-trivial regexes land here.
- */
 export type InjectionHint = {
     header: string;
     value: string;
 };
 
-/**
- * Translate an operator session's `headerFilter` regex into the header+value
- * an extension needs to inject so the dev's existing filter matches the
- * request. Handles the narrow set of shapes the CLI docs show devs use:
- *   - `^<header>: <exact-value>$`            (exact match)
- *   - `^<header>: .*<value-substring>.*$`    (substring match)
- *   - `<header>: <exact-value>`              (loose, no anchors)
- *
- * Returns `null` for anything more complex; callers should disable Join when
- * the hint is `null` rather than guess at injection.
- */
 export function deriveInjectionHint(
     headerFilter: string | null | undefined
 ): InjectionHint | null {
@@ -197,21 +180,18 @@ export function deriveInjectionHint(
     const trimmed = headerFilter.trim();
     if (!trimmed) return null;
 
-    // Pattern 1: ^header: .*value.*$ (substring within a header's value)
     const substring = trimmed.match(/^\^([A-Za-z0-9_-]+):\s?\.\*(.+?)\.\*\$$/);
     if (substring) {
         const value = unescapeRegexLiteral(substring[2]);
         if (value !== null) return { header: substring[1], value };
     }
 
-    // Pattern 2: ^header: value$ (exact match)
     const exact = trimmed.match(/^\^([A-Za-z0-9_-]+):\s?(.+?)\$$/);
     if (exact) {
         const value = unescapeRegexLiteral(exact[2]);
         if (value !== null) return { header: exact[1], value };
     }
 
-    // Pattern 3: header: value (no anchors, best-effort)
     const loose = trimmed.match(/^([A-Za-z0-9_-]+):\s?(.+)$/);
     if (loose) {
         const value = unescapeRegexLiteral(loose[2]);
@@ -221,11 +201,6 @@ export function deriveInjectionHint(
     return null;
 }
 
-/**
- * Strip regex escape sequences from a literal segment. If the segment still
- * contains metacharacters after unescaping, we refuse to produce a hint — the
- * filter is more complex than a literal and the extension can't safely inject.
- */
 function unescapeRegexLiteral(fragment: string): string | null {
     const unescaped = fragment.replace(/\\(.)/g, '$1');
     if (/[\^\$\*\+\?\(\)\[\]\{\}\|]/.test(unescaped)) return null;
