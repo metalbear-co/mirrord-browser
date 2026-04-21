@@ -20,6 +20,8 @@ async function configureBackend(
 }
 
 async function openSessionsTab(popup: Page) {
+    // The popup may land on either tab depending on stored state; explicitly
+    // switch to Sessions whenever the tablist is visible.
     await popup.waitForTimeout(1500);
     const sessionsTab = popup.getByRole('tab', { name: /sessions/i });
     if (await sessionsTab.isVisible()) {
@@ -60,6 +62,9 @@ test.describe('operator-sessions flow', () => {
         await expect(joinK1).toBeVisible({ timeout: 15_000 });
         await joinK1.click();
 
+        // A successful join tags the row with the "joined" badge. The button
+        // text itself doesn't change — each SessionRow only renders a Join
+        // button when the session isn't already joined.
         await expect(popup.getByText(/joined/i).first()).toBeVisible({
             timeout: 10_000,
         });
@@ -68,6 +73,8 @@ test.describe('operator-sessions flow', () => {
         await target.goto(`${TEST_SERVER}/headers`);
         const body = await target.locator('body').innerText();
         const headers = JSON.parse(body);
+        // The fake mirrord-ui server doesn't populate httpFilter on sessions,
+        // so Join falls back to the documented baggage convention.
         expect(headers['baggage']).toContain('mirrord-session=k1');
     });
 
@@ -87,6 +94,9 @@ test.describe('operator-sessions flow', () => {
             timeout: 10_000,
         });
 
+        // Trigger removal of session "a" (first session under k1, which is
+        // the session name recorded by the join hook). This flips
+        // sessionEnded in the popup via the WebSocket notification.
         await configPage.request.post(`${FAKE_BACKEND}/__inject/remove`, {
             data: { name: 'a' },
         });
