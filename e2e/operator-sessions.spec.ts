@@ -1,57 +1,80 @@
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
 
 const FAKE_BACKEND = 'http://127.0.0.1:3457';
 const FAKE_TOKEN = 'test-token';
 const TEST_SERVER = 'http://localhost:3456';
+
+async function configureBackend(
+    context: import('@playwright/test').BrowserContext,
+    extensionId: string
+) {
+    const page = await context.newPage();
+    await page.goto(
+        `chrome-extension://${extensionId}/pages/configure.html?backend=${encodeURIComponent(
+            FAKE_BACKEND
+        )}&token=${FAKE_TOKEN}`
+    );
+    await expect(page.getByText(/mirrord ui connected/i)).toBeVisible();
+    return page;
+}
+
+async function openSessionsTab(popup: Page) {
+    // The popup may land on either tab depending on stored state; explicitly
+    // switch to Sessions whenever the tablist is visible.
+    await popup.waitForTimeout(1500);
+    const sessionsTab = popup.getByRole('tab', { name: /sessions/i });
+    if (await sessionsTab.isVisible()) {
+        await sessionsTab.click();
+    }
+    await expect(popup.getByText('Live sessions', { exact: true })).toBeVisible(
+        { timeout: 15_000 }
+    );
+}
 
 test.describe('operator-sessions flow', () => {
     test('extension lists operator sessions after configure.html visit', async ({
         context,
         extensionId,
     }) => {
-        const page = await context.newPage();
-        await page.goto(
-            `chrome-extension://${extensionId}/pages/configure.html?backend=${encodeURIComponent(
-                FAKE_BACKEND
-            )}&token=${FAKE_TOKEN}`
-        );
-        await expect(page.getByText(/mirrord ui connected/i)).toBeVisible();
-
+        await configureBackend(context, extensionId);
         const popup = await context.newPage();
         await popup.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+        await openSessionsTab(popup);
         await expect(
-            popup.getByText('Sessions', { exact: true })
+            popup.getByText('k1', { exact: false }).first()
         ).toBeVisible();
-        await expect(popup.getByText('k1')).toBeVisible();
-        await expect(popup.getByText('k2')).toBeVisible();
+        await expect(
+            popup.getByText('k2', { exact: false }).first()
+        ).toBeVisible();
     });
 
-    test('clicking Join for a key writes a baggage DNR rule', async ({
+    test('clicking Join for a key writes the expected DNR rule', async ({
         context,
         extensionId,
     }) => {
-        const page = await context.newPage();
-        await page.goto(
-            `chrome-extension://${extensionId}/pages/configure.html?backend=${encodeURIComponent(
-                FAKE_BACKEND
-            )}&token=${FAKE_TOKEN}`
-        );
-        await expect(page.getByText(/mirrord ui connected/i)).toBeVisible();
-
+        await configureBackend(context, extensionId);
         const popup = await context.newPage();
         await popup.goto(`chrome-extension://${extensionId}/pages/popup.html`);
-        // Wait for session data to load (button only renders when sessions exist).
-        const joinK1 = popup.getByRole('button', { name: /join k1/i });
-        await expect(joinK1).toBeVisible();
+        await openSessionsTab(popup);
+
+        const joinK1 = popup.getByRole('button', { name: /join k1/i }).first();
+        await expect(joinK1).toBeVisible({ timeout: 15_000 });
         await joinK1.click();
 
-        // After join, the button becomes "Rejoin" (same aria-label).
-        await expect(joinK1).toHaveText(/rejoin/i);
+        // A successful join tags the row with the "joined" badge. The button
+        // text itself doesn't change — each SessionRow only renders a Join
+        // button when the session isn't already joined.
+        await expect(popup.getByText(/joined/i).first()).toBeVisible({
+            timeout: 10_000,
+        });
 
         const target = await context.newPage();
         await target.goto(`${TEST_SERVER}/headers`);
         const body = await target.locator('body').innerText();
         const headers = JSON.parse(body);
+        // The fake mirrord-ui server doesn't populate httpFilter on sessions,
+        // so Join falls back to the documented baggage convention.
         expect(headers['baggage']).toContain('mirrord-session=k1');
     });
 
@@ -59,24 +82,22 @@ test.describe('operator-sessions flow', () => {
         context,
         extensionId,
     }) => {
-        const page = await context.newPage();
-        await page.goto(
-            `chrome-extension://${extensionId}/pages/configure.html?backend=${encodeURIComponent(
-                FAKE_BACKEND
-            )}&token=${FAKE_TOKEN}`
-        );
-        await expect(page.getByText(/mirrord ui connected/i)).toBeVisible();
-
+        const configPage = await configureBackend(context, extensionId);
         const popup = await context.newPage();
         await popup.goto(`chrome-extension://${extensionId}/pages/popup.html`);
-        const joinK1 = popup.getByRole('button', { name: /join k1/i });
-        await expect(joinK1).toBeVisible();
-        await joinK1.click();
-        await expect(joinK1).toHaveText(/rejoin/i);
+        await openSessionsTab(popup);
 
-        // Trigger removal of session "a" (first session under k1, which is the
-        // session name recorded by the join hook). This flips sessionEnded.
-        await page.request.post(`${FAKE_BACKEND}/__inject/remove`, {
+        const joinK1 = popup.getByRole('button', { name: /join k1/i }).first();
+        await expect(joinK1).toBeVisible({ timeout: 15_000 });
+        await joinK1.click();
+        await expect(popup.getByText(/joined/i).first()).toBeVisible({
+            timeout: 10_000,
+        });
+
+        // Trigger removal of session "a" (first session under k1, which is
+        // the session name recorded by the join hook). This flips
+        // sessionEnded in the popup via the WebSocket notification.
+        await configPage.request.post(`${FAKE_BACKEND}/__inject/remove`, {
             data: { name: 'a' },
         });
 

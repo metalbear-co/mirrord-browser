@@ -53,6 +53,17 @@ export const test = base.extend<ExtensionFixtures>({
     popupPage: async ({ context, extensionId }, use) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+        // Popups on a fresh install now render the Onboarding screen; tests in
+        // this suite expect the Manual form. Seed an empty stored config so
+        // `hasStoredConfig` flips true and the Manual form renders directly.
+        // Suites that need to exercise the Onboarding flow should open their
+        // own page instead of using this fixture.
+        await page.evaluate(() =>
+            chrome.storage.local.set({
+                defaults: { headerName: '', headerValue: '', scope: '' },
+            })
+        );
+        await page.reload();
         await use(page);
     },
 });
