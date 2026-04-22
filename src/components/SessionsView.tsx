@@ -65,41 +65,49 @@ export default function SessionsView({
                 />
             )}
 
-            <Card className="overflow-hidden p-0">
-                <div className="px-3 py-2 bg-card/50 border-b border-border flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider">
-                        Live sessions
+            <div className="flex items-center justify-between px-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                    Live sessions
+                </span>
+                {status && (
+                    <span className="text-[10px] text-muted-foreground">
+                        {status.status}
                     </span>
-                    {status && (
-                        <span className="text-[10px] text-muted-foreground">
-                            {status.status}
-                        </span>
-                    )}
-                </div>
-                <NamespaceFilter
-                    namespaces={namespaces}
-                    value={namespace}
-                    onChange={setNamespace}
-                />
+                )}
+            </div>
+
+            <Card className="p-0 overflow-hidden">
                 <CardContent className="p-0">
-                    {orderedKeys.length === 0 ? (
-                        <p className="text-xs text-muted-foreground px-3 py-4">
-                            No sessions visible with current credentials.
-                        </p>
-                    ) : (
-                        orderedKeys.map((k) => (
-                            <SessionKeyGroup
-                                key={k}
-                                groupKey={k}
-                                sessions={groups.get(k) ?? []}
-                                joined={k === joinState.joinedKey}
-                                onJoin={onJoin}
-                                onShare={onShare}
-                            />
-                        ))
-                    )}
+                    <NamespaceFilter
+                        namespaces={namespaces}
+                        value={namespace}
+                        onChange={setNamespace}
+                    />
                 </CardContent>
             </Card>
+
+            {orderedKeys.length === 0 ? (
+                <Card className="p-0">
+                    <CardContent className="px-3 py-4">
+                        <p className="text-xs text-muted-foreground">
+                            No sessions visible with current credentials.
+                        </p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="flex flex-col gap-2">
+                    {orderedKeys.map((k) => (
+                        <SessionKeyGroup
+                            key={k}
+                            groupKey={k}
+                            sessions={groups.get(k) ?? []}
+                            joined={k === joinState.joinedKey}
+                            onJoin={onJoin}
+                            onShare={onShare}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

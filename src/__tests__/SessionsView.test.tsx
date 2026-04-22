@@ -17,6 +17,19 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
+    CardHeader: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
+    ),
+    CardTitle: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
+    ),
+    Separator: () => <hr />,
     Badge: ({
         children,
         className,
