@@ -95,11 +95,13 @@ describe('SessionsView', () => {
         onShare: jest.fn(),
     };
 
-    test('renders a row per session with target + key', () => {
+    test('renders one group per key, omitting keyless sessions', () => {
         render(<SessionsView {...baseProps} sessions={sessions} />);
-        expect(screen.getAllByText('Deployment/web').length).toBe(3);
-        expect(screen.getByText(/k1/)).toBeInTheDocument();
-        expect(screen.getByText(/k2/)).toBeInTheDocument();
+        expect(screen.getByText('k1')).toBeInTheDocument();
+        expect(screen.getByText('k2')).toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: /join \(no key\)/i })
+        ).toBeNull();
     });
 
     test('clicking Join on a row calls onJoin with that session key', () => {
