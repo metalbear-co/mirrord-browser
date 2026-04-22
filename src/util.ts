@@ -1,3 +1,5 @@
+import { RegExpParser } from 'regexpp';
+import type { Alternative, Element } from 'regexpp/ast';
 import { Config, HeaderRule, ALL_RESOURCE_TYPES } from './types';
 import { STRINGS } from './constants';
 
@@ -168,16 +170,11 @@ export function buildShareUrl(config: Config): string {
     return `chrome-extension://${chrome.runtime.id}/pages/config.html?payload=${encoded}`;
 }
 
-/**
- */
 export type InjectionHint = {
     header: string;
     value: string;
 };
 
-/**
- *
- */
 export function deriveInjectionHint(
     headerFilter: string | null | undefined
 ): InjectionHint | null {
@@ -185,31 +182,67 @@ export function deriveInjectionHint(
     const trimmed = headerFilter.trim();
     if (!trimmed) return null;
 
-    const substring = trimmed.match(/^\^([A-Za-z0-9_-]+):\s?\.\*(.+?)\.\*\$$/);
-    if (substring) {
-        const value = unescapeRegexLiteral(substring[2]);
-        if (value !== null) return { header: substring[1], value };
+    let pattern;
+    try {
+        pattern = new RegExpParser().parsePattern(trimmed);
+    } catch {
+        return null;
     }
-
-    const exact = trimmed.match(/^\^([A-Za-z0-9_-]+):\s?(.+?)\$$/);
-    if (exact) {
-        const value = unescapeRegexLiteral(exact[2]);
-        if (value !== null) return { header: exact[1], value };
-    }
-
-    const loose = trimmed.match(/^([A-Za-z0-9_-]+):\s?(.+)$/);
-    if (loose) {
-        const value = unescapeRegexLiteral(loose[2]);
-        if (value !== null) return { header: loose[1], value };
-    }
-
-    return null;
+    if (pattern.alternatives.length !== 1) return null;
+    return extractFromAlternative(pattern.alternatives[0]);
 }
 
-/**
- */
-function unescapeRegexLiteral(fragment: string): string | null {
-    const unescaped = fragment.replace(/\\(.)/g, '$1');
-    if (/[\^\$\*\+\?\(\)\[\]\{\}\|]/.test(unescaped)) return null;
-    return unescaped;
+function extractFromAlternative(alt: Alternative): InjectionHint | null {
+    const elements = alt.elements.filter(
+        (e) =>
+            !(
+                e.type === 'Assertion' &&
+                (e.kind === 'start' || e.kind === 'end')
+            )
+    );
+
+    const head = collectLiteralRun(elements, 0);
+    if (!head) return null;
+    const sepMatch = head.text.match(/^([A-Za-z0-9_-]+):\s?([\s\S]*)$/);
+    if (!sepMatch) return null;
+    const header = sepMatch[1];
+    let value = sepMatch[2];
+
+    let i = head.nextIndex;
+    while (i < elements.length && isFreeQuantifier(elements[i])) i++;
+
+    const tail = collectLiteralRun(elements, i);
+    if (tail) {
+        value += tail.text;
+        i = tail.nextIndex;
+    }
+
+    while (i < elements.length && isFreeQuantifier(elements[i])) i++;
+
+    if (i !== elements.length) return null;
+    if (!value) return null;
+
+    return { header, value };
+}
+
+function collectLiteralRun(
+    elements: Element[],
+    start: number
+): { text: string; nextIndex: number } | null {
+    let text = '';
+    let i = start;
+    while (i < elements.length) {
+        const el = elements[i];
+        if (el.type !== 'Character') break;
+        text += String.fromCodePoint(el.value);
+        i++;
+    }
+    return text ? { text, nextIndex: i } : null;
+}
+
+function isFreeQuantifier(el: Element): boolean {
+    if (el.type !== 'Quantifier') return false;
+    if (el.min !== 0) return false;
+    if (el.element.type !== 'CharacterSet') return false;
+    return el.element.kind === 'any';
 }

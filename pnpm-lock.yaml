@@ -80,6 +80,9 @@ importers:
             prettier:
                 specifier: ^3.5.3
                 version: 3.5.3
+            regexpp:
+                specifier: ^3.2.0
+                version: 3.2.0
             ts-jest:
                 specifier: ^29.3.4
                 version: 29.4.0(@babel/core@7.28.6)(@jest/transform@29.7.0)(@jest/types@30.0.0)(babel-jest@29.7.0(@babel/core@7.28.6))(jest-util@30.0.0)(jest@29.7.0(@types/node@24.0.1))(typescript@5.8.3)
@@ -4261,6 +4264,13 @@ packages:
             }
         engines: { node: '>=8' }
 
+    regexpp@3.2.0:
+        resolution:
+            {
+                integrity: sha512-pq2bWo9mVD43nbts2wGv17XLiNLya+GklZ8kaDLV2Z08gDCsGpnKn9BFMepvWuHCbyVvY7J5o5+BVvoQbmlJLg==,
+            }
+        engines: { node: '>=8' }
+
     require-directory@2.1.1:
         resolution:
             {
@@ -7861,6 +7871,8 @@ snapshots:
         dependencies:
             indent-string: 4.0.0
             strip-indent: 3.0.0
+
+    regexpp@3.2.0: {}
 
     require-directory@2.1.1: {}
 

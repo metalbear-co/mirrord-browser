@@ -42,6 +42,7 @@
         "jest-environment-jsdom": "^30.0.0",
         "lint-staged": "^16.2.7",
         "prettier": "^3.5.3",
+        "regexpp": "^3.2.0",
         "ts-jest": "^29.3.4",
         "tsx": "^4.21.0",
         "typescript": "^5.8.3",
