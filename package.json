@@ -42,7 +42,6 @@
         "jest-environment-jsdom": "^30.0.0",
         "lint-staged": "^16.2.7",
         "prettier": "^3.5.3",
-        "regexpp": "^3.2.0",
         "ts-jest": "^29.3.4",
         "tsx": "^4.21.0",
         "typescript": "^5.8.3",
@@ -52,6 +51,7 @@
     "dependencies": {
         "@metalbear/ui": "^0.1.4",
         "lucide-react": "^0.575.0",
+        "randexp": "^0.5.3",
         "react": "^19.2.4",
         "react-dom": "^19.2.4"
     },

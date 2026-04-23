@@ -29,7 +29,15 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ className?: string }>) => (
         <div className={className}>{children}</div>
     ),
+    CardFooter: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <div className={className}>{children}</div>
+    ),
     Separator: () => <hr />,
+    cn: (...args: Array<string | false | null | undefined>) =>
+        args.filter(Boolean).join(' '),
     Badge: ({
         children,
         className,
@@ -138,8 +146,8 @@ describe('SessionsView', () => {
                 }}
             />
         );
-        expect(screen.getByText(/currently connected/i)).toBeInTheDocument();
         expect(screen.getByText(/session live/i)).toBeInTheDocument();
+        expect(screen.getAllByText('k1').length).toBeGreaterThan(0);
     });
 
     test('shows session-ended banner when joined session was removed', () => {

@@ -13,6 +13,9 @@ importers:
             lucide-react:
                 specifier: ^0.575.0
                 version: 0.575.0(react@19.2.4)
+            randexp:
+                specifier: ^0.5.3
+                version: 0.5.3
             react:
                 specifier: ^19.2.4
                 version: 19.2.4
@@ -80,9 +83,6 @@ importers:
             prettier:
                 specifier: ^3.5.3
                 version: 3.5.3
-            regexpp:
-                specifier: ^3.2.0
-                version: 3.2.0
             ts-jest:
                 specifier: ^29.3.4
                 version: 29.4.0(@babel/core@7.28.6)(@jest/transform@29.7.0)(@jest/types@30.0.0)(babel-jest@29.7.0(@babel/core@7.28.6))(jest-util@30.0.0)(jest@29.7.0(@types/node@24.0.1))(typescript@5.8.3)
@@ -2668,6 +2668,13 @@ packages:
                 integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==,
             }
 
+    drange@1.1.1:
+        resolution:
+            {
+                integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==,
+            }
+        engines: { node: '>=4' }
+
     ejs@3.1.10:
         resolution:
             {
@@ -4216,6 +4223,13 @@ packages:
                 integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==,
             }
 
+    randexp@0.5.3:
+        resolution:
+            {
+                integrity: sha512-U+5l2KrcMNOUPYvazA3h5ekF80FHTUG+87SEAmHZmolh1M+i/WyTCxVzmi+tidIa1tM4BSe8g2Y/D3loWDjj+w==,
+            }
+        engines: { node: '>=4' }
+
     react-dom@19.2.4:
         resolution:
             {
@@ -4261,13 +4275,6 @@ packages:
         resolution:
             {
                 integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==,
-            }
-        engines: { node: '>=8' }
-
-    regexpp@3.2.0:
-        resolution:
-            {
-                integrity: sha512-pq2bWo9mVD43nbts2wGv17XLiNLya+GklZ8kaDLV2Z08gDCsGpnKn9BFMepvWuHCbyVvY7J5o5+BVvoQbmlJLg==,
             }
         engines: { node: '>=8' }
 
@@ -4326,6 +4333,13 @@ packages:
                 integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==,
             }
         engines: { node: '>=18' }
+
+    ret@0.2.2:
+        resolution:
+            {
+                integrity: sha512-M0b3YWQs7R3Z917WRQy1HHA7Ba7D8hvZg6UE5mLykJxQVE2ju0IXbGlaHPPlkY+WN7wFP+wUMXmBFA0aV6vYGQ==,
+            }
+        engines: { node: '>=4' }
 
     reusify@1.1.0:
         resolution:
@@ -6728,6 +6742,8 @@ snapshots:
             domelementtype: 2.3.0
             domhandler: 5.0.3
 
+    drange@1.1.1: {}
+
     ejs@3.1.10:
         dependencies:
             jake: 10.9.2
@@ -7852,6 +7868,11 @@ snapshots:
 
     queue-microtask@1.2.3: {}
 
+    randexp@0.5.3:
+        dependencies:
+            drange: 1.1.1
+            ret: 0.2.2
+
     react-dom@19.2.4(react@19.2.4):
         dependencies:
             react: 19.2.4
@@ -7871,8 +7892,6 @@ snapshots:
         dependencies:
             indent-string: 4.0.0
             strip-indent: 3.0.0
-
-    regexpp@3.2.0: {}
 
     require-directory@2.1.1: {}
 
@@ -7898,6 +7917,8 @@ snapshots:
         dependencies:
             onetime: 7.0.0
             signal-exit: 4.1.0
+
+    ret@0.2.2: {}
 
     reusify@1.1.0: {}
 

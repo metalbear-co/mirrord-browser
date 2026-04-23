@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@metalbear/ui';
 import SessionKeyGroup from './SessionKeyGroup';
 import ConnectedBanner from './ConnectedBanner';
 import NamespaceFilter from './NamespaceFilter';
@@ -16,6 +15,8 @@ type Props = {
     onClear: () => void;
     onShare: (key: string) => void;
 };
+
+const COLOR_EMERALD = '#34D399';
 
 export default function SessionsView({
     sessions,
@@ -54,8 +55,11 @@ export default function SessionsView({
         return a.localeCompare(b);
     });
 
+    const showNamespaceFilter = namespaces.filter((ns) => ns !== '').length > 1;
+    const watching = status?.status === 'watching';
+
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col" style={{ gap: 10 }}>
             {joinState.joinedKey && (
                 <ConnectedBanner
                     joinedKey={joinState.joinedKey}
@@ -65,37 +69,57 @@ export default function SessionsView({
                 />
             )}
 
-            <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider">
-                    Live sessions
-                </span>
+            <div
+                className="flex items-center justify-between text-muted-foreground font-semibold"
+                style={{
+                    padding: '0 2px',
+                    fontSize: 10.5,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                }}
+            >
+                <span>Live sessions</span>
                 {status && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span
+                        className="inline-flex items-center"
+                        style={{ gap: 5 }}
+                    >
+                        {watching && (
+                            <span
+                                className="inline-block rounded-full"
+                                style={{
+                                    height: 5,
+                                    width: 5,
+                                    backgroundColor: COLOR_EMERALD,
+                                }}
+                            />
+                        )}
                         {status.status}
                     </span>
                 )}
             </div>
 
-            <Card className="p-0 overflow-hidden">
-                <CardContent className="p-0">
-                    <NamespaceFilter
-                        namespaces={namespaces}
-                        value={namespace}
-                        onChange={setNamespace}
-                    />
-                </CardContent>
-            </Card>
+            {showNamespaceFilter && (
+                <NamespaceFilter
+                    namespaces={namespaces}
+                    value={namespace}
+                    onChange={setNamespace}
+                />
+            )}
 
             {orderedKeys.length === 0 ? (
-                <Card className="p-0">
-                    <CardContent className="px-3 py-4">
-                        <p className="text-xs text-muted-foreground">
-                            No sessions visible with current credentials.
-                        </p>
-                    </CardContent>
-                </Card>
+                <div
+                    className="text-muted-foreground"
+                    style={{
+                        padding: '16px 12px',
+                        fontSize: 11,
+                        textAlign: 'center',
+                    }}
+                >
+                    No sessions visible with current credentials.
+                </div>
             ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col" style={{ gap: 10 }}>
                     {orderedKeys.map((k) => (
                         <SessionKeyGroup
                             key={k}

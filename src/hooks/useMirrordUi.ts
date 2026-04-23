@@ -15,10 +15,10 @@ import {
     storageGet,
     storageSet,
     storageRemove,
-    buildDnrRule,
     getDynamicRules,
     updateDynamicRules,
     deriveInjectionHint,
+    buildDnrRule,
 } from '../util';
 
 const BAGGAGE_HEADER_NAME = 'baggage';
@@ -160,9 +160,11 @@ export function useMirrordUi() {
                 setError(`Key "${key}" not visible in current session list`);
                 return;
             }
-            const hint = deriveInjectionHint(target.httpFilter?.headerFilter);
-            const header = hint?.header ?? BAGGAGE_HEADER_NAME;
-            const value = hint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
+            const filterHint = deriveInjectionHint(
+                target.httpFilter?.headerFilter
+            );
+            const header = filterHint?.header ?? BAGGAGE_HEADER_NAME;
+            const value = filterHint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
             const existing = await getDynamicRules();
             await updateDynamicRules({
                 removeRuleIds: existing.map((r) => r.id),

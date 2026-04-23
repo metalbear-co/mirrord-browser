@@ -1,5 +1,5 @@
+import { Button } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
-import { formatRelativeTime } from '../util';
 
 type Props = {
     joinedKey: string;
@@ -8,66 +8,81 @@ type Props = {
     onLeave: () => void;
 };
 
+const COLOR_EMERALD = '#34D399';
+const COLOR_DESTRUCTIVE = '#F87171';
+const COLOR_LILAC = '#C4BFFE';
+
 export default function ConnectedBanner({
     joinedKey,
-    session,
     sessionEnded,
     onLeave,
 }: Props) {
-    const targetLabel = session?.target
-        ? `${session.target.kind}/${session.target.name}`
-        : '—';
-    const age = session ? formatRelativeTime(session.createdAt) : '';
+    const accent = sessionEnded ? COLOR_DESTRUCTIVE : COLOR_EMERALD;
+    const label = sessionEnded ? 'Session ended' : 'Session live';
 
     return (
         <div
-            className={`px-3 py-2 rounded-md border ${
-                sessionEnded
-                    ? 'bg-destructive/10 border-destructive/40'
-                    : 'bg-primary/10 border-primary/30'
-            }`}
+            className="flex items-center"
+            style={{
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: sessionEnded
+                    ? '1px solid rgba(248, 113, 113, 0.4)'
+                    : '1px solid rgba(117, 109, 243, 0.4)',
+                background: sessionEnded
+                    ? 'rgba(248, 113, 113, 0.1)'
+                    : 'rgba(117, 109, 243, 0.12)',
+            }}
         >
-            <div className="flex items-center justify-between gap-2">
-                <span
-                    className={`text-[10px] uppercase tracking-wider font-semibold ${
+            <span
+                className="inline-block shrink-0 rounded-full"
+                style={{
+                    height: 8,
+                    width: 8,
+                    backgroundColor: accent,
+                    boxShadow: `0 0 0 3px ${
                         sessionEnded
-                            ? 'text-destructive'
-                            : 'text-muted-foreground'
-                    }`}
+                            ? 'rgba(248, 113, 113, 0.22)'
+                            : 'rgba(52, 211, 153, 0.22)'
+                    }`,
+                }}
+            />
+            <div className="min-w-0" style={{ flex: 1 }}>
+                <div
+                    className="font-semibold"
+                    style={{
+                        fontSize: 10.5,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: sessionEnded ? COLOR_DESTRUCTIVE : COLOR_LILAC,
+                    }}
                 >
-                    Currently connected
-                </span>
-                <button
-                    type="button"
-                    className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
-                    onClick={onLeave}
-                >
-                    {sessionEnded ? 'Dismiss' : 'Leave'}
-                </button>
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-1">
-                <div className="flex flex-col min-w-0">
-                    <span className="font-mono text-xs font-semibold truncate">
-                        {targetLabel}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground truncate">
-                        {joinedKey}
-                    </span>
+                    {label}
                 </div>
-                <span
-                    className={`text-[10px] shrink-0 ${
-                        sessionEnded
-                            ? 'text-destructive font-semibold'
-                            : 'text-muted-foreground'
-                    }`}
+                <div
+                    className="font-mono"
+                    style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        marginTop: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                    }}
                 >
-                    {sessionEnded
-                        ? 'Session ended'
-                        : age
-                          ? `Session live · ${age}`
-                          : 'Session live'}
-                </span>
+                    {joinedKey}
+                </div>
             </div>
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onLeave}
+                style={{ height: 28, padding: '0 12px' }}
+            >
+                {sessionEnded ? 'Dismiss' : 'Leave'}
+            </Button>
         </div>
     );
 }

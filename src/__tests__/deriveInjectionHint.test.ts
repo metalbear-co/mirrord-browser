@@ -39,8 +39,11 @@ describe('deriveInjectionHint', () => {
         });
     });
 
-    test('disjunction at header name is unparseable', () => {
-        expect(deriveInjectionHint('^(x-a|x-b): alice$')).toBeNull();
+    test('disjunction at header name picks one branch (still matches filter)', () => {
+        const hint = deriveInjectionHint('^(x-a|x-b): alice$');
+        expect(hint).not.toBeNull();
+        expect(['x-a', 'x-b']).toContain(hint!.header);
+        expect(hint!.value).toBe('alice');
     });
 
     test('empty filter is null', () => {
@@ -49,12 +52,15 @@ describe('deriveInjectionHint', () => {
         expect(deriveInjectionHint(undefined)).toBeNull();
     });
 
-    test('filter without a literal header name is null', () => {
+    test('filter requiring non-empty wildcards is null (caller falls back)', () => {
         expect(deriveInjectionHint('^.+: .+$')).toBeNull();
     });
 
-    test('filter with alternation at the top level is null', () => {
-        expect(deriveInjectionHint('^a: 1$|^b: 2$')).toBeNull();
+    test('filter with alternation at the top level picks one branch', () => {
+        const hint = deriveInjectionHint('^a: 1$|^b: 2$');
+        expect(hint).not.toBeNull();
+        expect(['a', 'b']).toContain(hint!.header);
+        expect(['1', '2']).toContain(hint!.value);
     });
 
     test('escaped special chars in value are unescaped', () => {

@@ -1,5 +1,4 @@
-import { RegExpParser } from 'regexpp';
-import type { Alternative, Element } from 'regexpp/ast';
+import RandExp from 'randexp';
 import { Config, HeaderRule, ALL_RESOURCE_TYPES } from './types';
 import { STRINGS } from './constants';
 
@@ -182,67 +181,17 @@ export function deriveInjectionHint(
     const trimmed = headerFilter.trim();
     if (!trimmed) return null;
 
-    let pattern;
+    let generated: string;
     try {
-        pattern = new RegExpParser().parsePattern(trimmed);
+        const re = new RandExp(trimmed);
+        re.max = 0;
+        re.randInt = (from) => from;
+        generated = re.gen();
     } catch {
         return null;
     }
-    if (pattern.alternatives.length !== 1) return null;
-    return extractFromAlternative(pattern.alternatives[0]);
-}
 
-function extractFromAlternative(alt: Alternative): InjectionHint | null {
-    const elements = alt.elements.filter(
-        (e) =>
-            !(
-                e.type === 'Assertion' &&
-                (e.kind === 'start' || e.kind === 'end')
-            )
-    );
-
-    const head = collectLiteralRun(elements, 0);
-    if (!head) return null;
-    const sepMatch = head.text.match(/^([A-Za-z0-9_-]+):\s?([\s\S]*)$/);
+    const sepMatch = generated.match(/^([A-Za-z0-9_-]+):\s?(.+)$/);
     if (!sepMatch) return null;
-    const header = sepMatch[1];
-    let value = sepMatch[2];
-
-    let i = head.nextIndex;
-    while (i < elements.length && isFreeQuantifier(elements[i])) i++;
-
-    const tail = collectLiteralRun(elements, i);
-    if (tail) {
-        value += tail.text;
-        i = tail.nextIndex;
-    }
-
-    while (i < elements.length && isFreeQuantifier(elements[i])) i++;
-
-    if (i !== elements.length) return null;
-    if (!value) return null;
-
-    return { header, value };
-}
-
-function collectLiteralRun(
-    elements: Element[],
-    start: number
-): { text: string; nextIndex: number } | null {
-    let text = '';
-    let i = start;
-    while (i < elements.length) {
-        const el = elements[i];
-        if (el.type !== 'Character') break;
-        text += String.fromCodePoint(el.value);
-        i++;
-    }
-    return text ? { text, nextIndex: i } : null;
-}
-
-function isFreeQuantifier(el: Element): boolean {
-    if (el.type !== 'Quantifier') return false;
-    if (el.min !== 0) return false;
-    if (el.element.type !== 'CharacterSet') return false;
-    return el.element.kind === 'any';
+    return { header: sepMatch[1], value: sepMatch[2] };
 }
