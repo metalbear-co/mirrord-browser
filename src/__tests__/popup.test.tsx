@@ -184,6 +184,10 @@ globalThis.chrome = {
             set: mockStorageSet,
             remove: mockStorageRemove,
         },
+        onChanged: {
+            addListener: jest.fn(),
+            removeListener: jest.fn(),
+        },
     },
 } as unknown as typeof chrome;
 

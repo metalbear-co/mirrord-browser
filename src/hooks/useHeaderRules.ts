@@ -64,6 +64,24 @@ export function useHeaderRules() {
         loadFormValues();
     }, [loadRules, loadFormValues]);
 
+    useEffect(() => {
+        const listener = (
+            changes: Record<string, chrome.storage.StorageChange>
+        ) => {
+            if (
+                STORAGE_KEYS.JOINED_KEY in changes ||
+                STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
+                STORAGE_KEYS.OVERRIDE in changes ||
+                STORAGE_KEYS.DEFAULTS in changes
+            ) {
+                loadRules();
+                loadFormValues();
+            }
+        };
+        chrome.storage.onChanged.addListener(listener);
+        return () => chrome.storage.onChanged.removeListener(listener);
+    }, [loadRules, loadFormValues]);
+
     const handleActivate = useCallback(async () => {
         setError(null);
 
