@@ -13,6 +13,9 @@ importers:
             lucide-react:
                 specifier: ^0.575.0
                 version: 0.575.0(react@19.2.4)
+            randexp:
+                specifier: ^0.5.3
+                version: 0.5.3
             react:
                 specifier: ^19.2.4
                 version: 19.2.4
@@ -44,6 +47,9 @@ importers:
             '@types/react-dom':
                 specifier: ^19.2.3
                 version: 19.2.3(@types/react@19.2.10)
+            '@types/ws':
+                specifier: ^8.18.1
+                version: 8.18.1
             '@typescript-eslint/parser':
                 specifier: ^8.33.1
                 version: 8.34.0(eslint@9.28.0(jiti@1.21.7))(typescript@5.8.3)
@@ -89,6 +95,9 @@ importers:
             vite:
                 specifier: ^5.4.19
                 version: 5.4.19(@types/node@24.0.1)
+            ws:
+                specifier: ^8.20.0
+                version: 8.20.0
 
 packages:
     '@adobe/css-tools@4.4.4':
@@ -2028,6 +2037,12 @@ packages:
                 integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==,
             }
 
+    '@types/ws@8.18.1':
+        resolution:
+            {
+                integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==,
+            }
+
     '@types/yargs-parser@21.0.3':
         resolution:
             {
@@ -2652,6 +2667,13 @@ packages:
             {
                 integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==,
             }
+
+    drange@1.1.1:
+        resolution:
+            {
+                integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==,
+            }
+        engines: { node: '>=4' }
 
     ejs@3.1.10:
         resolution:
@@ -4201,6 +4223,13 @@ packages:
                 integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==,
             }
 
+    randexp@0.5.3:
+        resolution:
+            {
+                integrity: sha512-U+5l2KrcMNOUPYvazA3h5ekF80FHTUG+87SEAmHZmolh1M+i/WyTCxVzmi+tidIa1tM4BSe8g2Y/D3loWDjj+w==,
+            }
+        engines: { node: '>=4' }
+
     react-dom@19.2.4:
         resolution:
             {
@@ -4304,6 +4333,13 @@ packages:
                 integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==,
             }
         engines: { node: '>=18' }
+
+    ret@0.2.2:
+        resolution:
+            {
+                integrity: sha512-M0b3YWQs7R3Z917WRQy1HHA7Ba7D8hvZg6UE5mLykJxQVE2ju0IXbGlaHPPlkY+WN7wFP+wUMXmBFA0aV6vYGQ==,
+            }
+        engines: { node: '>=4' }
 
     reusify@1.1.0:
         resolution:
@@ -4865,10 +4901,10 @@ packages:
             }
         engines: { node: ^12.13.0 || ^14.15.0 || >=16.0.0 }
 
-    ws@8.18.2:
+    ws@8.20.0:
         resolution:
             {
-                integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==,
+                integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==,
             }
         engines: { node: '>=10.0.0' }
         peerDependencies:
@@ -6271,6 +6307,10 @@ snapshots:
 
     '@types/tough-cookie@4.0.5': {}
 
+    '@types/ws@8.18.1':
+        dependencies:
+            '@types/node': 24.0.1
+
     '@types/yargs-parser@21.0.3': {}
 
     '@types/yargs@17.0.33':
@@ -6701,6 +6741,8 @@ snapshots:
             dom-serializer: 2.0.0
             domelementtype: 2.3.0
             domhandler: 5.0.3
+
+    drange@1.1.1: {}
 
     ejs@3.1.10:
         dependencies:
@@ -7536,7 +7578,7 @@ snapshots:
             whatwg-encoding: 3.1.1
             whatwg-mimetype: 4.0.0
             whatwg-url: 14.2.0
-            ws: 8.18.2
+            ws: 8.20.0
             xml-name-validator: 5.0.0
         transitivePeerDependencies:
             - bufferutil
@@ -7826,6 +7868,11 @@ snapshots:
 
     queue-microtask@1.2.3: {}
 
+    randexp@0.5.3:
+        dependencies:
+            drange: 1.1.1
+            ret: 0.2.2
+
     react-dom@19.2.4(react@19.2.4):
         dependencies:
             react: 19.2.4
@@ -7870,6 +7917,8 @@ snapshots:
         dependencies:
             onetime: 7.0.0
             signal-exit: 4.1.0
+
+    ret@0.2.2: {}
 
     reusify@1.1.0: {}
 
@@ -8163,7 +8212,7 @@ snapshots:
             imurmurhash: 0.1.4
             signal-exit: 3.0.7
 
-    ws@8.18.2: {}
+    ws@8.20.0: {}
 
     xml-name-validator@5.0.0: {}
 
