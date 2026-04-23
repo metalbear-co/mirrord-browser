@@ -12,9 +12,16 @@ export default defineConfig({
         headless: false,
         trace: 'on-first-retry',
     },
-    webServer: {
-        command: 'npx tsx e2e/test-server.ts',
-        port: 3456,
-        reuseExistingServer: !process.env.CI,
-    },
+    webServer: [
+        {
+            command: 'npx tsx e2e/test-server.ts',
+            port: 3456,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            command: 'npx tsx e2e/fake-mirrord-ui.ts',
+            port: 3457,
+            reuseExistingServer: !process.env.CI,
+        },
+    ],
 });
