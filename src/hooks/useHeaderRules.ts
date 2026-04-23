@@ -107,6 +107,10 @@ export function useHeaderRules() {
                 removeRuleIds: existingRules.map((r) => r.id),
                 addRules: newRules,
             });
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+            ]);
             setHeaderName(config.headerName);
             setHeaderValue(config.headerValue);
             setScope(config.scope || '');
@@ -195,6 +199,10 @@ export function useHeaderRules() {
                     removeRuleIds: existingRules.map((r) => r.id),
                     addRules: newRules,
                 });
+                await storageRemove([
+                    STORAGE_KEYS.JOINED_KEY,
+                    STORAGE_KEYS.JOINED_SESSION_NAME,
+                ]);
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
