@@ -64,8 +64,6 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
     'other' as chrome.declarativeNetRequest.ResourceType,
 ];
 
-/**
- */
 export type MirrordUiConfig = {
     backend: string;
     token: string;
