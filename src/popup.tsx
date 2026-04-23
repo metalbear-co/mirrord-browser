@@ -1,34 +1,31 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import {
     Button,
     Card,
-    CardHeader,
     CardContent,
-    CardFooter,
     Separator,
     Switch,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
     Tooltip,
-    TooltipTrigger,
     TooltipContent,
     TooltipProvider,
+    TooltipTrigger,
 } from '@metalbear/ui';
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import { Settings, Share2, Check } from 'lucide-react';
-import { HeaderForm } from './components';
+import { HeaderForm, SessionsView, Onboarding } from './components';
 import { useHeaderRules } from './hooks';
-import { STRINGS } from './constants';
+import { useMirrordUi } from './hooks/useMirrordUi';
 import { capture, captureBeacon, optOutReady } from './analytics';
 
-// Fire popup_opened after opt-out preference is loaded.
-// optOutReady resolves almost instantly (single chrome.storage.local read) but we must
-// await it so the opt-out flag is set before we call capture().
 const popupOpenedAt = Date.now();
 optOutReady.then(() => capture('extension_popup_opened'));
 
-// Track popup close with duration. Extension popups get destroyed immediately,
-// so use sendBeacon — it's the only reliable way to get a request out during teardown.
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return;
     captureBeacon('extension_popup_closed', {
@@ -36,38 +33,26 @@ document.addEventListener('visibilitychange', () => {
     });
 });
 
-export function Popup() {
-    const {
-        rules,
-        headerName,
-        headerValue,
-        scope,
-        saveState,
-        resetState,
-        shareState,
-        hasDefaults,
-        error,
-        hasStoredConfig,
-        isToggling,
-        canShare,
-        setHeaderName,
-        setHeaderValue,
-        setScope,
-        handleToggle,
-        handleSave,
-        handleReset,
-        handleShare,
-        getSaveButtonText,
-        getResetButtonText,
-    } = useHeaderRules();
+type Tab = 'sessions' | 'manual';
 
-    const isActive = rules.length > 0;
-    const canToggle = isActive || hasStoredConfig;
+export function Popup() {
+    const headerRules = useHeaderRules();
+    const mirrordUi = useMirrordUi();
+
+    const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
+    const hasManualConfig =
+        headerRules.rules.length > 0 || headerRules.hasStoredConfig;
+
+    const defaultTab: Tab =
+        sessionMode && !hasManualConfig ? 'sessions' : 'manual';
+    const [tab, setTab] = useState<Tab>(defaultTab);
+
+    const showOnboarding = !sessionMode && !hasManualConfig;
 
     return (
         <TooltipProvider>
-            <div className="w-[320px] p-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between pb-2">
+            <div className="w-[420px] p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
                             src={mirrordIconDark}
@@ -84,158 +69,224 @@ export function Popup() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={handleShare}
-                            disabled={!canShare}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={
-                                shareState === 'copied'
-                                    ? 'Copied!'
-                                    : 'Copy config link'
-                            }
-                            aria-label="Share configuration"
-                        >
-                            {shareState === 'copied' ? (
-                                <Check size={16} />
-                            ) : (
-                                <Share2 size={16} />
-                            )}
-                        </button>
-                        <button
+                        {tab === 'manual' && !showOnboarding && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={headerRules.handleShare}
+                                disabled={!headerRules.canShare}
+                                title={
+                                    headerRules.shareState === 'copied'
+                                        ? 'Copied!'
+                                        : 'Copy config link'
+                                }
+                                aria-label="Share configuration"
+                                className="h-7 w-7"
+                            >
+                                {headerRules.shareState === 'copied' ? (
+                                    <Check size={16} />
+                                ) : (
+                                    <Share2 size={16} />
+                                )}
+                            </Button>
+                        )}
+                        <Button
+                            size="icon"
+                            variant="ghost"
                             onClick={() => chrome.runtime.openOptionsPage()}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             title="Settings"
                             aria-label="Settings"
+                            className="h-7 w-7"
                         >
                             <Settings size={16} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
-                <Card
-                    className={`transition-all duration-200 ${
-                        isActive ? 'border-l-2 border-l-primary' : ''
-                    }`}
-                >
-                    <CardHeader className="p-3 pb-2">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span
-                                    data-testid="status-dot"
-                                    className={`inline-block w-2 h-2 rounded-full transition-colors ${
-                                        isActive ? '' : 'bg-muted-foreground/30'
-                                    }`}
-                                    style={
-                                        isActive
-                                            ? { backgroundColor: '#22c55e' }
-                                            : undefined
-                                    }
-                                />
-                                <span className="text-xs font-medium">
-                                    {isActive ? 'Active' : 'Inactive'}
-                                </span>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="text-muted-foreground cursor-help text-[10px]">
-                                            ⓘ
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs max-w-[200px]">
-                                        {STRINGS.TOOLTIP_HEADERS}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <Switch
-                                checked={isActive}
-                                onCheckedChange={handleToggle}
-                                disabled={!canToggle || isToggling}
-                                aria-label="Toggle header injection"
-                            />
-                        </div>
-                    </CardHeader>
+                {showOnboarding && (
+                    <Onboarding onChooseManual={() => setTab('manual')} />
+                )}
 
-                    {isActive && rules.length > 0 && (
-                        <>
-                            <div className="px-3">
-                                <Separator />
-                            </div>
-                            <CardContent className="px-3 py-2">
-                                {rules.map((rule) => (
-                                    <div
-                                        key={rule.id}
-                                        className="p-2 rounded-md bg-muted/30 overflow-hidden"
-                                    >
-                                        <code
-                                            className="text-xs font-mono block"
-                                            style={{
-                                                color: 'hsl(var(--brand-yellow))',
-                                                overflowWrap: 'anywhere',
-                                            }}
-                                        >
-                                            {rule.header}: {rule.value}
-                                        </code>
-                                        <span
-                                            className="text-[10px] text-muted-foreground block mt-1"
-                                            style={{
-                                                overflowWrap: 'anywhere',
-                                            }}
-                                        >
-                                            {rule.scope}
-                                        </span>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </>
-                    )}
+                {!showOnboarding && sessionMode && (
+                    <Tabs
+                        value={tab}
+                        onValueChange={(v: string) => setTab(v as Tab)}
+                        className="flex flex-col gap-2"
+                    >
+                        <TabsList className="grid grid-cols-2 w-full">
+                            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                            <TabsTrigger value="manual">Manual</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="sessions" className="mt-0">
+                            <SessionsScreen mirrordUi={mirrordUi} />
+                        </TabsContent>
+                        <TabsContent value="manual" className="mt-0">
+                            <ManualSetup headerRules={headerRules} />
+                        </TabsContent>
+                    </Tabs>
+                )}
 
-                    <div className="px-3">
-                        <Separator />
-                    </div>
-
-                    <CardContent className="px-3 py-2">
-                        <HeaderForm
-                            headerName={headerName}
-                            headerValue={headerValue}
-                            scope={scope}
-                            onHeaderNameChange={setHeaderName}
-                            onHeaderValueChange={setHeaderValue}
-                            onScopeChange={setScope}
-                        />
-                    </CardContent>
-
-                    {error && (
-                        <div className="px-3 pb-1">
-                            <p
-                                className="text-[10px] text-destructive"
-                                role="alert"
-                            >
-                                {error}
-                            </p>
-                        </div>
-                    )}
-
-                    <CardFooter className="p-3 pt-0 flex gap-2">
-                        <Button
-                            onClick={handleSave}
-                            disabled={saveState !== 'idle'}
-                            className="flex-1 h-9 text-xs"
-                        >
-                            {getSaveButtonText()}
-                        </Button>
-                        {hasDefaults && (
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={resetState !== 'idle'}
-                                className="flex-1 h-9 text-xs"
-                            >
-                                {getResetButtonText()}
-                            </Button>
-                        )}
-                    </CardFooter>
-                </Card>
+                {!showOnboarding && !sessionMode && (
+                    <ManualSetup headerRules={headerRules} />
+                )}
             </div>
         </TooltipProvider>
+    );
+}
+
+function SessionsScreen({
+    mirrordUi,
+}: {
+    mirrordUi: ReturnType<typeof useMirrordUi>;
+}) {
+    return (
+        <SessionsView
+            sessions={mirrordUi.sessions?.sessions ?? []}
+            namespaces={mirrordUi.namespaces}
+            namespace={mirrordUi.namespace}
+            setNamespace={mirrordUi.setNamespace}
+            joinState={mirrordUi.joinState}
+            status={mirrordUi.status}
+            onJoin={mirrordUi.join}
+            onClear={mirrordUi.clearJoin}
+            onShare={(key) => {
+                const url = mirrordUi.buildShareUrl(key);
+                navigator.clipboard.writeText(url).catch(() => {});
+            }}
+        />
+    );
+}
+
+type ManualSetupProps = {
+    headerRules: ReturnType<typeof useHeaderRules>;
+};
+
+function ManualSetup({ headerRules }: ManualSetupProps) {
+    const {
+        rules,
+        headerName,
+        headerValue,
+        scope,
+        saveState,
+        resetState,
+        hasDefaults,
+        hasStoredConfig,
+        isToggling,
+        error,
+        setHeaderName,
+        setHeaderValue,
+        setScope,
+        handleSave,
+        handleReset,
+        handleToggle,
+        getSaveButtonText,
+        getResetButtonText,
+    } = headerRules;
+
+    const activeRule = rules[0];
+    const isActive = !!activeRule;
+    const canToggle = isActive || hasStoredConfig;
+
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                    <span
+                        data-testid="status-dot"
+                        className={`inline-block w-2 h-2 rounded-full transition-colors ${
+                            isActive ? '' : 'bg-muted-foreground/30'
+                        }`}
+                        style={
+                            isActive
+                                ? { backgroundColor: '#22c55e' }
+                                : undefined
+                        }
+                    />
+                    <span className="text-xs font-medium">
+                        {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="text-muted-foreground cursor-help text-[10px]">
+                                ⓘ
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-[220px]">
+                            When on, the extension injects the saved header into
+                            matching requests. Toggle off to pause injection
+                            without losing your config.
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
+                <Switch
+                    checked={isActive}
+                    onCheckedChange={handleToggle}
+                    disabled={!canToggle || isToggling}
+                    aria-label="Toggle header injection"
+                />
+            </div>
+
+            {activeRule && (
+                <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/10">
+                    <code
+                        className="text-xs font-mono block"
+                        style={{
+                            color: 'hsl(var(--brand-yellow))',
+                            overflowWrap: 'anywhere',
+                        }}
+                    >
+                        {activeRule.header}: {activeRule.value}
+                    </code>
+                    <span
+                        className="text-[10px] text-muted-foreground block mt-0.5"
+                        style={{ overflowWrap: 'anywhere' }}
+                    >
+                        {activeRule.scope}
+                    </span>
+                </div>
+            )}
+
+            <Card className="overflow-hidden">
+                <CardContent className="px-3 py-3">
+                    <HeaderForm
+                        headerName={headerName}
+                        headerValue={headerValue}
+                        scope={scope}
+                        onHeaderNameChange={setHeaderName}
+                        onHeaderValueChange={setHeaderValue}
+                        onScopeChange={setScope}
+                    />
+                    {error && (
+                        <p
+                            className="text-[10px] text-destructive mt-2"
+                            role="alert"
+                        >
+                            {error}
+                        </p>
+                    )}
+                </CardContent>
+                <Separator />
+                <CardContent className="px-3 py-2 flex gap-2">
+                    <Button
+                        onClick={handleSave}
+                        disabled={saveState !== 'idle'}
+                        className="flex-1 h-9 text-xs"
+                    >
+                        {getSaveButtonText()}
+                    </Button>
+                    {hasDefaults && (
+                        <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            disabled={resetState !== 'idle'}
+                            className="flex-1 h-9 text-xs"
+                        >
+                            {getResetButtonText()}
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
