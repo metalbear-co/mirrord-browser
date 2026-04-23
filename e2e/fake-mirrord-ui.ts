@@ -5,7 +5,7 @@ const PORT = parseInt(process.env.FAKE_MIRRORD_UI_PORT || '3457', 10);
 const TOKEN = 'test-token';
 
 type Summary = {
-    name: string;
+    id: string;
     key: string | null;
     namespace: string;
     owner: { username: string; k8sUsername: string } | null;
@@ -15,7 +15,7 @@ type Summary = {
 
 const sessions: Summary[] = [
     {
-        name: 'a',
+        id: 'a',
         key: 'k1',
         namespace: 'ns-a',
         owner: { username: 'alice', k8sUsername: 'alice@ex' },
@@ -23,7 +23,7 @@ const sessions: Summary[] = [
         createdAt: null,
     },
     {
-        name: 'b',
+        id: 'b',
         key: 'k1',
         namespace: 'ns-b',
         owner: { username: 'bob', k8sUsername: 'bob@ex' },
@@ -31,7 +31,7 @@ const sessions: Summary[] = [
         createdAt: null,
     },
     {
-        name: 'c',
+        id: 'c',
         key: 'k2',
         namespace: 'ns-a',
         owner: { username: 'alice', k8sUsername: 'alice@ex' },
@@ -73,16 +73,16 @@ const server = http.createServer(async (req, res) => {
         const chunks: Buffer[] = [];
         for await (const c of req) chunks.push(c as Buffer);
         const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
-        const name = body.name;
-        if (name) {
-            const i = sessions.findIndex((s) => s.name === name);
+        const id = body.id;
+        if (id) {
+            const i = sessions.findIndex((s) => s.id === id);
             if (i >= 0) sessions.splice(i, 1);
             for (const client of wss.clients) {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(
                         JSON.stringify({
                             type: 'operator_session_removed',
-                            name,
+                            id,
                         })
                     );
                 }

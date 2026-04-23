@@ -115,7 +115,7 @@ test.describe('operator-sessions flow', () => {
         });
 
         await configPage.request.post(`${FAKE_BACKEND}/__inject/remove`, {
-            data: { name: 'a' },
+            data: { id: 'a' },
         });
 
         await expect(popup.getByText(/session ended/i)).toBeVisible({
