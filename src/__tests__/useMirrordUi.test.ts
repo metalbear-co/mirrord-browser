@@ -3,61 +3,64 @@ import { useMirrordUi } from '../hooks/useMirrordUi';
 import type { OperatorSessionsResponse } from '../types';
 import { STORAGE_KEYS } from '../types';
 
+const owner = { username: 'alice', k8sUsername: 'alice@ex' };
+const createdAt = '2026-01-01T00:00:00Z';
+
 const sampleResponse: OperatorSessionsResponse = {
     by_key: {
-        '': [
+        k0: [
             {
-                name: 'u',
-                key: null,
+                id: 'u',
+                key: 'k0',
                 namespace: 'ns',
-                owner: null,
+                owner,
                 target: null,
-                createdAt: null,
+                createdAt,
             },
         ],
         k1: [
             {
-                name: 'a',
+                id: 'a',
                 key: 'k1',
                 namespace: 'ns-a',
-                owner: null,
+                owner,
                 target: null,
-                createdAt: null,
+                createdAt,
             },
             {
-                name: 'b',
+                id: 'b',
                 key: 'k1',
                 namespace: 'ns-b',
-                owner: null,
+                owner,
                 target: null,
-                createdAt: null,
+                createdAt,
             },
         ],
     },
     sessions: [
         {
-            name: 'u',
-            key: null,
+            id: 'u',
+            key: 'k0',
             namespace: 'ns',
-            owner: null,
+            owner,
             target: null,
-            createdAt: null,
+            createdAt,
         },
         {
-            name: 'a',
+            id: 'a',
             key: 'k1',
             namespace: 'ns-a',
-            owner: null,
+            owner,
             target: null,
-            createdAt: null,
+            createdAt,
         },
         {
-            name: 'b',
+            id: 'b',
             key: 'k1',
             namespace: 'ns-b',
-            owner: null,
+            owner,
             target: null,
-            createdAt: null,
+            createdAt,
         },
     ],
     watch_status: { status: 'watching' },
@@ -154,7 +157,7 @@ test('namespace filter narrows sessions', async () => {
     await waitFor(() => {
         const grouped = result.current.groupedFiltered;
         expect(grouped['k1']?.length).toBe(1);
-        expect(grouped['k1']?.[0]?.name).toBe('a');
+        expect(grouped['k1']?.[0]?.id).toBe('a');
     });
 });
 

@@ -133,7 +133,7 @@ export function useMirrordUi() {
                 });
                 if (msg.type === 'operator_session_removed') {
                     setJoinState((js) =>
-                        js.joinedSessionName === msg.name
+                        js.joinedSessionName === msg.id
                             ? { ...js, sessionEnded: true }
                             : js
                     );
@@ -164,8 +164,7 @@ export function useMirrordUi() {
         const out: Record<string, OperatorSessionSummary[]> = {};
         for (const s of sessions.sessions) {
             if (namespace && s.namespace !== namespace) continue;
-            const k = s.key ?? '';
-            (out[k] ??= []).push(s);
+            (out[s.key] ??= []).push(s);
         }
         return out;
     }, [sessions, namespace]);
@@ -189,11 +188,11 @@ export function useMirrordUi() {
             });
             await storageSet({
                 [STORAGE_KEYS.JOINED_KEY]: key,
-                [STORAGE_KEYS.JOINED_SESSION_NAME]: target.name,
+                [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
             });
             setJoinState({
                 joinedKey: key,
-                joinedSessionName: target.name,
+                joinedSessionName: target.id,
                 sessionEnded: false,
             });
         },
@@ -253,14 +252,12 @@ function applyNotification(
         msg.type === 'operator_session_added' ||
         msg.type === 'operator_session_updated'
     ) {
-        const others = current.sessions.filter(
-            (s) => s.name !== msg.session.name
-        );
+        const others = current.sessions.filter((s) => s.id !== msg.session.id);
         const next = [...others, msg.session];
         return rebuild(next, current.watch_status);
     }
     if (msg.type === 'operator_session_removed') {
-        const next = current.sessions.filter((s) => s.name !== msg.name);
+        const next = current.sessions.filter((s) => s.id !== msg.id);
         return rebuild(next, current.watch_status);
     }
     return current;
@@ -272,8 +269,7 @@ function rebuild(
 ): OperatorSessionsResponse {
     const by_key: Record<string, OperatorSessionSummary[]> = {};
     for (const s of sessions) {
-        const k = s.key ?? '';
-        (by_key[k] ??= []).push(s);
+        (by_key[s.key] ??= []).push(s);
     }
     return { sessions, by_key, watch_status };
 }

@@ -54,7 +54,7 @@ async function joinKey(
     });
     await storageSet({
         [STORAGE_KEYS.JOINED_KEY]: key,
-        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.name,
+        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
     });
     render(
         `<h2>Joined session</h2><p>Injecting <code>baggage: mirrord-session=${escapeHtml(

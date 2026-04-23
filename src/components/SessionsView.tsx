@@ -30,7 +30,7 @@ export default function SessionsView({
     onShare,
 }: Props) {
     const joinedSession = joinState.joinedSessionName
-        ? sessions.find((s) => s.name === joinState.joinedSessionName)
+        ? sessions.find((s) => s.id === joinState.joinedSessionName)
         : undefined;
 
     const filtered = namespace

@@ -82,11 +82,11 @@ import SessionsView from '../components/SessionsView';
 
 const s = (
     name: string,
-    key: string | null,
+    key: string,
     namespace = 'ns',
-    createdAt: string | null = null
+    createdAt = '2026-01-01T00:00:00Z'
 ): OperatorSessionSummary => ({
-    name,
+    id: name,
     key,
     namespace,
     owner: { username: 'alice', k8sUsername: 'alice@ex' },
@@ -98,7 +98,7 @@ describe('SessionsView', () => {
     const sessions = [
         s('a', 'k1', 'ns-a'),
         s('b', 'k2', 'ns-b'),
-        s('c', null, 'ns-a'),
+        s('c', 'k3', 'ns-a'),
     ];
 
     const baseProps = {

@@ -76,12 +76,12 @@ export type OperatorSessionHttpFilter = {
 };
 
 export type OperatorSessionSummary = {
-    name: string;
-    key: string | null;
+    id: string;
+    key: string;
     namespace: string;
-    owner: { username: string; k8sUsername: string } | null;
+    owner: { username: string; k8sUsername: string };
     target: { kind: string; name: string; container: string } | null;
-    createdAt: string | null;
+    createdAt: string;
     httpFilter?: OperatorSessionHttpFilter | null;
 };
 
@@ -101,5 +101,5 @@ export type SessionNotification =
     | { type: 'session_added'; session: unknown }
     | { type: 'session_removed'; session_id: string }
     | { type: 'operator_session_added'; session: OperatorSessionSummary }
-    | { type: 'operator_session_removed'; name: string }
+    | { type: 'operator_session_removed'; id: string }
     | { type: 'operator_session_updated'; session: OperatorSessionSummary };
