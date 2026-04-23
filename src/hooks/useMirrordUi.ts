@@ -50,7 +50,7 @@ export function useMirrordUi() {
 
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+        const loadFromStorage = async () => {
             const stored = await storageGet([
                 STORAGE_KEYS.MIRRORD_UI_BACKEND,
                 STORAGE_KEYS.MIRRORD_UI_TOKEN,
@@ -69,9 +69,26 @@ export function useMirrordUi() {
                     null,
                 sessionEnded: false,
             });
-        })();
+        };
+
+        loadFromStorage();
+
+        const listener = (
+            changes: Record<string, chrome.storage.StorageChange>
+        ) => {
+            if (
+                STORAGE_KEYS.JOINED_KEY in changes ||
+                STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
+                STORAGE_KEYS.MIRRORD_UI_BACKEND in changes ||
+                STORAGE_KEYS.MIRRORD_UI_TOKEN in changes
+            ) {
+                loadFromStorage();
+            }
+        };
+        chrome.storage.onChanged.addListener(listener);
         return () => {
             cancelled = true;
+            chrome.storage.onChanged.removeListener(listener);
         };
     }, []);
 

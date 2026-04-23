@@ -88,6 +88,10 @@ beforeEach(() => {
                     cb?.();
                 }),
             },
+            onChanged: {
+                addListener: jest.fn(),
+                removeListener: jest.fn(),
+            },
         },
         declarativeNetRequest: {
             getDynamicRules: jest.fn((cb: (r: unknown[]) => void) => cb([])),

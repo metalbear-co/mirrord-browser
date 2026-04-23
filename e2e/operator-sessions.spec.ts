@@ -71,6 +71,33 @@ test.describe('operator-sessions flow', () => {
         expect(headers['baggage']).toContain('mirrord-session=k1');
     });
 
+    test('saving a manual rule after joining clears the session-live banner', async ({
+        context,
+        extensionId,
+    }) => {
+        await configureBackend(context, extensionId);
+        const popup = await context.newPage();
+        await popup.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+        await openSessionsTab(popup);
+
+        const joinK1 = popup.getByRole('button', { name: /join k1/i }).first();
+        await expect(joinK1).toBeVisible({ timeout: 15_000 });
+        await joinK1.click();
+        await expect(popup.getByText(/session live/i)).toBeVisible({
+            timeout: 10_000,
+        });
+
+        await popup.getByRole('tab', { name: /manual/i }).click();
+        await popup.getByLabel(/header name/i).fill('x-override');
+        await popup.getByLabel(/header value/i).fill('manual-rule');
+        await popup.getByRole('button', { name: /^save$/i }).click();
+
+        await popup.getByRole('tab', { name: /sessions/i }).click();
+        await expect(popup.getByText(/session live/i)).toBeHidden({
+            timeout: 5_000,
+        });
+    });
+
     test('session-ended banner appears when operator_session_removed received', async ({
         context,
         extensionId,
