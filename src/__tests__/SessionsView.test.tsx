@@ -102,6 +102,7 @@ describe('SessionsView', () => {
     ];
 
     const baseProps = {
+        sessionsLoaded: true,
         namespaces: ['', 'ns-a', 'ns-b'],
         namespace: '',
         setNamespace: jest.fn(),

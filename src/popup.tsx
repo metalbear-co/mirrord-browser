@@ -130,6 +130,7 @@ function SessionsScreen({
     return (
         <SessionsView
             sessions={mirrordUi.sessions?.sessions ?? []}
+            sessionsLoaded={mirrordUi.sessions !== null}
             namespaces={mirrordUi.namespaces}
             namespace={mirrordUi.namespace}
             setNamespace={mirrordUi.setNamespace}

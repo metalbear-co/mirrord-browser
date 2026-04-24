@@ -7,6 +7,7 @@ import { STRINGS } from '../constants';
 
 type Props = {
     sessions: OperatorSessionSummary[];
+    sessionsLoaded: boolean;
     namespaces: string[];
     namespace: string;
     setNamespace: (ns: string) => void;
@@ -21,6 +22,7 @@ const WATCHING_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
 
 export function SessionsView({
     sessions,
+    sessionsLoaded,
     namespaces,
     namespace,
     setNamespace,
@@ -33,6 +35,10 @@ export function SessionsView({
     const joinedSession = joinState.joinedSessionName
         ? sessions.find((s) => s.id === joinState.joinedSessionName)
         : undefined;
+
+    const joinedVanished =
+        sessionsLoaded && joinState.joinedKey !== null && !joinedSession;
+    const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
 
     const filtered = namespace
         ? sessions.filter((s) => s.namespace === namespace)
@@ -61,7 +67,7 @@ export function SessionsView({
                 <ConnectedBanner
                     joinedKey={joinState.joinedKey}
                     session={joinedSession}
-                    sessionEnded={joinState.sessionEnded}
+                    sessionEnded={effectiveSessionEnded}
                     onLeave={onClear}
                 />
             )}
