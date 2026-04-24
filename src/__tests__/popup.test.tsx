@@ -16,14 +16,56 @@ jest.mock('@metalbear/ui', () => ({
         onClick,
         className,
         disabled,
+        title,
+        'aria-label': ariaLabel,
     }: React.PropsWithChildren<{
         onClick?: () => void;
         className?: string;
         disabled?: boolean;
+        title?: string;
+        'aria-label'?: string;
     }>) => (
-        <button onClick={onClick} className={className} disabled={disabled}>
+        <button
+            onClick={onClick}
+            className={className}
+            disabled={disabled}
+            title={title}
+            aria-label={ariaLabel}
+        >
             {children}
         </button>
+    ),
+    Badge: ({
+        children,
+        className,
+    }: React.PropsWithChildren<{ className?: string }>) => (
+        <span className={className}>{children}</span>
+    ),
+    Tabs: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsTrigger: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <button data-value={value}>{children}</button>
+    ),
+    TabsContent: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <div data-value={value}>{children}</div>
+    ),
+    Select: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+        <button>{children}</button>
+    ),
+    SelectValue: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
+    SelectItem: ({
+        children,
+        value,
+    }: React.PropsWithChildren<{ value?: string }>) => (
+        <div data-value={value}>{children}</div>
     ),
     Card: ({
         children,
@@ -142,6 +184,10 @@ globalThis.chrome = {
             set: mockStorageSet,
             remove: mockStorageRemove,
         },
+        onChanged: {
+            addListener: jest.fn(),
+            removeListener: jest.fn(),
+        },
     },
 } as unknown as typeof chrome;
 
@@ -155,21 +201,24 @@ describe('Popup', () => {
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
     });
 
-    it('shows Inactive status when no rules', async () => {
+    it('starts in manual mode when no config and no backend', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
+            cb({})
+        );
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
     });
 
-    it('shows Active status with rule preview when rules exist', async () => {
+    it('shows active rule preview when rules exist', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 1,
@@ -208,25 +257,6 @@ describe('Popup', () => {
             ).toBeInTheDocument();
             expect(screen.getByText('All URLs')).toBeInTheDocument();
         });
-
-        // Active dot renders with an explicit green color so it's visible
-        // regardless of what classes the UI kit's CSS bundle includes.
-        const dot = screen.getByTestId('status-dot');
-        expect(dot.style.backgroundColor).toBe('rgb(34, 197, 94)');
-    });
-
-    it('does not set inline green color when inactive', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const dot = screen.getByTestId('status-dot');
-        expect(dot.style.backgroundColor).toBe('');
-        expect(dot.className).toContain('bg-muted-foreground/30');
     });
 
     it('renders scoped header rules', async () => {
@@ -271,7 +301,7 @@ describe('Popup', () => {
         });
     });
 
-    it('toggles rule off via switch', async () => {
+    it('toggling off the Active switch removes the DNR rule', async () => {
         const rules: chrome.declarativeNetRequest.Rule[] = [
             {
                 id: 42,
@@ -310,8 +340,7 @@ describe('Popup', () => {
             expect(screen.getByText('X-TEST: value')).toBeInTheDocument();
         });
 
-        const toggle = screen.getByRole('switch');
-        fireEvent.click(toggle);
+        fireEvent.click(screen.getByRole('switch'));
 
         await waitFor(() => {
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
@@ -319,51 +348,6 @@ describe('Popup', () => {
                 expect.any(Function)
             );
         });
-    });
-
-    it('toggles rule on via switch when config exists', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-Test',
-                    headerValue: 'val',
-                },
-            })
-        );
-        mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
-        );
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const toggle = screen.getByRole('switch');
-        expect(toggle).not.toBeDisabled();
-        fireEvent.click(toggle);
-
-        await waitFor(() => {
-            expect(mockUpdateDynamicRules).toHaveBeenCalled();
-        });
-    });
-
-    it('switch is disabled when inactive and no stored config', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
-        );
-
-        render(<Popup />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
-        });
-
-        const toggle = screen.getByRole('switch');
-        expect(toggle).toBeDisabled();
     });
 
     it('updates badge indicator on load', async () => {
@@ -477,7 +461,7 @@ describe('Popup', () => {
     it('hides reset button when no defaults exist', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
 
         render(<Popup />);
@@ -777,13 +761,13 @@ describe('Popup', () => {
         });
     });
 
-    it('renders tooltip info icon', async () => {
+    it('renders tooltip info icon on the scope field', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
 
         render(<Popup />);
 
         await waitFor(() => {
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
 
         const infoIcons = screen.getAllByText('ⓘ');
@@ -805,7 +789,7 @@ describe('Popup', () => {
     it('share button is disabled when form is empty', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+            cb({ override: { headerName: '', headerValue: '' } })
         );
 
         render(<Popup />);
