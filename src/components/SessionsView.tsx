@@ -1,8 +1,9 @@
-import SessionKeyGroup from './SessionKeyGroup';
-import ConnectedBanner from './ConnectedBanner';
-import NamespaceFilter from './NamespaceFilter';
+import { SessionKeyGroup } from './SessionKeyGroup';
+import { ConnectedBanner } from './ConnectedBanner';
+import { NamespaceFilter } from './NamespaceFilter';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
+import { STRINGS } from '../constants';
 
 type Props = {
     sessions: OperatorSessionSummary[];
@@ -16,9 +17,9 @@ type Props = {
     onShare: (key: string) => void;
 };
 
-const COLOR_EMERALD = '#34D399';
+const WATCHING_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
 
-export default function SessionsView({
+export function SessionsView({
     sessions,
     namespaces,
     namespace,
@@ -37,12 +38,8 @@ export default function SessionsView({
         ? sessions.filter((s) => s.namespace === namespace)
         : sessions;
 
-    const keyed = filtered.filter(
-        (s): s is OperatorSessionSummary & { key: string } => !!s.key
-    );
-
     const groups = new Map<string, OperatorSessionSummary[]>();
-    for (const s of keyed) {
+    for (const s of filtered) {
         const arr = groups.get(s.key) ?? [];
         arr.push(s);
         groups.set(s.key, arr);
@@ -78,7 +75,7 @@ export default function SessionsView({
                     textTransform: 'uppercase',
                 }}
             >
-                <span>Live sessions</span>
+                <span>{STRINGS.MSG_LIVE_SESSIONS}</span>
                 {status && (
                     <span
                         className="inline-flex items-center"
@@ -90,7 +87,7 @@ export default function SessionsView({
                                 style={{
                                     height: 5,
                                     width: 5,
-                                    backgroundColor: COLOR_EMERALD,
+                                    backgroundColor: WATCHING_DOT,
                                 }}
                             />
                         )}
@@ -116,7 +113,7 @@ export default function SessionsView({
                         textAlign: 'center',
                     }}
                 >
-                    No sessions visible with current credentials.
+                    {STRINGS.MSG_NO_SESSIONS_VISIBLE}
                 </div>
             ) : (
                 <div className="flex flex-col" style={{ gap: 10 }}>

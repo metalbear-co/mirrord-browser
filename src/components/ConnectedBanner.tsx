@@ -1,5 +1,6 @@
 import { Button } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
+import { STRINGS } from '../constants';
 
 type Props = {
     joinedKey: string;
@@ -8,17 +9,22 @@ type Props = {
     onLeave: () => void;
 };
 
-const COLOR_EMERALD = '#34D399';
-const COLOR_DESTRUCTIVE = '#F87171';
-const COLOR_LILAC = '#C4BFFE';
+const LIVE_ACCENT = 'hsl(var(--brand-green, 142 71% 45%))';
+const ENDED_ACCENT = 'hsl(var(--destructive))';
+const LIVE_GLOW = 'hsl(var(--brand-green, 142 71% 45%) / 0.22)';
+const ENDED_GLOW = 'hsl(var(--destructive) / 0.22)';
+const LIVE_BG = 'hsl(var(--primary) / 0.12)';
+const ENDED_BG = 'hsl(var(--destructive) / 0.1)';
+const LIVE_BORDER = 'hsl(var(--primary) / 0.4)';
+const ENDED_BORDER = 'hsl(var(--destructive) / 0.4)';
 
-export default function ConnectedBanner({
-    joinedKey,
-    sessionEnded,
-    onLeave,
-}: Props) {
-    const accent = sessionEnded ? COLOR_DESTRUCTIVE : COLOR_EMERALD;
-    const label = sessionEnded ? 'Session ended' : 'Session live';
+export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
+    const accent = sessionEnded ? ENDED_ACCENT : LIVE_ACCENT;
+    const glow = sessionEnded ? ENDED_GLOW : LIVE_GLOW;
+    const label = sessionEnded
+        ? STRINGS.MSG_SESSION_ENDED
+        : STRINGS.MSG_SESSION_LIVE;
+    const buttonLabel = sessionEnded ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE;
 
     return (
         <div
@@ -27,12 +33,8 @@ export default function ConnectedBanner({
                 gap: 10,
                 padding: '10px 12px',
                 borderRadius: 8,
-                border: sessionEnded
-                    ? '1px solid rgba(248, 113, 113, 0.4)'
-                    : '1px solid rgba(117, 109, 243, 0.4)',
-                background: sessionEnded
-                    ? 'rgba(248, 113, 113, 0.1)'
-                    : 'rgba(117, 109, 243, 0.12)',
+                border: `1px solid ${sessionEnded ? ENDED_BORDER : LIVE_BORDER}`,
+                background: sessionEnded ? ENDED_BG : LIVE_BG,
             }}
         >
             <span
@@ -41,11 +43,7 @@ export default function ConnectedBanner({
                     height: 8,
                     width: 8,
                     backgroundColor: accent,
-                    boxShadow: `0 0 0 3px ${
-                        sessionEnded
-                            ? 'rgba(248, 113, 113, 0.22)'
-                            : 'rgba(52, 211, 153, 0.22)'
-                    }`,
+                    boxShadow: `0 0 0 3px ${glow}`,
                 }}
             />
             <div className="min-w-0" style={{ flex: 1 }}>
@@ -55,7 +53,9 @@ export default function ConnectedBanner({
                         fontSize: 10.5,
                         letterSpacing: '0.08em',
                         textTransform: 'uppercase',
-                        color: sessionEnded ? COLOR_DESTRUCTIVE : COLOR_LILAC,
+                        color: sessionEnded
+                            ? ENDED_ACCENT
+                            : 'hsl(var(--brand-purple-medium))',
                     }}
                 >
                     {label}
@@ -81,7 +81,7 @@ export default function ConnectedBanner({
                 onClick={onLeave}
                 style={{ height: 28, padding: '0 12px' }}
             >
-                {sessionEnded ? 'Dismiss' : 'Leave'}
+                {buttonLabel}
             </Button>
         </div>
     );

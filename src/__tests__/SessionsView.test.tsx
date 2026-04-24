@@ -78,7 +78,7 @@ jest.mock('@metalbear/ui', () => ({
     ),
 }));
 
-import SessionsView from '../components/SessionsView';
+import { SessionsView } from '../components/SessionsView';
 
 const s = (
     name: string,

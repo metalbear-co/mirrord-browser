@@ -6,6 +6,7 @@ import type {
     OperatorWatchStatus,
     SessionNotification,
 } from '../types';
+import { SESSION_NOTIFICATION_TYPE, STRINGS } from '../constants';
 import {
     fetchOperatorSessions,
     buildWsUrl,
@@ -23,6 +24,34 @@ import {
 
 const BAGGAGE_HEADER_NAME = 'baggage';
 const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+
+const WATCHED_STORAGE_KEYS: readonly string[] = [
+    STORAGE_KEYS.JOINED_KEY,
+    STORAGE_KEYS.JOINED_SESSION_NAME,
+    STORAGE_KEYS.MIRRORD_UI_BACKEND,
+    STORAGE_KEYS.MIRRORD_UI_TOKEN,
+];
+
+function hasWatchedChange(
+    changes: Record<string, chrome.storage.StorageChange>
+): boolean {
+    return WATCHED_STORAGE_KEYS.some((key) => key in changes);
+}
+
+function groupByKey(
+    sessions: OperatorSessionSummary[]
+): Record<string, OperatorSessionSummary[]> {
+    const by_key: Record<string, OperatorSessionSummary[]> = {};
+    for (const s of sessions) {
+        const bucket = by_key[s.key];
+        if (bucket) {
+            bucket.push(s);
+        } else {
+            by_key[s.key] = [s];
+        }
+    }
+    return by_key;
+}
 
 export type JoinState = {
     joinedKey: string | null;
@@ -76,14 +105,7 @@ export function useMirrordUi() {
         const listener = (
             changes: Record<string, chrome.storage.StorageChange>
         ) => {
-            if (
-                STORAGE_KEYS.JOINED_KEY in changes ||
-                STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
-                STORAGE_KEYS.MIRRORD_UI_BACKEND in changes ||
-                STORAGE_KEYS.MIRRORD_UI_TOKEN in changes
-            ) {
-                loadFromStorage();
-            }
+            if (hasWatchedChange(changes)) loadFromStorage();
         };
         chrome.storage.onChanged.addListener(listener);
         return () => {
@@ -125,22 +147,27 @@ export function useMirrordUi() {
         wsRef.current = ws;
 
         ws.onmessage = (ev) => {
+            let msg: SessionNotification;
             try {
-                const msg = JSON.parse(ev.data) as SessionNotification;
-                setSessions((current) => {
-                    if (!current) return current;
-                    return applyNotification(current, msg);
-                });
-                if (msg.type === 'operator_session_removed') {
-                    setJoinState((js) =>
-                        js.joinedSessionName === msg.id
-                            ? { ...js, sessionEnded: true }
-                            : js
-                    );
-                }
-            } catch {}
+                msg = JSON.parse(ev.data) as SessionNotification;
+            } catch {
+                setError(STRINGS.ERR_WS_PARSE);
+                return;
+            }
+            setSessions((current) =>
+                current ? applyNotification(current, msg) : current
+            );
+            if (
+                msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED
+            ) {
+                setJoinState((js) =>
+                    js.joinedSessionName === msg.id
+                        ? { ...js, sessionEnded: true }
+                        : js
+                );
+            }
         };
-        ws.onerror = () => setError('websocket error');
+        ws.onerror = () => setError(STRINGS.ERR_WS_CONNECTION);
         ws.onclose = () => {
             wsRef.current = null;
         };
@@ -161,19 +188,17 @@ export function useMirrordUi() {
         Record<string, OperatorSessionSummary[]>
     >(() => {
         if (!sessions) return {};
-        const out: Record<string, OperatorSessionSummary[]> = {};
-        for (const s of sessions.sessions) {
-            if (namespace && s.namespace !== namespace) continue;
-            (out[s.key] ??= []).push(s);
-        }
-        return out;
+        const filtered = namespace
+            ? sessions.sessions.filter((s) => s.namespace === namespace)
+            : sessions.sessions;
+        return groupByKey(filtered);
     }, [sessions, namespace]);
 
     const join = useCallback(
         async (key: string) => {
             const target = sessions?.sessions.find((s) => s.key === key);
             if (!target) {
-                setError(`Key "${key}" not visible in current session list`);
+                setError(STRINGS.ERR_KEY_NOT_VISIBLE(key));
                 return;
             }
             const filterHint = deriveInjectionHint(
@@ -249,14 +274,14 @@ function applyNotification(
     msg: SessionNotification
 ): OperatorSessionsResponse {
     if (
-        msg.type === 'operator_session_added' ||
-        msg.type === 'operator_session_updated'
+        msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_ADDED ||
+        msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_UPDATED
     ) {
         const others = current.sessions.filter((s) => s.id !== msg.session.id);
         const next = [...others, msg.session];
         return rebuild(next, current.watch_status);
     }
-    if (msg.type === 'operator_session_removed') {
+    if (msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED) {
         const next = current.sessions.filter((s) => s.id !== msg.id);
         return rebuild(next, current.watch_status);
     }
@@ -267,9 +292,5 @@ function rebuild(
     sessions: OperatorSessionSummary[],
     watch_status: OperatorWatchStatus
 ): OperatorSessionsResponse {
-    const by_key: Record<string, OperatorSessionSummary[]> = {};
-    for (const s of sessions) {
-        (by_key[s.key] ??= []).push(s);
-    }
-    return { sessions, by_key, watch_status };
+    return { sessions, by_key: groupByKey(sessions), watch_status };
 }

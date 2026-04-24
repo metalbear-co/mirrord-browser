@@ -95,6 +95,18 @@ pages/
 - Tests: header injection, URL scoping, rule removal, reset to defaults, analytics
 - Requires `pnpm build` before running
 
+**Operator sessions e2e against real mirrord ui (playground):**
+
+The session-join flow is validated end-to-end against a real `mirrord ui` CLI talking to the playground operator — no fake server is maintained in-tree (we don't want the CLI API and extension to drift).
+
+1. Install a recent mirrord CLI build that includes the `ui` subcommand (metalbear-co/mirrord#4205).
+2. Point your kubeconfig at the playground cluster (`checkout-demo` in `mirrord-test`).
+3. Start the local poller: `mirrord ui --token <random-token>` (it prints a `configure` URL with token + backend baked in).
+4. Run `pnpm build` then `pnpm test:e2e -- live-real.spec.ts`. Export the same token via `MIRRORD_UI_TOKEN=<token>` so the spec can see sessions.
+5. To drive an operator session yourself so there's something to join, run any mirrord-enabled workload against the playground operator (e.g. `mirrord exec --target deploy/web -- curl ...`).
+
+The `live-real.spec.ts` spec auto-skips when `MIRRORD_UI_TOKEN` is unset, so CI is unaffected.
+
 ## Key Patterns
 
 - **useHeaderRules hook:** Single source of truth for all popup state (active rules, form fields, save/reset handlers). Never modify UI state outside this hook.

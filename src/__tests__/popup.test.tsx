@@ -205,7 +205,7 @@ describe('Popup', () => {
         );
     });
 
-    it('starts on onboarding when no config and no backend', async () => {
+    it('starts in manual mode when no config and no backend', async () => {
         mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
         mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
             cb({})
@@ -214,9 +214,7 @@ describe('Popup', () => {
         render(<Popup />);
 
         await waitFor(() => {
-            expect(
-                screen.getByText(/Choose how to set up header injection/i)
-            ).toBeInTheDocument();
+            expect(screen.getByLabelText('Header Name')).toBeInTheDocument();
         });
     });
 

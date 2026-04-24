@@ -1,0 +1,147 @@
+import {
+    Button,
+    Card,
+    CardContent,
+    Separator,
+    Switch,
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@metalbear/ui';
+import { HeaderForm } from './HeaderForm';
+import type { useHeaderRules } from '../hooks';
+
+const ACTIVE_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
+
+type Props = {
+    headerRules: ReturnType<typeof useHeaderRules>;
+};
+
+export function ManualSetup({ headerRules }: Props) {
+    const {
+        rules,
+        headerName,
+        headerValue,
+        scope,
+        saveState,
+        resetState,
+        hasDefaults,
+        hasStoredConfig,
+        isToggling,
+        error,
+        setHeaderName,
+        setHeaderValue,
+        setScope,
+        handleSave,
+        handleReset,
+        handleToggle,
+        getSaveButtonText,
+        getResetButtonText,
+    } = headerRules;
+
+    const activeRule = rules[0];
+    const isActive = !!activeRule;
+    const canToggle = isActive || hasStoredConfig;
+
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                    <span
+                        data-testid="status-dot"
+                        className={`inline-block w-2 h-2 rounded-full transition-colors ${
+                            isActive ? '' : 'bg-muted-foreground/30'
+                        }`}
+                        style={
+                            isActive
+                                ? { backgroundColor: ACTIVE_DOT }
+                                : undefined
+                        }
+                    />
+                    <span className="text-xs font-medium">
+                        {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="text-muted-foreground cursor-help text-[10px]">
+                                ⓘ
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-[220px]">
+                            When on, the extension injects the saved header into
+                            matching requests. Toggle off to pause injection
+                            without losing your config.
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
+                <Switch
+                    checked={isActive}
+                    onCheckedChange={handleToggle}
+                    disabled={!canToggle || isToggling}
+                    aria-label="Toggle header injection"
+                />
+            </div>
+
+            {activeRule && (
+                <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/10">
+                    <code
+                        className="text-xs font-mono block"
+                        style={{
+                            color: 'hsl(var(--brand-yellow))',
+                            overflowWrap: 'anywhere',
+                        }}
+                    >
+                        {activeRule.header}: {activeRule.value}
+                    </code>
+                    <span
+                        className="text-[10px] text-muted-foreground block mt-0.5"
+                        style={{ overflowWrap: 'anywhere' }}
+                    >
+                        {activeRule.scope}
+                    </span>
+                </div>
+            )}
+
+            <Card className="overflow-hidden">
+                <CardContent className="px-3 py-3">
+                    <HeaderForm
+                        headerName={headerName}
+                        headerValue={headerValue}
+                        scope={scope}
+                        onHeaderNameChange={setHeaderName}
+                        onHeaderValueChange={setHeaderValue}
+                        onScopeChange={setScope}
+                    />
+                    {error && (
+                        <p
+                            className="text-[10px] text-destructive mt-2"
+                            role="alert"
+                        >
+                            {error}
+                        </p>
+                    )}
+                </CardContent>
+                <Separator />
+                <CardContent className="px-3 py-2 flex gap-2">
+                    <Button
+                        onClick={handleSave}
+                        disabled={saveState !== 'idle'}
+                        className="flex-1 h-9 text-xs"
+                    >
+                        {getSaveButtonText()}
+                    </Button>
+                    {hasDefaults && (
+                        <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            disabled={resetState !== 'idle'}
+                            className="flex-1 h-9 text-xs"
+                        >
+                            {getResetButtonText()}
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}

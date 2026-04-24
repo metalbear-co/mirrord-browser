@@ -1,8 +1,15 @@
+/** @jest-environment jsdom */
 import { STORAGE_KEYS } from '../types';
+
+jest.mock('@metalbear/ui/styles.css', () => ({}), { virtual: true });
+jest.mock('@metalbear/ui', () => ({
+    Card: ({ children }: { children?: React.ReactNode }) => children,
+    CardContent: ({ children }: { children?: React.ReactNode }) => children,
+}));
 
 describe('configure.tsx (entry)', () => {
     beforeEach(() => {
-        document.body.innerHTML = '<div id="content"></div>';
+        document.body.innerHTML = '<div id="root"></div>';
         window.history.replaceState(
             {},
             '',
@@ -35,7 +42,7 @@ describe('configure.tsx (entry)', () => {
                 status: 200,
                 statusText: 'OK',
                 text: () => Promise.resolve(''),
-                json: () => Promise.resolve({}),
+                json: () => Promise.resolve({ sessions: [] }),
             } as any)
         ) as any;
     });
@@ -43,7 +50,6 @@ describe('configure.tsx (entry)', () => {
     test('stores backend+token when query params are present', async () => {
         await jest.isolateModulesAsync(async () => {
             await import('../configure');
-            document.dispatchEvent(new Event('DOMContentLoaded'));
             await new Promise((r) => setTimeout(r, 30));
         });
         expect((global as any).chrome.storage.local.set).toHaveBeenCalledWith(
