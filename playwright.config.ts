@@ -18,10 +18,5 @@ export default defineConfig({
             port: 3456,
             reuseExistingServer: !process.env.CI,
         },
-        {
-            command: 'npx tsx e2e/fake-mirrord-ui.ts',
-            port: 3457,
-            reuseExistingServer: !process.env.CI,
-        },
     ],
 });
