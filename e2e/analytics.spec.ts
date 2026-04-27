@@ -67,6 +67,12 @@ async function openPopupWithSpy(
     const page = await context.newPage();
     await setupAnalyticsSpy(page);
     await page.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+    await page.evaluate(() =>
+        chrome.storage.local.set({
+            defaults: { headerName: '', headerValue: '', scope: '' },
+        })
+    );
+    await page.reload();
     return page;
 }
 
@@ -76,7 +82,7 @@ test.describe('Analytics events', () => {
         extensionId,
     }) => {
         const page = await openPopupWithSpy(context, extensionId);
-        await expect(page.getByText('mirrord')).toBeVisible();
+        await expect(page.getByText('mirrord', { exact: true })).toBeVisible();
 
         const events = await getCapturedEvents(page);
         expect(events).toContain('extension_popup_opened');

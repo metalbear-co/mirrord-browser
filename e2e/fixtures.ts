@@ -53,6 +53,12 @@ export const test = base.extend<ExtensionFixtures>({
     popupPage: async ({ context, extensionId }, use) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+        await page.evaluate(() =>
+            chrome.storage.local.set({
+                defaults: { headerName: '', headerValue: '', scope: '' },
+            })
+        );
+        await page.reload();
         await use(page);
     },
 });

@@ -45,6 +45,10 @@ globalThis.chrome = {
             set: mockStorageSet,
             remove: mockStorageRemove,
         },
+        onChanged: {
+            addListener: jest.fn(),
+            removeListener: jest.fn(),
+        },
     },
 } as unknown as typeof chrome;
 
@@ -127,6 +131,9 @@ describe('useHeaderRules analytics', () => {
             );
             mockUpdateDynamicRules.mockImplementation(
                 (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
             );
 
             const { result } = renderHook(() => useHeaderRules());
@@ -249,6 +256,9 @@ describe('useHeaderRules analytics', () => {
             );
             mockStorageSet.mockImplementation(
                 (_data: unknown, cb: () => void) => cb()
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
             );
 
             const { result } = renderHook(() => useHeaderRules());

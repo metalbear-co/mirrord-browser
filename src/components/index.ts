@@ -1,3 +1,11 @@
 export { RuleItem } from './RuleItem';
 export { RulesList } from './RulesList';
 export { HeaderForm } from './HeaderForm';
+export { SessionsView } from './SessionsView';
+export { SessionKeyGroup } from './SessionKeyGroup';
+export { ConnectedBanner } from './ConnectedBanner';
+export { NamespaceFilter } from './NamespaceFilter';
+export { ManualSetup } from './ManualSetup';
+export { StatusDot } from './StatusDot';
+export { NotConfiguredPrompt } from './NotConfiguredPrompt';
+export { OperatorUnavailableNote } from './OperatorUnavailableNote';

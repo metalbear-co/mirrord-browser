@@ -64,6 +64,24 @@ export function useHeaderRules() {
         loadFormValues();
     }, [loadRules, loadFormValues]);
 
+    useEffect(() => {
+        const listener = (
+            changes: Record<string, chrome.storage.StorageChange>
+        ) => {
+            if (
+                STORAGE_KEYS.JOINED_KEY in changes ||
+                STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
+                STORAGE_KEYS.OVERRIDE in changes ||
+                STORAGE_KEYS.DEFAULTS in changes
+            ) {
+                loadRules();
+                loadFormValues();
+            }
+        };
+        chrome.storage.onChanged.addListener(listener);
+        return () => chrome.storage.onChanged.removeListener(listener);
+    }, [loadRules, loadFormValues]);
+
     const handleActivate = useCallback(async () => {
         setError(null);
 
@@ -89,6 +107,10 @@ export function useHeaderRules() {
                 removeRuleIds: existingRules.map((r) => r.id),
                 addRules: newRules,
             });
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+            ]);
             setHeaderName(config.headerName);
             setHeaderValue(config.headerValue);
             setScope(config.scope || '');
@@ -112,6 +134,10 @@ export function useHeaderRules() {
 
             try {
                 await updateDynamicRules({ removeRuleIds: [ruleId] });
+                await storageRemove([
+                    STORAGE_KEYS.JOINED_KEY,
+                    STORAGE_KEYS.JOINED_SESSION_NAME,
+                ]);
                 await loadRules();
                 capture('extension_header_rule_removed');
             } catch (e) {
@@ -177,6 +203,10 @@ export function useHeaderRules() {
                     removeRuleIds: existingRules.map((r) => r.id),
                     addRules: newRules,
                 });
+                await storageRemove([
+                    STORAGE_KEYS.JOINED_KEY,
+                    STORAGE_KEYS.JOINED_SESSION_NAME,
+                ]);
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;

@@ -1,12 +1,11 @@
+import RandExp from 'randexp';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { Config, HeaderRule, ALL_RESOURCE_TYPES } from './types';
 import { STRINGS } from './constants';
 
-/**
- * Refresh browser extension icon badge text based on the number of
- * active request rules.
- *
- * @param num number of active request rules managed by the extension
- */
+dayjs.extend(relativeTime);
+
 export function refreshIconIndicator(num: number) {
     chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
     if (num > 0) {
@@ -16,21 +15,11 @@ export function refreshIconIndicator(num: number) {
     }
 }
 
-/**
- * Determine the display scope from a URL filter.
- * Returns "All URLs" for wildcard/empty filters, otherwise the actual filter.
- */
 function getDisplayScope(urlFilter: string | undefined): string {
     const isWildcard = !urlFilter || urlFilter === '|';
     return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
 }
 
-/**
- * Parse Chrome declarativeNetRequest rules into a simplified HeaderRule format.
- *
- * @param rules Chrome declarativeNetRequest rules
- * @returns Parsed header rules for display
- */
 export function parseRules(
     rules: chrome.declarativeNetRequest.Rule[]
 ): HeaderRule[] {
@@ -53,10 +42,6 @@ export function parseRules(
         });
 }
 
-/**
- * Build a declarativeNetRequest rule for header injection.
- * Conceptual inverse of parseRules.
- */
 export function buildDnrRule(
     header: string,
     value: string,
@@ -85,8 +70,6 @@ export function buildDnrRule(
         },
     ];
 }
-
-// --- Promisified Chrome API wrappers ---
 
 export function getDynamicRules(): Promise<
     chrome.declarativeNetRequest.Rule[]
@@ -144,6 +127,13 @@ export function storageRemove(keys: string[]): Promise<void> {
     });
 }
 
+export function formatRelativeTime(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const parsed = dayjs(iso);
+    if (!parsed.isValid()) return '';
+    return parsed.fromNow();
+}
+
 export function encodeConfig(config: Config): string {
     return btoa(JSON.stringify(config));
 }
@@ -151,4 +141,39 @@ export function encodeConfig(config: Config): string {
 export function buildShareUrl(config: Config): string {
     const encoded = encodeConfig(config);
     return `chrome-extension://${chrome.runtime.id}/pages/config.html?payload=${encoded}`;
+}
+
+export type InjectionHint = {
+    header: string;
+    value: string;
+};
+
+const HEADER_LINE_PATTERN = /^([A-Za-z0-9_-]+):\s?(.+)$/;
+
+function generateLowestMatch(pattern: string): string | null {
+    try {
+        const re = new RandExp(pattern);
+        re.max = 0;
+        re.randInt = (from) => from;
+        return re.gen();
+    } catch {
+        return null;
+    }
+}
+
+function parseHeaderLine(line: string): InjectionHint | null {
+    const m = line.match(HEADER_LINE_PATTERN);
+    if (!m) return null;
+    return { header: m[1], value: m[2] };
+}
+
+export function deriveInjectionHint(
+    headerFilter: string | null | undefined
+): InjectionHint | null {
+    if (!headerFilter) return null;
+    const trimmed = headerFilter.trim();
+    if (!trimmed) return null;
+    const generated = generateLowestMatch(trimmed);
+    if (!generated) return null;
+    return parseHeaderLine(generated);
 }
