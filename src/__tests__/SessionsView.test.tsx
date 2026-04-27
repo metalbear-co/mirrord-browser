@@ -168,7 +168,7 @@ describe('SessionsView', () => {
 
     test('renders the run-mirrord-ui prompt when list is empty', () => {
         render(<SessionsView {...baseProps} sessions={[]} />);
-        expect(screen.getByText(/see local sessions/i)).toBeInTheDocument();
+        expect(screen.getByText(/see remote sessions/i)).toBeInTheDocument();
         expect(screen.getByText('mirrord ui')).toBeInTheDocument();
     });
 });

@@ -28,9 +28,9 @@ export const STRINGS = {
 
     MSG_NO_ACTIVE_HEADERS: 'No active headers',
     MSG_ALL_URLS: 'All URLs',
-    MSG_SEE_LOCAL_SESSIONS: 'See local sessions',
+    MSG_SEE_REMOTE_SESSIONS: 'See remote sessions',
     MSG_RUN_MIRRORD_UI_HINT:
-        'Run this in your terminal to list operator sessions you have access to.',
+        'Run this in your terminal to list teammate operator sessions you can join.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
     MSG_ALL_NAMESPACES: 'All',
     MSG_LIVE_SESSIONS: 'Live sessions',

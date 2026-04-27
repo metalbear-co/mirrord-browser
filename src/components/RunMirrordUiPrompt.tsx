@@ -35,7 +35,7 @@ export function RunMirrordUiPrompt() {
                             textTransform: 'uppercase',
                         }}
                     >
-                        {STRINGS.MSG_SEE_LOCAL_SESSIONS}
+                        {STRINGS.MSG_SEE_REMOTE_SESSIONS}
                     </span>
                 </div>
                 <div
