@@ -29,8 +29,7 @@ export const STRINGS = {
     MSG_NO_ACTIVE_HEADERS: 'No active headers',
     MSG_ALL_URLS: 'All URLs',
     MSG_NOT_CONFIGURED: 'Not configured',
-    MSG_NOT_CONFIGURED_HINT:
-        'Run this in a terminal, then click the URL it prints to connect the extension.',
+    MSG_NOT_CONFIGURED_HINT: 'Run this in your terminal to connect.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
     MSG_NO_ACTIVE_SESSIONS: 'No active sessions yet.',
     MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
