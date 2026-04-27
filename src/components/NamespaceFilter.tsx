@@ -15,7 +15,34 @@ type Props = {
 };
 
 export function NamespaceFilter({ namespaces, value, onChange }: Props) {
+    const distinct = namespaces.filter((ns) => ns !== '');
     const selectValue = value === '' ? NAMESPACE_ALL_SENTINEL : value;
+
+    if (distinct.length === 1) {
+        return (
+            <div
+                className="flex items-center"
+                style={{ gap: 8, padding: '0 2px' }}
+            >
+                <Label
+                    className="text-muted-foreground font-semibold"
+                    style={{
+                        fontSize: 10.5,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                    }}
+                >
+                    {STRINGS.LABEL_NAMESPACE}
+                </Label>
+                <span
+                    className="font-mono text-foreground"
+                    style={{ fontSize: 12 }}
+                >
+                    {distinct[0]}
+                </span>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center" style={{ gap: 8, padding: '0 2px' }}>
