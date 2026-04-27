@@ -50,7 +50,15 @@ describe('configure.tsx (entry)', () => {
     test('stores backend+token when query params are present', async () => {
         await jest.isolateModulesAsync(async () => {
             await import('../configure');
-            await new Promise((r) => setTimeout(r, 30));
+            for (let i = 0; i < 20; i++) {
+                if (
+                    (global as any).chrome.storage.local.set.mock.calls.length >
+                    0
+                ) {
+                    break;
+                }
+                await new Promise((r) => setTimeout(r, 25));
+            }
         });
         expect((global as any).chrome.storage.local.set).toHaveBeenCalledWith(
             expect.objectContaining({

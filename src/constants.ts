@@ -28,7 +28,10 @@ export const STRINGS = {
 
     MSG_NO_ACTIVE_HEADERS: 'No active headers',
     MSG_ALL_URLS: 'All URLs',
-    MSG_NO_SESSIONS_VISIBLE: 'No sessions visible with current credentials.',
+    MSG_SEE_LOCAL_SESSIONS: 'See local sessions',
+    MSG_RUN_MIRRORD_UI_HINT:
+        'Run this in your terminal to list operator sessions you have access to.',
+    MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
     MSG_ALL_NAMESPACES: 'All',
     MSG_LIVE_SESSIONS: 'Live sessions',
     MSG_SESSION_LIVE: 'Session live',

@@ -7,3 +7,4 @@ export { ConnectedBanner } from './ConnectedBanner';
 export { NamespaceFilter } from './NamespaceFilter';
 export { ManualSetup } from './ManualSetup';
 export { StatusDot } from './StatusDot';
+export { RunMirrordUiPrompt } from './RunMirrordUiPrompt';

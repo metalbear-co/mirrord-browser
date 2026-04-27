@@ -3,6 +3,7 @@ import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
 import { StatusDot } from './StatusDot';
+import { RunMirrordUiPrompt } from './RunMirrordUiPrompt';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
 import { STRINGS } from '../constants';
@@ -56,6 +57,8 @@ export function SessionsView({
     const showNamespaceFilter = namespaces.filter((ns) => ns !== '').length > 1;
     const watching = status?.status === 'watching';
 
+    const hasGroups = orderedKeys.length > 0;
+
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
             {joinState.joinedKey && (
@@ -67,60 +70,55 @@ export function SessionsView({
                 />
             )}
 
-            <div
-                className="flex items-center justify-between text-muted-foreground font-semibold"
-                style={{
-                    padding: '0 2px',
-                    fontSize: 10.5,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                }}
-            >
-                <span>{STRINGS.MSG_LIVE_SESSIONS}</span>
-                {status && (
-                    <span
-                        className="inline-flex items-center"
-                        style={{ gap: 5 }}
+            {hasGroups && (
+                <>
+                    <div
+                        className="flex items-center justify-between text-muted-foreground font-semibold"
+                        style={{
+                            padding: '0 2px',
+                            fontSize: 10.5,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                        }}
                     >
-                        {watching && <StatusDot tone="active" size={5} />}
-                        {status.status}
-                    </span>
-                )}
-            </div>
+                        <span>{STRINGS.MSG_LIVE_SESSIONS}</span>
+                        {status && (
+                            <span
+                                className="inline-flex items-center"
+                                style={{ gap: 5 }}
+                            >
+                                {watching && (
+                                    <StatusDot tone="active" size={5} />
+                                )}
+                                {status.status}
+                            </span>
+                        )}
+                    </div>
 
-            {showNamespaceFilter && (
-                <NamespaceFilter
-                    namespaces={namespaces}
-                    value={namespace}
-                    onChange={setNamespace}
-                />
-            )}
-
-            {orderedKeys.length === 0 ? (
-                <div
-                    className="text-muted-foreground"
-                    style={{
-                        padding: '16px 12px',
-                        fontSize: 11,
-                        textAlign: 'center',
-                    }}
-                >
-                    {STRINGS.MSG_NO_SESSIONS_VISIBLE}
-                </div>
-            ) : (
-                <div className="flex flex-col" style={{ gap: 10 }}>
-                    {orderedKeys.map((k) => (
-                        <SessionKeyGroup
-                            key={k}
-                            groupKey={k}
-                            sessions={groups[k] ?? []}
-                            joined={k === joinedKey}
-                            onJoin={onJoin}
-                            onShare={onShare}
+                    {showNamespaceFilter && (
+                        <NamespaceFilter
+                            namespaces={namespaces}
+                            value={namespace}
+                            onChange={setNamespace}
                         />
-                    ))}
-                </div>
+                    )}
+
+                    <div className="flex flex-col" style={{ gap: 10 }}>
+                        {orderedKeys.map((k) => (
+                            <SessionKeyGroup
+                                key={k}
+                                groupKey={k}
+                                sessions={groups[k] ?? []}
+                                joined={k === joinedKey}
+                                onJoin={onJoin}
+                                onShare={onShare}
+                            />
+                        ))}
+                    </div>
+                </>
             )}
+
+            {!hasGroups && <RunMirrordUiPrompt />}
         </div>
     );
 }

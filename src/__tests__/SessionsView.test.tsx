@@ -166,8 +166,9 @@ describe('SessionsView', () => {
         expect(screen.getByText(/session ended/i)).toBeInTheDocument();
     });
 
-    test('renders "no sessions visible" when list is empty', () => {
+    test('renders the run-mirrord-ui prompt when list is empty', () => {
         render(<SessionsView {...baseProps} sessions={[]} />);
-        expect(screen.getByText(/no sessions visible/i)).toBeInTheDocument();
+        expect(screen.getByText(/see local sessions/i)).toBeInTheDocument();
+        expect(screen.getByText('mirrord ui')).toBeInTheDocument();
     });
 });

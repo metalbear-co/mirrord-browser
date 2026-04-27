@@ -31,13 +31,7 @@ export function Popup() {
     const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
 
-    const sessionMode = Boolean(mirrordUi.backend && mirrordUi.healthy);
-    const hasManualConfig =
-        headerRules.rules.length > 0 || headerRules.hasStoredConfig;
-
-    const defaultTab: TabId =
-        sessionMode && !hasManualConfig ? TAB.SESSIONS : TAB.MANUAL;
-    const [tab, setTab] = useState<TabId>(defaultTab);
+    const [tab, setTab] = useState<TabId>(TAB.MANUAL);
 
     return (
         <TooltipProvider>
@@ -93,30 +87,26 @@ export function Popup() {
                     </div>
                 </div>
 
-                {sessionMode ? (
-                    <Tabs
-                        value={tab}
-                        onValueChange={(v: string) => setTab(v as TabId)}
-                        className="flex flex-col gap-2"
-                    >
-                        <TabsList className="grid grid-cols-2 w-full">
-                            <TabsTrigger value={TAB.SESSIONS}>
-                                {STRINGS.TAB_SESSIONS}
-                            </TabsTrigger>
-                            <TabsTrigger value={TAB.MANUAL}>
-                                {STRINGS.TAB_MANUAL}
-                            </TabsTrigger>
-                        </TabsList>
-                        <TabsContent value={TAB.SESSIONS} className="mt-0">
-                            <SessionsScreen mirrordUi={mirrordUi} />
-                        </TabsContent>
-                        <TabsContent value={TAB.MANUAL} className="mt-0">
-                            <ManualSetup headerRules={headerRules} />
-                        </TabsContent>
-                    </Tabs>
-                ) : (
-                    <ManualSetup headerRules={headerRules} />
-                )}
+                <Tabs
+                    value={tab}
+                    onValueChange={(v: string) => setTab(v as TabId)}
+                    className="flex flex-col gap-2"
+                >
+                    <TabsList className="grid grid-cols-2 w-full">
+                        <TabsTrigger value={TAB.SESSIONS}>
+                            {STRINGS.TAB_SESSIONS}
+                        </TabsTrigger>
+                        <TabsTrigger value={TAB.MANUAL}>
+                            {STRINGS.TAB_MANUAL}
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value={TAB.SESSIONS} className="mt-0">
+                        <SessionsScreen mirrordUi={mirrordUi} />
+                    </TabsContent>
+                    <TabsContent value={TAB.MANUAL} className="mt-0">
+                        <ManualSetup headerRules={headerRules} />
+                    </TabsContent>
+                </Tabs>
             </div>
         </TooltipProvider>
     );
