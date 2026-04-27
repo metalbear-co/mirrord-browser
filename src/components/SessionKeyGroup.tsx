@@ -10,6 +10,7 @@ import {
 import type { OperatorSessionSummary } from '../types';
 import { formatRelativeTime } from '../util';
 import { STRINGS } from '../constants';
+import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
 
 type Props = {
@@ -27,11 +28,6 @@ const TRUNCATE_STYLE: React.CSSProperties = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
 };
-
-const JOINED_BORDER = 'hsl(var(--primary) / 0.45)';
-const JOINED_TINT = 'hsl(var(--primary) / 0.22)';
-const JOINED_BAND = 'hsl(var(--primary) / 0.14)';
-const MUTED_BAND = 'hsl(var(--foreground) / 0.035)';
 
 type GroupAggregate = {
     targets: string[];
@@ -78,7 +74,7 @@ function GroupHeader({
             className="flex items-center gap-2 border-b border-border"
             style={{
                 padding: '10px 14px',
-                background: joined ? JOINED_BAND : MUTED_BAND,
+                background: joined ? COLORS.primary.band : COLORS.muted.band,
             }}
         >
             <KeyIcon
@@ -136,7 +132,7 @@ function TargetRow({ target }: { target: string }) {
                 {hasSlash && (
                     <span
                         className="font-bold"
-                        style={{ color: 'hsl(var(--brand-purple-medium))' }}
+                        style={{ color: COLORS.brand.lilac }}
                     >
                         {name}
                     </span>
@@ -251,8 +247,8 @@ export function SessionKeyGroup({
             style={
                 joined
                     ? {
-                          borderColor: JOINED_BORDER,
-                          boxShadow: `0 0 0 1px ${JOINED_TINT}`,
+                          borderColor: COLORS.primary.border,
+                          boxShadow: `0 0 0 1px ${COLORS.primary.tint}`,
                       }
                     : undefined
             }

@@ -11,6 +11,7 @@ import {
 import { HeaderForm } from './HeaderForm';
 import { StatusDot } from './StatusDot';
 import { STRINGS } from '../constants';
+import { COLORS } from '../colors';
 import type { useHeaderRules } from '../hooks';
 
 type Props = {
@@ -75,7 +76,7 @@ export function ManualSetup({ headerRules }: Props) {
                     <code
                         className="text-xs font-mono block"
                         style={{
-                            color: 'hsl(var(--brand-yellow))',
+                            color: COLORS.brand.yellow,
                             overflowWrap: 'anywhere',
                         }}
                     >

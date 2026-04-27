@@ -1,6 +1,7 @@
 import { Button } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
+import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
 
 type Props = {
@@ -10,16 +11,18 @@ type Props = {
     onLeave: () => void;
 };
 
-const LIVE_BG = 'hsl(var(--primary) / 0.12)';
-const ENDED_BG = 'hsl(var(--destructive) / 0.1)';
-const LIVE_BORDER = 'hsl(var(--primary) / 0.4)';
-const ENDED_BORDER = 'hsl(var(--destructive) / 0.4)';
-
 export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
     const label = sessionEnded
         ? STRINGS.MSG_SESSION_ENDED
         : STRINGS.MSG_SESSION_LIVE;
     const buttonLabel = sessionEnded ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE;
+    const border = sessionEnded
+        ? COLORS.destructive.border
+        : COLORS.primary.borderSoft;
+    const bg = sessionEnded ? COLORS.destructive.bg : COLORS.primary.bg;
+    const titleColor = sessionEnded
+        ? COLORS.destructive.solid
+        : COLORS.brand.lilac;
 
     return (
         <div
@@ -28,8 +31,8 @@ export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
                 gap: 10,
                 padding: '10px 12px',
                 borderRadius: 8,
-                border: `1px solid ${sessionEnded ? ENDED_BORDER : LIVE_BORDER}`,
-                background: sessionEnded ? ENDED_BG : LIVE_BG,
+                border: `1px solid ${border}`,
+                background: bg,
             }}
         >
             <StatusDot tone={sessionEnded ? 'destructive' : 'active'} glow />
@@ -40,9 +43,7 @@ export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
                         fontSize: 10.5,
                         letterSpacing: '0.08em',
                         textTransform: 'uppercase',
-                        color: sessionEnded
-                            ? 'hsl(var(--destructive))'
-                            : 'hsl(var(--brand-purple-medium))',
+                        color: titleColor,
                     }}
                 >
                     {label}

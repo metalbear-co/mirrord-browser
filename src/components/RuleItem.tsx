@@ -1,4 +1,5 @@
 import { HeaderRule } from '../types';
+import { COLORS } from '../colors';
 
 type RuleItemProps = {
     rule: HeaderRule;
@@ -10,7 +11,7 @@ export function RuleItem({ rule }: RuleItemProps) {
             <code
                 className="text-xs font-mono block"
                 style={{
-                    color: 'hsl(var(--brand-yellow))',
+                    color: COLORS.brand.yellow,
                     overflowWrap: 'anywhere',
                 }}
             >

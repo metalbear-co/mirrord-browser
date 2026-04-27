@@ -1,3 +1,5 @@
+import { COLORS } from '../colors';
+
 type Tone = 'active' | 'muted' | 'destructive' | 'inactive';
 
 type Props = {
@@ -7,17 +9,17 @@ type Props = {
 };
 
 const TONE_COLOR: Record<Tone, string> = {
-    active: 'hsl(var(--brand-green, 142 71% 45%))',
-    muted: 'hsl(var(--muted-foreground) / 0.55)',
-    destructive: 'hsl(var(--destructive))',
-    inactive: 'hsl(var(--muted-foreground) / 0.30)',
+    active: COLORS.success.dot,
+    muted: COLORS.muted.dot,
+    destructive: COLORS.destructive.solid,
+    inactive: COLORS.muted.dotInactive,
 };
 
 const TONE_GLOW: Record<Tone, string> = {
-    active: 'hsl(var(--brand-green, 142 71% 45%) / 0.22)',
-    muted: 'hsl(var(--muted-foreground) / 0.18)',
-    destructive: 'hsl(var(--destructive) / 0.22)',
-    inactive: 'hsl(var(--muted-foreground) / 0.12)',
+    active: COLORS.success.glow,
+    muted: COLORS.muted.glow,
+    destructive: COLORS.destructive.glow,
+    inactive: COLORS.muted.glowInactive,
 };
 
 export function StatusDot({ size = 8, tone, glow = false }: Props) {

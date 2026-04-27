@@ -1,14 +1,15 @@
 import { Terminal } from 'lucide-react';
 import { Card, CardContent } from '@metalbear/ui';
 import { STRINGS } from '../constants';
+import { COLORS } from '../colors';
 
 export function RunMirrordUiPrompt() {
     return (
         <Card
             className="overflow-hidden"
             style={{
-                borderColor: 'hsl(var(--primary) / 0.3)',
-                background: 'hsl(var(--primary) / 0.06)',
+                borderColor: COLORS.primary.borderSubtle,
+                background: COLORS.primary.bgSoft,
             }}
         >
             <CardContent
@@ -24,7 +25,7 @@ export function RunMirrordUiPrompt() {
                         style={{
                             height: 14,
                             width: 14,
-                            color: 'hsl(var(--brand-purple-medium))',
+                            color: COLORS.brand.lilac,
                         }}
                     />
                     <span
@@ -56,7 +57,7 @@ export function RunMirrordUiPrompt() {
                     <code
                         className="font-mono"
                         style={{
-                            color: 'hsl(var(--brand-yellow))',
+                            color: COLORS.brand.yellow,
                             fontSize: 13,
                             fontWeight: 500,
                         }}
