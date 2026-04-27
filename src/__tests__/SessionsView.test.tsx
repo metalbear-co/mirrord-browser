@@ -166,9 +166,38 @@ describe('SessionsView', () => {
         expect(screen.getByText(/session ended/i)).toBeInTheDocument();
     });
 
-    test('renders the run-mirrord-ui prompt when list is empty', () => {
-        render(<SessionsView {...baseProps} sessions={[]} />);
-        expect(screen.getByText(/see remote sessions/i)).toBeInTheDocument();
+    test('renders the not-configured prompt when sessions have not loaded', () => {
+        render(
+            <SessionsView {...baseProps} sessions={[]} sessionsLoaded={false} />
+        );
+        expect(screen.getByText(/not configured/i)).toBeInTheDocument();
         expect(screen.getByText('mirrord ui')).toBeInTheDocument();
+    });
+
+    test('renders empty-state text when sessions are loaded but list is empty', () => {
+        render(
+            <SessionsView {...baseProps} sessions={[]} sessionsLoaded={true} />
+        );
+        expect(screen.getByText(/no active sessions/i)).toBeInTheDocument();
+    });
+
+    test('renders the operator-unavailable note when watch_status is unavailable', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[]}
+                sessionsLoaded={true}
+                status={{
+                    status: 'unavailable',
+                    reason: 'no operator',
+                }}
+            />
+        );
+        expect(
+            screen.getByText(/showing local sessions only/i)
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('link', { name: /install the operator/i })
+        ).toBeInTheDocument();
     });
 });

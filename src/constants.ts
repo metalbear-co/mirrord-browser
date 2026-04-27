@@ -28,10 +28,14 @@ export const STRINGS = {
 
     MSG_NO_ACTIVE_HEADERS: 'No active headers',
     MSG_ALL_URLS: 'All URLs',
-    MSG_SEE_REMOTE_SESSIONS: 'See remote sessions',
-    MSG_RUN_MIRRORD_UI_HINT:
-        'Run this in your terminal to list teammate operator sessions you can join.',
+    MSG_NOT_CONFIGURED: 'Not configured',
+    MSG_NOT_CONFIGURED_HINT:
+        'Run this in your terminal to set up the extension.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
+    MSG_NO_ACTIVE_SESSIONS: 'No active sessions yet.',
+    MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
+    MSG_INSTALL_OPERATOR: 'Install the operator',
+    MSG_INSTALL_OPERATOR_TO_VIEW_REMOTE: 'to view your teammates’ sessions.',
     MSG_ALL_NAMESPACES: 'All',
     MSG_LIVE_SESSIONS: 'Live sessions',
     MSG_SESSION_LIVE: 'Session live',

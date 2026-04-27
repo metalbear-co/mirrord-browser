@@ -3,7 +3,7 @@ import { Card, CardContent } from '@metalbear/ui';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 
-export function RunMirrordUiPrompt() {
+export function NotConfiguredPrompt() {
     return (
         <Card
             className="overflow-hidden"
@@ -36,7 +36,7 @@ export function RunMirrordUiPrompt() {
                             textTransform: 'uppercase',
                         }}
                     >
-                        {STRINGS.MSG_SEE_REMOTE_SESSIONS}
+                        {STRINGS.MSG_NOT_CONFIGURED}
                     </span>
                 </div>
                 <div
@@ -69,7 +69,7 @@ export function RunMirrordUiPrompt() {
                     className="text-muted-foreground"
                     style={{ fontSize: 11, lineHeight: 1.45, margin: 0 }}
                 >
-                    {STRINGS.MSG_RUN_MIRRORD_UI_HINT}
+                    {STRINGS.MSG_NOT_CONFIGURED_HINT}
                 </p>
             </CardContent>
         </Card>

@@ -3,7 +3,8 @@ import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
 import { StatusDot } from './StatusDot';
-import { RunMirrordUiPrompt } from './RunMirrordUiPrompt';
+import { NotConfiguredPrompt } from './NotConfiguredPrompt';
+import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
 import { STRINGS } from '../constants';
@@ -33,18 +34,19 @@ export function SessionsView({
     onClear,
     onShare,
 }: Props) {
+    if (!sessionsLoaded) {
+        return <NotConfiguredPrompt />;
+    }
+
     const joinedSession = joinState.joinedSessionName
         ? sessions.find((s) => s.id === joinState.joinedSessionName)
         : undefined;
-
-    const joinedVanished =
-        sessionsLoaded && joinState.joinedKey !== null && !joinedSession;
+    const joinedVanished = joinState.joinedKey !== null && !joinedSession;
     const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
 
     const filtered = namespace
         ? sessions.filter((s) => s.namespace === namespace)
         : sessions;
-
     const groups = groupBy(filtered, (s) => s.key);
 
     const joinedKey = joinState.joinedKey;
@@ -56,7 +58,7 @@ export function SessionsView({
 
     const showNamespaceFilter = namespaces.filter((ns) => ns !== '').length > 1;
     const watching = status?.status === 'watching';
-
+    const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
 
     return (
@@ -69,6 +71,8 @@ export function SessionsView({
                     onLeave={onClear}
                 />
             )}
+
+            {operatorUnavailable && <OperatorUnavailableNote />}
 
             {hasGroups && (
                 <>
@@ -118,7 +122,19 @@ export function SessionsView({
                 </>
             )}
 
-            {!hasGroups && <RunMirrordUiPrompt />}
+            {!hasGroups && (
+                <p
+                    className="text-muted-foreground"
+                    style={{
+                        padding: '8px 2px',
+                        fontSize: 11,
+                        textAlign: 'center',
+                        margin: 0,
+                    }}
+                >
+                    {STRINGS.MSG_NO_ACTIVE_SESSIONS}
+                </p>
+            )}
         </div>
     );
 }
