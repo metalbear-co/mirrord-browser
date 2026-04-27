@@ -152,16 +152,14 @@ function GroupMeta({
     const age = formatRelativeTime(agg.earliestCreatedAt);
     const parts: string[] = [];
 
-    if (agg.namespaces.length === 1) {
-        parts.push(agg.namespaces[0]);
-    } else {
-        parts.push(`${agg.namespaces.length} namespaces`);
-    }
-
     if (agg.owners.length === 1) {
         parts.push(agg.owners[0]);
     } else if (agg.owners.length > 1) {
         parts.push(`${agg.owners.length} owners`);
+    }
+
+    if (agg.namespaces.length > 1) {
+        parts.push(`${agg.namespaces.length} namespaces`);
     }
 
     if (sessionCount > 1) parts.push(`${sessionCount} sessions`);

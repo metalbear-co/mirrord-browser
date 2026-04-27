@@ -56,7 +56,7 @@ export function SessionsView({
     const orderedKeys =
         joinedKey && groups[joinedKey] ? [joinedKey, ...otherKeys] : otherKeys;
 
-    const showNamespaceFilter = namespaces.filter((ns) => ns !== '').length > 1;
+    const hasNamespaces = namespaces.filter((ns) => ns !== '').length > 0;
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
@@ -99,7 +99,7 @@ export function SessionsView({
                         )}
                     </div>
 
-                    {showNamespaceFilter && (
+                    {hasNamespaces && (
                         <NamespaceFilter
                             namespaces={namespaces}
                             value={namespace}
