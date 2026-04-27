@@ -45,7 +45,7 @@ function aggregate(sessions: OperatorSessionSummary[]): GroupAggregate {
     for (const s of sessions) {
         const targetLabel = s.target
             ? `${s.target.kind}/${s.target.name}`
-            : `targetless (${s.namespace})`;
+            : 'targetless';
         targets.add(targetLabel);
         if (s.owner?.username) owners.add(s.owner.username);
         namespaces.add(s.namespace);
@@ -112,9 +112,7 @@ function GroupHeader({
 
 function TargetRow({ target }: { target: string }) {
     const slashIdx = target.indexOf('/');
-    const hasSlash = slashIdx >= 0;
-    const kind = hasSlash ? target.slice(0, slashIdx) : target;
-    const name = hasSlash ? target.slice(slashIdx + 1) : '';
+    const name = slashIdx >= 0 ? target.slice(slashIdx + 1) : target;
     return (
         <div className="flex items-center gap-2 min-w-0">
             <Box
@@ -122,21 +120,15 @@ function TargetRow({ target }: { target: string }) {
                 style={{ height: 13, width: 13 }}
             />
             <div
-                className="min-w-0 font-mono"
-                style={{ fontSize: 12, lineHeight: 1.45, ...TRUNCATE_STYLE }}
+                className="min-w-0 font-mono font-bold"
+                style={{
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                    color: COLORS.brand.lilac,
+                    ...TRUNCATE_STYLE,
+                }}
             >
-                <span className="text-muted-foreground">
-                    {kind}
-                    {hasSlash ? '/ ' : ''}
-                </span>
-                {hasSlash && (
-                    <span
-                        className="font-bold"
-                        style={{ color: COLORS.brand.lilac }}
-                    >
-                        {name}
-                    </span>
-                )}
+                {name}
             </div>
         </div>
     );
