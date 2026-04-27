@@ -36,6 +36,18 @@ export const STRINGS = {
     MSG_ROUTING_TRAFFIC: 'Routing your traffic',
     MSG_AVAILABLE: 'Available',
     MSG_JOINED_TAG: 'Joined',
+    MSG_ACTIVE: 'Active',
+    MSG_INACTIVE: 'Inactive',
+    MSG_LOADING: 'Loading…',
+    MSG_INJECTION_TOOLTIP:
+        'When on, the extension injects the saved header into matching requests. Toggle off to pause injection without losing your config.',
+    LABEL_TOGGLE_INJECTION: 'Toggle header injection',
+    LABEL_INFO: 'ⓘ',
+    LABEL_MIRRORD: 'mirrord',
+    LABEL_HEADER_INJECTOR: 'Header Injector',
+    BTN_COPIED: 'Copied!',
+    BTN_COPY_CONFIG_LINK: 'Copy config link',
+    BTN_SHARE_CONFIG: 'Share configuration',
     MSG_MIRRORD_UI_CONNECTED: 'mirrord ui connected',
     MSG_MIRRORD_UI_CONNECTED_HINT:
         'You can close this tab and open the extension popup.',
@@ -99,3 +111,15 @@ export const ROW_TAG = {
 export type RowTag = (typeof ROW_TAG)[keyof typeof ROW_TAG];
 
 export const NAMESPACE_ALL_SENTINEL = '__all__';
+
+export const CONFIGURE_STATUS = {
+    LOADING: 'loading',
+    CONNECTED: 'connected',
+    JOINED: 'joined',
+    KEY_NOT_VISIBLE: 'key-not-visible',
+    MISSING_CONFIG: 'missing-config',
+    NOT_CONFIGURED: 'not-configured',
+} as const;
+
+export type ConfigureStatusKind =
+    (typeof CONFIGURE_STATUS)[keyof typeof CONFIGURE_STATUS];

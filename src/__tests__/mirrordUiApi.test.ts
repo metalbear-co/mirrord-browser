@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { fetchOperatorSessions, buildWsUrl } from '../mirrordUiClient';
+import { fetchOperatorSessions, buildWsUrl } from '../hooks/useMirrordUi';
 
 describe('mirrordUiClient', () => {
     const backend = 'http://127.0.0.1:8082';

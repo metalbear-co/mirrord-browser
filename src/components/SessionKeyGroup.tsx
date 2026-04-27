@@ -1,5 +1,6 @@
 import { Box, Key as KeyIcon, Share2 } from 'lucide-react';
 import {
+    Badge,
     Button,
     Card,
     CardContent,
@@ -9,6 +10,7 @@ import {
 import type { OperatorSessionSummary } from '../types';
 import { formatRelativeTime } from '../util';
 import { STRINGS } from '../constants';
+import { StatusDot } from './StatusDot';
 
 type Props = {
     groupKey: string;
@@ -30,9 +32,6 @@ const JOINED_BORDER = 'hsl(var(--primary) / 0.45)';
 const JOINED_TINT = 'hsl(var(--primary) / 0.22)';
 const JOINED_BAND = 'hsl(var(--primary) / 0.14)';
 const MUTED_BAND = 'hsl(var(--foreground) / 0.035)';
-const MUTED_DOT = 'hsl(var(--muted-foreground) / 0.55)';
-const ACTIVE_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
-const ACTIVE_DOT_GLOW = 'hsl(var(--brand-green, 142 71% 45%) / 0.22)';
 
 type GroupAggregate = {
     targets: string[];
@@ -97,36 +96,21 @@ function GroupHeader({
             >
                 {groupKey}
             </span>
-            {joined && <JoinedPill />}
+            {joined && (
+                <Badge
+                    className="shrink-0 font-mono"
+                    style={{
+                        gap: 5,
+                        fontSize: 9.5,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                    }}
+                >
+                    <StatusDot tone="active" size={5} />
+                    {STRINGS.MSG_JOINED_TAG}
+                </Badge>
+            )}
         </div>
-    );
-}
-
-function JoinedPill() {
-    return (
-        <span
-            className="inline-flex items-center font-mono font-bold rounded-full shrink-0"
-            style={{
-                gap: 5,
-                padding: '0 8px',
-                height: 18,
-                fontSize: 9.5,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                backgroundColor: JOINED_TINT,
-                color: 'hsl(var(--brand-purple-medium))',
-            }}
-        >
-            <span
-                className="inline-block rounded-full"
-                style={{
-                    height: 5,
-                    width: 5,
-                    backgroundColor: ACTIVE_DOT,
-                }}
-            />
-            {STRINGS.MSG_JOINED_TAG}
-        </span>
     );
 }
 
@@ -219,17 +203,7 @@ function GroupFooter({
                 className="inline-flex items-center text-muted-foreground"
                 style={{ gap: 6, fontSize: 11 }}
             >
-                <span
-                    className="inline-block shrink-0 rounded-full"
-                    style={{
-                        height: 8,
-                        width: 8,
-                        backgroundColor: joined ? ACTIVE_DOT : MUTED_DOT,
-                        boxShadow: joined
-                            ? `0 0 0 3px ${ACTIVE_DOT_GLOW}`
-                            : undefined,
-                    }}
-                />
+                <StatusDot tone={joined ? 'active' : 'muted'} glow={joined} />
                 {joined ? STRINGS.MSG_ROUTING_TRAFFIC : STRINGS.MSG_AVAILABLE}
             </div>
             <div className="flex items-center gap-1">

@@ -9,9 +9,9 @@ import {
     TooltipTrigger,
 } from '@metalbear/ui';
 import { HeaderForm } from './HeaderForm';
+import { StatusDot } from './StatusDot';
+import { STRINGS } from '../constants';
 import type { useHeaderRules } from '../hooks';
-
-const ACTIVE_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
 
 type Props = {
     headerRules: ReturnType<typeof useHeaderRules>;
@@ -47,30 +47,18 @@ export function ManualSetup({ headerRules }: Props) {
         <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                    <span
-                        data-testid="status-dot"
-                        className={`inline-block w-2 h-2 rounded-full transition-colors ${
-                            isActive ? '' : 'bg-muted-foreground/30'
-                        }`}
-                        style={
-                            isActive
-                                ? { backgroundColor: ACTIVE_DOT }
-                                : undefined
-                        }
-                    />
+                    <StatusDot tone={isActive ? 'active' : 'inactive'} />
                     <span className="text-xs font-medium">
-                        {isActive ? 'Active' : 'Inactive'}
+                        {isActive ? STRINGS.MSG_ACTIVE : STRINGS.MSG_INACTIVE}
                     </span>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <span className="text-muted-foreground cursor-help text-[10px]">
-                                ⓘ
+                                {STRINGS.LABEL_INFO}
                             </span>
                         </TooltipTrigger>
                         <TooltipContent className="text-xs max-w-[220px]">
-                            When on, the extension injects the saved header into
-                            matching requests. Toggle off to pause injection
-                            without losing your config.
+                            {STRINGS.MSG_INJECTION_TOOLTIP}
                         </TooltipContent>
                     </Tooltip>
                 </div>
@@ -78,7 +66,7 @@ export function ManualSetup({ headerRules }: Props) {
                     checked={isActive}
                     onCheckedChange={handleToggle}
                     disabled={!canToggle || isToggling}
-                    aria-label="Toggle header injection"
+                    aria-label={STRINGS.LABEL_TOGGLE_INJECTION}
                 />
             </div>
 

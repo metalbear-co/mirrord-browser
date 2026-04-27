@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import groupBy from 'lodash.groupby';
 import { STORAGE_KEYS } from '../types';
 import type {
     OperatorSessionSummary,
@@ -8,11 +9,6 @@ import type {
 } from '../types';
 import { SESSION_NOTIFICATION_TYPE, STRINGS } from '../constants';
 import {
-    fetchOperatorSessions,
-    buildWsUrl,
-    pingHealth,
-} from '../mirrordUiClient';
-import {
     storageGet,
     storageSet,
     storageRemove,
@@ -21,6 +17,50 @@ import {
     deriveInjectionHint,
     buildDnrRule,
 } from '../util';
+
+export async function fetchOperatorSessions(
+    backend: string,
+    token: string,
+    fetchImpl: typeof fetch = fetch
+): Promise<OperatorSessionsResponse> {
+    const url = `${backend}/api/operator-sessions?token=${encodeURIComponent(token)}`;
+    const resp = await fetchImpl(url);
+    if (!resp.ok) {
+        throw new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
+        );
+    }
+    return (await resp.json()) as OperatorSessionsResponse;
+}
+
+export function buildWsUrl(backend: string, token: string): string {
+    let scheme: string;
+    if (backend.startsWith('https://')) scheme = 'wss';
+    else if (backend.startsWith('http://')) scheme = 'ws';
+    else
+        throw new Error(
+            `mirrord ui backend must be http:// or https://, got ${backend}`
+        );
+    const hostAndRest = backend.replace(/^https?:\/\//, '');
+    return `${scheme}://${hostAndRest}/ws?token=${encodeURIComponent(token)}`;
+}
+
+export async function pingHealth(
+    backend: string,
+    timeoutMs = 1500,
+    fetchImpl: typeof fetch = fetch
+): Promise<boolean> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        const r = await fetchImpl(`${backend}/health`, { signal: ctrl.signal });
+        return r.ok;
+    } catch {
+        return false;
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
 const BAGGAGE_HEADER_NAME = 'baggage';
 const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
@@ -41,16 +81,7 @@ function hasWatchedChange(
 function groupByKey(
     sessions: OperatorSessionSummary[]
 ): Record<string, OperatorSessionSummary[]> {
-    const by_key: Record<string, OperatorSessionSummary[]> = {};
-    for (const s of sessions) {
-        const bucket = by_key[s.key];
-        if (bucket) {
-            bucket.push(s);
-        } else {
-            by_key[s.key] = [s];
-        }
-    }
-    return by_key;
+    return groupBy(sessions, (s) => s.key);
 }
 
 export type JoinState = {

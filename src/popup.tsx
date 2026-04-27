@@ -51,10 +51,10 @@ export function Popup() {
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">
-                                mirrord
+                                {STRINGS.LABEL_MIRRORD}
                             </span>
                             <span className="text-[10px] text-muted-foreground leading-tight">
-                                Header Injector
+                                {STRINGS.LABEL_HEADER_INJECTOR}
                             </span>
                         </div>
                     </div>
@@ -67,10 +67,10 @@ export function Popup() {
                                 disabled={!headerRules.canShare}
                                 title={
                                     headerRules.shareState === 'copied'
-                                        ? 'Copied!'
-                                        : 'Copy config link'
+                                        ? STRINGS.BTN_COPIED
+                                        : STRINGS.BTN_COPY_CONFIG_LINK
                                 }
-                                aria-label="Share configuration"
+                                aria-label={STRINGS.BTN_SHARE_CONFIG}
                                 className="h-7 w-7"
                             >
                                 {headerRules.shareState === 'copied' ? (
@@ -84,8 +84,8 @@ export function Popup() {
                             size="icon"
                             variant="ghost"
                             onClick={() => chrome.runtime.openOptionsPage()}
-                            title="Settings"
-                            aria-label="Settings"
+                            title={STRINGS.SETTINGS_TITLE}
+                            aria-label={STRINGS.SETTINGS_TITLE}
                             className="h-7 w-7"
                         >
                             <Settings size={16} />

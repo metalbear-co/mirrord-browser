@@ -1,6 +1,7 @@
 import { Button } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
+import { StatusDot } from './StatusDot';
 
 type Props = {
     joinedKey: string;
@@ -9,18 +10,12 @@ type Props = {
     onLeave: () => void;
 };
 
-const LIVE_ACCENT = 'hsl(var(--brand-green, 142 71% 45%))';
-const ENDED_ACCENT = 'hsl(var(--destructive))';
-const LIVE_GLOW = 'hsl(var(--brand-green, 142 71% 45%) / 0.22)';
-const ENDED_GLOW = 'hsl(var(--destructive) / 0.22)';
 const LIVE_BG = 'hsl(var(--primary) / 0.12)';
 const ENDED_BG = 'hsl(var(--destructive) / 0.1)';
 const LIVE_BORDER = 'hsl(var(--primary) / 0.4)';
 const ENDED_BORDER = 'hsl(var(--destructive) / 0.4)';
 
 export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
-    const accent = sessionEnded ? ENDED_ACCENT : LIVE_ACCENT;
-    const glow = sessionEnded ? ENDED_GLOW : LIVE_GLOW;
     const label = sessionEnded
         ? STRINGS.MSG_SESSION_ENDED
         : STRINGS.MSG_SESSION_LIVE;
@@ -37,15 +32,7 @@ export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
                 background: sessionEnded ? ENDED_BG : LIVE_BG,
             }}
         >
-            <span
-                className="inline-block shrink-0 rounded-full"
-                style={{
-                    height: 8,
-                    width: 8,
-                    backgroundColor: accent,
-                    boxShadow: `0 0 0 3px ${glow}`,
-                }}
-            />
+            <StatusDot tone={sessionEnded ? 'destructive' : 'active'} glow />
             <div className="min-w-0" style={{ flex: 1 }}>
                 <div
                     className="font-semibold"
@@ -54,7 +41,7 @@ export function ConnectedBanner({ joinedKey, sessionEnded, onLeave }: Props) {
                         letterSpacing: '0.08em',
                         textTransform: 'uppercase',
                         color: sessionEnded
-                            ? ENDED_ACCENT
+                            ? 'hsl(var(--destructive))'
                             : 'hsl(var(--brand-purple-medium))',
                     }}
                 >

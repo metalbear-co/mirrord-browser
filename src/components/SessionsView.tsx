@@ -1,6 +1,8 @@
+import groupBy from 'lodash.groupby';
 import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
+import { StatusDot } from './StatusDot';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
 import { STRINGS } from '../constants';
@@ -17,8 +19,6 @@ type Props = {
     onClear: () => void;
     onShare: (key: string) => void;
 };
-
-const WATCHING_DOT = 'hsl(var(--brand-green, 142 71% 45%))';
 
 export function SessionsView({
     sessions,
@@ -44,19 +44,14 @@ export function SessionsView({
         ? sessions.filter((s) => s.namespace === namespace)
         : sessions;
 
-    const groups = new Map<string, OperatorSessionSummary[]>();
-    for (const s of filtered) {
-        const arr = groups.get(s.key) ?? [];
-        arr.push(s);
-        groups.set(s.key, arr);
-    }
+    const groups = groupBy(filtered, (s) => s.key);
 
-    const orderedKeys = Array.from(groups.keys()).sort((a, b) => {
-        const aJoined = a === joinState.joinedKey ? 0 : 1;
-        const bJoined = b === joinState.joinedKey ? 0 : 1;
-        if (aJoined !== bJoined) return aJoined - bJoined;
-        return a.localeCompare(b);
-    });
+    const joinedKey = joinState.joinedKey;
+    const otherKeys = Object.keys(groups)
+        .filter((k) => k !== joinedKey)
+        .sort((a, b) => a.localeCompare(b));
+    const orderedKeys =
+        joinedKey && groups[joinedKey] ? [joinedKey, ...otherKeys] : otherKeys;
 
     const showNamespaceFilter = namespaces.filter((ns) => ns !== '').length > 1;
     const watching = status?.status === 'watching';
@@ -87,16 +82,7 @@ export function SessionsView({
                         className="inline-flex items-center"
                         style={{ gap: 5 }}
                     >
-                        {watching && (
-                            <span
-                                className="inline-block rounded-full"
-                                style={{
-                                    height: 5,
-                                    width: 5,
-                                    backgroundColor: WATCHING_DOT,
-                                }}
-                            />
-                        )}
+                        {watching && <StatusDot tone="active" size={5} />}
                         {status.status}
                     </span>
                 )}
@@ -127,8 +113,8 @@ export function SessionsView({
                         <SessionKeyGroup
                             key={k}
                             groupKey={k}
-                            sessions={groups.get(k) ?? []}
-                            joined={k === joinState.joinedKey}
+                            sessions={groups[k] ?? []}
+                            joined={k === joinedKey}
                             onJoin={onJoin}
                             onShare={onShare}
                         />

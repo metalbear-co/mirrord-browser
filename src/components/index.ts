@@ -6,3 +6,4 @@ export { SessionKeyGroup } from './SessionKeyGroup';
 export { ConnectedBanner } from './ConnectedBanner';
 export { NamespaceFilter } from './NamespaceFilter';
 export { ManualSetup } from './ManualSetup';
+export { StatusDot } from './StatusDot';
