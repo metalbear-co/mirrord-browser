@@ -10,8 +10,23 @@ type ConfigureMessage = {
     token: string;
 };
 
+restrictStorageAccess();
+chrome.runtime.onStartup.addListener(restrictStorageAccess);
+chrome.runtime.onInstalled.addListener(restrictStorageAccess);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
+
+function restrictStorageAccess() {
+    const setAccessLevel = (
+        chrome.storage.local as unknown as {
+            setAccessLevel?: (opts: { accessLevel: string }) => Promise<void>;
+        }
+    ).setAccessLevel;
+    if (typeof setAccessLevel !== 'function') return;
+    setAccessLevel
+        .call(chrome.storage.local, { accessLevel: 'TRUSTED_CONTEXTS' })
+        .catch(() => {});
+}
 
 chrome.runtime.onMessageExternal.addListener(
     (
