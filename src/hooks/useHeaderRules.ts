@@ -134,6 +134,10 @@ export function useHeaderRules() {
 
             try {
                 await updateDynamicRules({ removeRuleIds: [ruleId] });
+                await storageRemove([
+                    STORAGE_KEYS.JOINED_KEY,
+                    STORAGE_KEYS.JOINED_SESSION_NAME,
+                ]);
                 await loadRules();
                 capture('extension_header_rule_removed');
             } catch (e) {

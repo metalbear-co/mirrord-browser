@@ -348,6 +348,13 @@ describe('Popup', () => {
                 expect.any(Function)
             );
         });
+
+        await waitFor(() => {
+            expect(mockStorageRemove).toHaveBeenCalledWith(
+                expect.arrayContaining(['joined_key', 'joined_session_name']),
+                expect.any(Function)
+            );
+        });
     });
 
     it('updates badge indicator on load', async () => {
