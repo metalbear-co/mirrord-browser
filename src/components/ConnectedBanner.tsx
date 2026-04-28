@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Globe, X } from 'lucide-react';
+import { Globe, X, Plus } from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
@@ -37,18 +37,34 @@ export function ConnectedBanner({
         : COLORS.brand.lilac;
 
     const [draft, setDraft] = useState('');
+    const [composing, setComposing] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const showInput = composing || scopePatterns.length === 0;
 
     useEffect(() => {
-        if (sessionEnded && draft) setDraft('');
-    }, [sessionEnded, draft]);
+        if (sessionEnded) {
+            setDraft('');
+            setComposing(false);
+        }
+    }, [sessionEnded]);
+
+    useEffect(() => {
+        if (composing) inputRef.current?.focus();
+    }, [composing]);
 
     const submit = async () => {
         const trimmed = draft.trim();
-        if (!trimmed) return;
+        if (!trimmed) {
+            if (scopePatterns.length > 0) setComposing(false);
+            return;
+        }
         await onAddScopePattern(trimmed);
         setDraft('');
-        inputRef.current?.focus();
+        if (scopePatterns.length === 0) {
+            inputRef.current?.focus();
+        } else {
+            setComposing(false);
+        }
     };
 
     return (
@@ -168,28 +184,52 @@ export function ConnectedBanner({
                                 </button>
                             </span>
                         ))}
-                        <Input
-                            ref={inputRef}
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    submit();
-                                }
-                            }}
-                            onBlur={submit}
-                            placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
-                            spellCheck={false}
-                            autoComplete="off"
-                            className="font-mono"
-                            style={{
-                                flex: 1,
-                                minWidth: 120,
-                                height: 28,
-                                fontSize: 11,
-                            }}
-                        />
+                        {showInput ? (
+                            <Input
+                                ref={inputRef}
+                                value={draft}
+                                onChange={(e) => setDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        submit();
+                                    } else if (
+                                        e.key === 'Escape' &&
+                                        scopePatterns.length > 0
+                                    ) {
+                                        setDraft('');
+                                        setComposing(false);
+                                    }
+                                }}
+                                onBlur={submit}
+                                placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
+                                spellCheck={false}
+                                autoComplete="off"
+                                className="font-mono"
+                                style={{
+                                    flex: 1,
+                                    minWidth: 120,
+                                    height: 24,
+                                    fontSize: 11,
+                                }}
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                aria-label={STRINGS.PLACEHOLDER_URL_PATTERN}
+                                onClick={() => setComposing(true)}
+                                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                                style={{
+                                    height: 24,
+                                    width: 24,
+                                    borderRadius: 6,
+                                    border: `1px dashed ${COLORS.primary.borderSubtle}`,
+                                    background: 'transparent',
+                                }}
+                            >
+                                <Plus style={{ height: 12, width: 12 }} />
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

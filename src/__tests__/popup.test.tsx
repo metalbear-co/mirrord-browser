@@ -344,7 +344,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-                { removeRuleIds: [42] },
+                { removeRuleIds: [42], addRules: [] },
                 expect.any(Function)
             );
         });

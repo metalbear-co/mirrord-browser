@@ -23,23 +23,44 @@ function getDisplayScope(urlFilter: string | undefined): string {
 export function parseRules(
     rules: chrome.declarativeNetRequest.Rule[]
 ): HeaderRule[] {
-    return rules
-        .filter(
-            (rule) =>
-                rule.action.type ===
-                    chrome.declarativeNetRequest.RuleActionType
-                        .MODIFY_HEADERS && rule.action.requestHeaders
-        )
-        .map((rule) => {
-            const requestHeader = rule.action.requestHeaders?.[0];
-            const urlFilter = rule.condition?.urlFilter;
-            return {
+    const groups = new Map<
+        string,
+        { id: number; header: string; value: string; scopes: string[] }
+    >();
+    for (const rule of rules) {
+        if (
+            rule.action.type !==
+                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS ||
+            !rule.action.requestHeaders
+        ) {
+            continue;
+        }
+        const requestHeader = rule.action.requestHeaders[0];
+        const header = requestHeader?.header || '';
+        const value = requestHeader?.value || '';
+        const urlFilter = rule.condition?.urlFilter;
+        const isWildcard = !urlFilter || urlFilter === '|';
+        const key = `${header}\n${value}`;
+        const group = groups.get(key);
+        if (group) {
+            if (!isWildcard) group.scopes.push(urlFilter as string);
+            if (rule.id < group.id) group.id = rule.id;
+        } else {
+            groups.set(key, {
                 id: rule.id,
-                header: requestHeader?.header || '',
-                value: requestHeader?.value || '',
-                scope: getDisplayScope(urlFilter),
-            };
-        });
+                header,
+                value,
+                scopes: isWildcard ? [] : [urlFilter as string],
+            });
+        }
+    }
+    return Array.from(groups.values()).map((g) => ({
+        id: g.id,
+        header: g.header,
+        value: g.value,
+        scope:
+            g.scopes.length === 0 ? STRINGS.MSG_ALL_URLS : g.scopes.join(', '),
+    }));
 }
 
 export function buildDnrRule(
