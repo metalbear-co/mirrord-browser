@@ -68,6 +68,9 @@ const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.JOINED_KEY,
     STORAGE_KEYS.JOINED_SESSION_NAME,
+    STORAGE_KEYS.JOINED_HEADER,
+    STORAGE_KEYS.JOINED_VALUE,
+    STORAGE_KEYS.SCOPE_PATTERNS,
     STORAGE_KEYS.MIRRORD_UI_BACKEND,
     STORAGE_KEYS.MIRRORD_UI_TOKEN,
 ];
@@ -105,6 +108,9 @@ export function useMirrordUi() {
         joinedSessionName: null,
         sessionEnded: false,
     });
+    const [scopePatterns, setScopePatternsState] = useState<string[]>([]);
+    const joinedHeaderRef = useRef<string | null>(null);
+    const joinedValueRef = useRef<string | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -116,6 +122,9 @@ export function useMirrordUi() {
                 STORAGE_KEYS.MIRRORD_UI_TOKEN,
                 STORAGE_KEYS.JOINED_KEY,
                 STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.SCOPE_PATTERNS,
             ]);
             if (cancelled) return;
             setBackend(
@@ -129,6 +138,18 @@ export function useMirrordUi() {
                     null,
                 sessionEnded: false,
             });
+            joinedHeaderRef.current =
+                (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
+            joinedValueRef.current =
+                (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+            const persisted = stored[STORAGE_KEYS.SCOPE_PATTERNS];
+            setScopePatternsState(
+                Array.isArray(persisted)
+                    ? (persisted as string[]).filter(
+                          (p) => typeof p === 'string'
+                      )
+                    : []
+            );
         };
 
         loadFromStorage();
@@ -240,19 +261,23 @@ export function useMirrordUi() {
             const existing = await getDynamicRules();
             await updateDynamicRules({
                 removeRuleIds: existing.map((r) => r.id),
-                addRules: buildDnrRule(header, value),
+                addRules: buildDnrRule(header, value, scopePatterns),
             });
             await storageSet({
                 [STORAGE_KEYS.JOINED_KEY]: key,
                 [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+                [STORAGE_KEYS.JOINED_HEADER]: header,
+                [STORAGE_KEYS.JOINED_VALUE]: value,
             });
+            joinedHeaderRef.current = header;
+            joinedValueRef.current = value;
             setJoinState({
                 joinedKey: key,
                 joinedSessionName: target.id,
                 sessionEnded: false,
             });
         },
-        [sessions]
+        [sessions, scopePatterns]
     );
 
     const clearJoin = useCallback(async () => {
@@ -264,13 +289,46 @@ export function useMirrordUi() {
         await storageRemove([
             STORAGE_KEYS.JOINED_KEY,
             STORAGE_KEYS.JOINED_SESSION_NAME,
+            STORAGE_KEYS.JOINED_HEADER,
+            STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
+        joinedHeaderRef.current = null;
+        joinedValueRef.current = null;
+        setScopePatternsState([]);
         setJoinState({
             joinedKey: null,
             joinedSessionName: null,
             sessionEnded: false,
         });
     }, []);
+
+    const applyScopePatterns = useCallback(async (next: string[]) => {
+        const cleaned = next.map((p) => p.trim()).filter((p) => p.length > 0);
+        const dedup = Array.from(new Set(cleaned));
+        await storageSet({ [STORAGE_KEYS.SCOPE_PATTERNS]: dedup });
+        setScopePatternsState(dedup);
+        const header = joinedHeaderRef.current;
+        const value = joinedValueRef.current;
+        if (header && value) {
+            const existing = await getDynamicRules();
+            await updateDynamicRules({
+                removeRuleIds: existing.map((r) => r.id),
+                addRules: buildDnrRule(header, value, dedup),
+            });
+        }
+    }, []);
+
+    const addScopePattern = useCallback(
+        (pattern: string) => applyScopePatterns([...scopePatterns, pattern]),
+        [scopePatterns, applyScopePatterns]
+    );
+
+    const removeScopePattern = useCallback(
+        (pattern: string) =>
+            applyScopePatterns(scopePatterns.filter((p) => p !== pattern)),
+        [scopePatterns, applyScopePatterns]
+    );
 
     const buildShareUrl = useCallback(
         (key: string): string => {
@@ -297,6 +355,9 @@ export function useMirrordUi() {
         join,
         clearJoin,
         buildShareUrl,
+        scopePatterns,
+        addScopePattern,
+        removeScopePattern,
     };
 }
 

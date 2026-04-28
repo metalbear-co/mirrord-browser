@@ -70,7 +70,14 @@ export const STRINGS = {
         'Run mirrord ui first and open the configure URL it prints.',
 
     TAB_SESSIONS: 'Sessions',
-    TAB_MANUAL: 'Manual',
+    TAB_MANUAL: 'Override',
+    LABEL_URL_SCOPE_HEADING: 'URL scope',
+    PLACEHOLDER_URL_PATTERN: '+ pattern',
+    LABEL_REMOVE_PATTERN: 'Remove pattern',
+    PLACEHOLDER_SEARCH_SESSIONS: 'search by key, target, owner',
+    LABEL_SEARCH_SESSIONS: 'Search sessions',
+    MSG_NO_SESSIONS_MATCH_QUERY: 'No sessions match your search.',
+    MSG_PATTERN_COUNT: (n: number) => `${n} pattern${n === 1 ? '' : 's'}`,
 
     ERR_HEADER_REQUIRED: 'Header name and value are required',
     ERR_REMOVE_RULE: 'Failed to remove rule',

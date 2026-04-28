@@ -94,7 +94,26 @@ export function Popup() {
                 >
                     <TabsList className="grid grid-cols-2 w-full">
                         <TabsTrigger value={TAB.SESSIONS}>
-                            {STRINGS.TAB_SESSIONS}
+                            <span className="inline-flex items-center gap-1.5">
+                                {STRINGS.TAB_SESSIONS}
+                                {(mirrordUi.sessions?.sessions.length ?? 0) >
+                                    0 && (
+                                    <span
+                                        className="font-mono"
+                                        style={{
+                                            fontSize: 10,
+                                            padding: '1px 6px',
+                                            borderRadius: 999,
+                                            background:
+                                                'hsl(var(--background))',
+                                            color: 'hsl(var(--foreground))',
+                                            lineHeight: 1.4,
+                                        }}
+                                    >
+                                        {mirrordUi.sessions?.sessions.length}
+                                    </span>
+                                )}
+                            </span>
                         </TabsTrigger>
                         <TabsTrigger value={TAB.MANUAL}>
                             {STRINGS.TAB_MANUAL}
@@ -132,6 +151,9 @@ function SessionsScreen({
                 const url = mirrordUi.buildShareUrl(key);
                 navigator.clipboard.writeText(url).catch(() => {});
             }}
+            scopePatterns={mirrordUi.scopePatterns}
+            onAddScopePattern={mirrordUi.addScopePattern}
+            onRemoveScopePattern={mirrordUi.removeScopePattern}
         />
     );
 }

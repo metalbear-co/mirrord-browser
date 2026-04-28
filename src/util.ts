@@ -45,30 +45,32 @@ export function parseRules(
 export function buildDnrRule(
     header: string,
     value: string,
-    scope?: string
+    scope?: string | string[]
 ): chrome.declarativeNetRequest.Rule[] {
-    return [
-        {
-            id: 1,
-            priority: 1,
-            action: {
-                type: chrome.declarativeNetRequest.RuleActionType
-                    .MODIFY_HEADERS,
-                requestHeaders: [
-                    {
-                        header,
-                        operation:
-                            chrome.declarativeNetRequest.HeaderOperation.SET,
-                        value,
-                    },
-                ],
-            },
-            condition: {
-                urlFilter: scope || '|',
-                resourceTypes: ALL_RESOURCE_TYPES,
-            },
+    const patterns = Array.isArray(scope)
+        ? scope.filter((p) => p.trim().length > 0)
+        : scope && scope.trim().length > 0
+          ? [scope]
+          : [];
+    const filters = patterns.length > 0 ? patterns : ['|'];
+    return filters.map((urlFilter, idx) => ({
+        id: idx + 1,
+        priority: 1,
+        action: {
+            type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+            requestHeaders: [
+                {
+                    header,
+                    operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+                    value,
+                },
+            ],
         },
-    ];
+        condition: {
+            urlFilter,
+            resourceTypes: ALL_RESOURCE_TYPES,
+        },
+    }));
 }
 
 export function getDynamicRules(): Promise<

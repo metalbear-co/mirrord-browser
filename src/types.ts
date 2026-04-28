@@ -24,6 +24,9 @@ export const STORAGE_KEYS = {
     MIRRORD_UI_TOKEN: 'mirrord_ui_token',
     JOINED_KEY: 'joined_key',
     JOINED_SESSION_NAME: 'joined_session_name',
+    JOINED_HEADER: 'joined_header',
+    JOINED_VALUE: 'joined_value',
+    SCOPE_PATTERNS: 'scope_patterns',
 } as const;
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
