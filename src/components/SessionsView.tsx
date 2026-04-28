@@ -1,4 +1,7 @@
+import { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import groupBy from 'lodash.groupby';
+import { Input } from '@metalbear/ui';
 import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
@@ -20,7 +23,27 @@ type Props = {
     onJoin: (key: string) => void;
     onClear: () => void;
     onShare: (key: string) => void;
+    scopePatterns: string[];
+    onAddScopePattern: (pattern: string) => void | Promise<void>;
+    onRemoveScopePattern: (pattern: string) => void | Promise<void>;
 };
+
+function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
+    if (!q) return true;
+    const haystack = [
+        s.key,
+        s.namespace,
+        s.owner?.username,
+        s.owner?.k8sUsername,
+        s.target ? `${s.target.kind}/${s.target.name}` : '',
+        s.target?.name,
+        s.target?.container,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    return haystack.includes(q);
+}
 
 export function SessionsView({
     sessions,
@@ -33,7 +56,11 @@ export function SessionsView({
     onJoin,
     onClear,
     onShare,
+    scopePatterns,
+    onAddScopePattern,
+    onRemoveScopePattern,
 }: Props) {
+    const [query, setQuery] = useState('');
     if (!sessionsLoaded) {
         return <NotConfiguredPrompt />;
     }
@@ -44,9 +71,14 @@ export function SessionsView({
     const joinedVanished = joinState.joinedKey !== null && !joinedSession;
     const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
 
-    const filtered = namespace
-        ? sessions.filter((s) => s.namespace === namespace)
-        : sessions;
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = useMemo(() => {
+        return sessions.filter(
+            (s) =>
+                (!namespace || s.namespace === namespace) &&
+                matchesQuery(s, normalizedQuery)
+        );
+    }, [sessions, namespace, normalizedQuery]);
     const groups = groupBy(filtered, (s) => s.key);
 
     const joinedKey = joinState.joinedKey;
@@ -60,6 +92,10 @@ export function SessionsView({
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
+    const totalSessionsBeforeQuery = namespace
+        ? sessions.filter((s) => s.namespace === namespace).length
+        : sessions.length;
+    const showSearch = totalSessionsBeforeQuery > 0;
 
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
@@ -69,10 +105,58 @@ export function SessionsView({
                     session={joinedSession}
                     sessionEnded={effectiveSessionEnded}
                     onLeave={onClear}
+                    scopePatterns={scopePatterns}
+                    onAddScopePattern={onAddScopePattern}
+                    onRemoveScopePattern={onRemoveScopePattern}
                 />
             )}
 
             {operatorUnavailable && <OperatorUnavailableNote />}
+
+            {showSearch && (
+                <div className="flex items-center" style={{ gap: 8 }}>
+                    <div
+                        className="flex items-center"
+                        style={{
+                            flex: 1,
+                            position: 'relative',
+                        }}
+                    >
+                        <Search
+                            className="text-muted-foreground"
+                            style={{
+                                position: 'absolute',
+                                left: 10,
+                                height: 13,
+                                width: 13,
+                                pointerEvents: 'none',
+                            }}
+                        />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={STRINGS.PLACEHOLDER_SEARCH_SESSIONS}
+                            aria-label={STRINGS.LABEL_SEARCH_SESSIONS}
+                            spellCheck={false}
+                            autoComplete="off"
+                            className="font-mono"
+                            style={{
+                                width: '100%',
+                                height: 32,
+                                paddingLeft: 30,
+                                fontSize: 11,
+                            }}
+                        />
+                    </div>
+                    {hasNamespaces && (
+                        <NamespaceFilter
+                            namespaces={namespaces}
+                            value={namespace}
+                            onChange={setNamespace}
+                        />
+                    )}
+                </div>
+            )}
 
             {hasGroups && (
                 <>
@@ -85,7 +169,9 @@ export function SessionsView({
                             textTransform: 'uppercase',
                         }}
                     >
-                        <span>{STRINGS.MSG_LIVE_SESSIONS}</span>
+                        <span>
+                            {filtered.length} {STRINGS.MSG_LIVE_SESSIONS}
+                        </span>
                         {status && (
                             <span
                                 className="inline-flex items-center"
@@ -98,14 +184,6 @@ export function SessionsView({
                             </span>
                         )}
                     </div>
-
-                    {hasNamespaces && (
-                        <NamespaceFilter
-                            namespaces={namespaces}
-                            value={namespace}
-                            onChange={setNamespace}
-                        />
-                    )}
 
                     <div className="flex flex-col" style={{ gap: 10 }}>
                         {orderedKeys.map((k) => (
@@ -132,7 +210,9 @@ export function SessionsView({
                         margin: 0,
                     }}
                 >
-                    {STRINGS.MSG_NO_ACTIVE_SESSIONS}
+                    {totalSessionsBeforeQuery > 0
+                        ? STRINGS.MSG_NO_SESSIONS_MATCH_QUERY
+                        : STRINGS.MSG_NO_ACTIVE_SESSIONS}
                 </p>
             )}
         </div>
