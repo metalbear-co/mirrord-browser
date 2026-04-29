@@ -78,7 +78,7 @@ export const STRINGS = {
     LABEL_HEADER_OBSERVED: 'header observed',
     PLACEHOLDER_URL_PATTERN: '+ pattern',
     LABEL_REMOVE_PATTERN: 'Remove pattern',
-    PLACEHOLDER_SEARCH_SESSIONS: 'search by key, target, owner',
+    PLACEHOLDER_SEARCH_SESSIONS: 'search sessions',
     LABEL_SEARCH_SESSIONS: 'Search sessions',
     MSG_NO_SESSIONS_MATCH_QUERY: 'No sessions match your search.',
     MSG_PATTERN_COUNT: (n: number) => `${n} pattern${n === 1 ? '' : 's'}`,
