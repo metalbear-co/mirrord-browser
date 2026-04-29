@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
     JOINED_HEADER: 'joined_header',
     JOINED_VALUE: 'joined_value',
     SCOPE_PATTERNS: 'scope_patterns',
+    ACTIVE_TAB: 'active_tab',
 } as const;
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [

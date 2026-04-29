@@ -1,4 +1,4 @@
-import { StrictMode, useState } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import {
@@ -16,6 +16,7 @@ import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
 import { capture, captureBeacon, optOutReady } from './analytics';
 import { STRINGS, TAB, type TabId } from './constants';
+import { STORAGE_KEYS } from './types';
 
 const popupOpenedAt = Date.now();
 optOutReady.then(() => capture('extension_popup_opened'));
@@ -32,6 +33,25 @@ export function Popup() {
     const mirrordUi = useMirrordUi();
 
     const [tab, setTab] = useState<TabId>(TAB.MANUAL);
+    const [tabRestored, setTabRestored] = useState(false);
+
+    useEffect(() => {
+        chrome.storage.local.get(
+            [STORAGE_KEYS.ACTIVE_TAB],
+            (stored: Record<string, unknown>) => {
+                const saved = stored?.[STORAGE_KEYS.ACTIVE_TAB];
+                if (saved === TAB.SESSIONS || saved === TAB.MANUAL) {
+                    setTab(saved);
+                }
+                setTabRestored(true);
+            }
+        );
+    }, []);
+
+    useEffect(() => {
+        if (!tabRestored) return;
+        chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_TAB]: tab }, () => {});
+    }, [tab, tabRestored]);
 
     return (
         <TooltipProvider>

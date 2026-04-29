@@ -61,6 +61,7 @@ export function SessionsView({
     onRemoveScopePattern,
 }: Props) {
     const [query, setQuery] = useState('');
+    const [showAll, setShowAll] = useState(false);
     if (!sessionsLoaded) {
         return <NotConfiguredPrompt />;
     }
@@ -96,6 +97,13 @@ export function SessionsView({
         ? sessions.filter((s) => s.namespace === namespace).length
         : sessions.length;
     const showSearch = totalSessionsBeforeQuery > 0;
+
+    const VISIBLE_CAP = 5;
+    const visibleKeys =
+        showAll || normalizedQuery
+            ? orderedKeys
+            : orderedKeys.slice(0, VISIBLE_CAP);
+    const hiddenCount = orderedKeys.length - visibleKeys.length;
 
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
@@ -186,7 +194,7 @@ export function SessionsView({
                     </div>
 
                     <div className="flex flex-col" style={{ gap: 10 }}>
-                        {orderedKeys.map((k) => (
+                        {visibleKeys.map((k) => (
                             <SessionKeyGroup
                                 key={k}
                                 groupKey={k}
@@ -197,6 +205,29 @@ export function SessionsView({
                             />
                         ))}
                     </div>
+
+                    {(hiddenCount > 0 ||
+                        (showAll && orderedKeys.length > VISIBLE_CAP)) &&
+                        !normalizedQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAll((v) => !v)}
+                                className="text-muted-foreground hover:text-foreground"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    padding: '6px 2px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    textAlign: 'center',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                {showAll
+                                    ? STRINGS.MSG_SHOW_LESS
+                                    : STRINGS.MSG_SHOW_MORE(hiddenCount)}
+                            </button>
+                        )}
                 </>
             )}
 

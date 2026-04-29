@@ -232,7 +232,9 @@ export function useMirrordUi() {
 
     const namespaces = useMemo(() => {
         const set = new Set<string>();
-        sessions?.sessions.forEach((s) => set.add(s.namespace));
+        sessions?.sessions.forEach((s) => {
+            if (s.namespace) set.add(s.namespace);
+        });
         return ['', ...Array.from(set).sort()];
     }, [sessions]);
 
