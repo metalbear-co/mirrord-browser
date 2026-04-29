@@ -7,7 +7,7 @@
     "icons": {
         "48": "images/mirrord.png"
     },
-    "permissions": ["declarativeNetRequest", "storage"],
+    "permissions": ["declarativeNetRequest", "storage", "webRequest"],
     "incognito": "spanning",
     "host_permissions": ["<all_urls>"],
     "externally_connectable": {

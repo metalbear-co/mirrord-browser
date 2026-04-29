@@ -72,6 +72,7 @@ export const STRINGS = {
     TAB_SESSIONS: 'Sessions',
     TAB_MANUAL: 'Override',
     LABEL_URL_SCOPE_HEADING: 'URL scope',
+    LABEL_HEADER_OBSERVED: 'header observed',
     PLACEHOLDER_URL_PATTERN: '+ pattern',
     LABEL_REMOVE_PATTERN: 'Remove pattern',
     PLACEHOLDER_SEARCH_SESSIONS: 'search by key, target, owner',

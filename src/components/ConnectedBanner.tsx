@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Globe, X, Plus } from 'lucide-react';
+import { Activity, Globe, X, Plus } from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
+import { RING_SECONDS } from '../headerObservation';
+import { useHeaderObservation } from '../hooks/useHeaderObservation';
 import { StatusDot } from './StatusDot';
 
 type Props = {
@@ -40,6 +42,8 @@ export function ConnectedBanner({
     const [composing, setComposing] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const showInput = composing || scopePatterns.length === 0;
+    const observation = useHeaderObservation();
+    const observed = observation.totalLast60s;
 
     useEffect(() => {
         if (sessionEnded) {
@@ -230,6 +234,47 @@ export function ConnectedBanner({
                                 <Plus style={{ height: 12, width: 12 }} />
                             </button>
                         )}
+                    </div>
+                    <div
+                        className="flex items-center"
+                        style={{
+                            gap: 6,
+                            fontSize: 10.5,
+                            paddingTop: 6,
+                            borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
+                        }}
+                    >
+                        <Activity
+                            style={{
+                                height: 12,
+                                width: 12,
+                                color:
+                                    observed > 0
+                                        ? COLORS.success.dot
+                                        : COLORS.muted.dot,
+                            }}
+                        />
+                        <span
+                            className="text-muted-foreground font-semibold"
+                            style={{
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                            }}
+                        >
+                            {STRINGS.LABEL_HEADER_OBSERVED}
+                        </span>
+                        <span
+                            className="font-mono"
+                            style={{
+                                color:
+                                    observed > 0
+                                        ? COLORS.success.dot
+                                        : COLORS.muted.dot,
+                                fontWeight: 600,
+                            }}
+                        >
+                            {observed} req · last {RING_SECONDS}s
+                        </span>
                     </div>
                 </div>
             )}
