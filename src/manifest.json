@@ -7,7 +7,12 @@
     "icons": {
         "48": "images/mirrord.png"
     },
-    "permissions": ["declarativeNetRequest", "storage", "webRequest"],
+    "permissions": [
+        "declarativeNetRequest",
+        "storage",
+        "webRequest",
+        "sidePanel"
+    ],
     "incognito": "spanning",
     "host_permissions": ["<all_urls>"],
     "externally_connectable": {
@@ -17,8 +22,9 @@
         "service_worker": "src/background.ts",
         "type": "module"
     },
-    "action": {
-        "default_popup": "pages/popup.html"
+    "action": {},
+    "side_panel": {
+        "default_path": "pages/popup.html"
     },
     "options_page": "pages/options.html"
 }

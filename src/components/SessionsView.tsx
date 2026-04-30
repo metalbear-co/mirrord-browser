@@ -62,15 +62,6 @@ export function SessionsView({
 }: Props) {
     const [query, setQuery] = useState('');
     const [showAll, setShowAll] = useState(false);
-    if (!sessionsLoaded) {
-        return <NotConfiguredPrompt />;
-    }
-
-    const joinedSession = joinState.joinedSessionName
-        ? sessions.find((s) => s.id === joinState.joinedSessionName)
-        : undefined;
-    const joinedVanished = joinState.joinedKey !== null && !joinedSession;
-    const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
 
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = useMemo(() => {
@@ -80,6 +71,16 @@ export function SessionsView({
                 matchesQuery(s, normalizedQuery)
         );
     }, [sessions, namespace, normalizedQuery]);
+
+    if (!sessionsLoaded) {
+        return <NotConfiguredPrompt />;
+    }
+
+    const joinedSession = joinState.joinedSessionName
+        ? sessions.find((s) => s.id === joinState.joinedSessionName)
+        : undefined;
+    const joinedVanished = joinState.joinedKey !== null && !joinedSession;
+    const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
     const groups = groupBy(filtered, (s) => s.key);
 
     const joinedKey = joinState.joinedKey;

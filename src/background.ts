@@ -25,8 +25,11 @@ let rotationTimer: ReturnType<typeof setInterval> | null = null;
 let observationLoaded = false;
 
 restrictStorageAccess();
+configureSidePanel();
 chrome.runtime.onStartup.addListener(restrictStorageAccess);
 chrome.runtime.onInstalled.addListener(restrictStorageAccess);
+chrome.runtime.onStartup.addListener(configureSidePanel);
+chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
 
@@ -146,6 +149,21 @@ function isConfigureMessage(value: unknown): value is ConfigureMessage {
         typeof m.backend === 'string' &&
         typeof m.token === 'string'
     );
+}
+
+function configureSidePanel() {
+    const sidePanel = (
+        chrome as unknown as {
+            sidePanel?: {
+                setPanelBehavior?: (opts: {
+                    openPanelOnActionClick: boolean;
+                }) => Promise<void>;
+            };
+        }
+    ).sidePanel;
+    sidePanel
+        ?.setPanelBehavior?.({ openPanelOnActionClick: true })
+        ?.catch(() => {});
 }
 
 function refreshIcon() {
