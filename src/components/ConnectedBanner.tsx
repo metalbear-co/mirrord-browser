@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Activity, Globe, X, Plus } from 'lucide-react';
+import { Activity, Check, Copy, Globe, X, Plus } from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
@@ -16,6 +16,8 @@ type Props = {
     scopePatterns: string[];
     onAddScopePattern: (pattern: string) => void | Promise<void>;
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
+    joinedHeader: string | null;
+    joinedValue: string | null;
 };
 
 export function ConnectedBanner({
@@ -25,6 +27,8 @@ export function ConnectedBanner({
     scopePatterns,
     onAddScopePattern,
     onRemoveScopePattern,
+    joinedHeader,
+    joinedValue,
 }: Props) {
     const label = sessionEnded
         ? STRINGS.MSG_SESSION_ENDED
@@ -40,10 +44,22 @@ export function ConnectedBanner({
 
     const [draft, setDraft] = useState('');
     const [composing, setComposing] = useState(false);
+    const [copied, setCopied] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const showInput = composing || scopePatterns.length === 0;
     const observation = useHeaderObservation();
     const observed = observation.totalLast60s;
+
+    const copyHeader = async () => {
+        if (!joinedHeader || !joinedValue) return;
+        try {
+            await navigator.clipboard.writeText(
+                `${joinedHeader}: ${joinedValue}`
+            );
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+        } catch {}
+    };
 
     useEffect(() => {
         if (sessionEnded) {
@@ -276,6 +292,106 @@ export function ConnectedBanner({
                             {observed} req · last {RING_SECONDS}s
                         </span>
                     </div>
+                    {joinedHeader && joinedValue && (
+                        <button
+                            type="button"
+                            onClick={copyHeader}
+                            title={
+                                copied
+                                    ? STRINGS.BTN_COPIED
+                                    : STRINGS.BTN_COPY_HEADER
+                            }
+                            aria-label={STRINGS.BTN_COPY_HEADER}
+                            className="font-mono group"
+                            style={{
+                                marginTop: 4,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '5px 8px',
+                                borderRadius: 6,
+                                border: `1px solid ${COLORS.primary.borderSubtle}`,
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                fontSize: 11,
+                                lineHeight: 1.35,
+                                color: 'inherit',
+                                textAlign: 'left',
+                                transition:
+                                    'background 120ms, border-color 120ms',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background =
+                                    COLORS.primary.bgSoft;
+                                e.currentTarget.style.borderColor =
+                                    COLORS.primary.borderSoft;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background =
+                                    'transparent';
+                                e.currentTarget.style.borderColor =
+                                    COLORS.primary.borderSubtle;
+                            }}
+                        >
+                            <span
+                                className="font-semibold"
+                                style={{
+                                    fontSize: 9,
+                                    letterSpacing: '0.1em',
+                                    textTransform: 'uppercase',
+                                    color: COLORS.brand.lilac,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {STRINGS.LABEL_INJECTING}
+                            </span>
+                            <span
+                                style={{
+                                    color: COLORS.brand.yellow,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {joinedHeader}
+                            </span>
+                            <span
+                                className="text-muted-foreground"
+                                style={{ flexShrink: 0 }}
+                            >
+                                :
+                            </span>
+                            <span
+                                style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    color: 'inherit',
+                                }}
+                            >
+                                {joinedValue}
+                            </span>
+                            <span
+                                style={{
+                                    color: copied
+                                        ? COLORS.success.dot
+                                        : 'inherit',
+                                    opacity: copied ? 1 : 0.6,
+                                    flexShrink: 0,
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                }}
+                                className="text-muted-foreground"
+                            >
+                                {copied ? (
+                                    <Check style={{ height: 11, width: 11 }} />
+                                ) : (
+                                    <Copy style={{ height: 11, width: 11 }} />
+                                )}
+                            </span>
+                        </button>
+                    )}
                 </div>
             )}
         </div>

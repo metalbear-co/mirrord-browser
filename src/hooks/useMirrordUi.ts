@@ -109,6 +109,8 @@ export function useMirrordUi() {
         sessionEnded: false,
     });
     const [scopePatterns, setScopePatternsState] = useState<string[]>([]);
+    const [joinedHeader, setJoinedHeader] = useState<string | null>(null);
+    const [joinedValue, setJoinedValue] = useState<string | null>(null);
     const joinedHeaderRef = useRef<string | null>(null);
     const joinedValueRef = useRef<string | null>(null);
 
@@ -138,10 +140,13 @@ export function useMirrordUi() {
                     null,
                 sessionEnded: false,
             });
-            joinedHeaderRef.current =
+            const header =
                 (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
-            joinedValueRef.current =
-                (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+            const value = (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+            joinedHeaderRef.current = header;
+            joinedValueRef.current = value;
+            setJoinedHeader(header);
+            setJoinedValue(value);
             const persisted = stored[STORAGE_KEYS.SCOPE_PATTERNS];
             setScopePatternsState(
                 Array.isArray(persisted)
@@ -273,6 +278,8 @@ export function useMirrordUi() {
             });
             joinedHeaderRef.current = header;
             joinedValueRef.current = value;
+            setJoinedHeader(header);
+            setJoinedValue(value);
             setJoinState({
                 joinedKey: key,
                 joinedSessionName: target.id,
@@ -297,6 +304,8 @@ export function useMirrordUi() {
         ]);
         joinedHeaderRef.current = null;
         joinedValueRef.current = null;
+        setJoinedHeader(null);
+        setJoinedValue(null);
         setScopePatternsState([]);
         setJoinState({
             joinedKey: null,
@@ -354,6 +363,8 @@ export function useMirrordUi() {
         setNamespace,
         groupedFiltered,
         joinState,
+        joinedHeader,
+        joinedValue,
         join,
         clearJoin,
         buildShareUrl,

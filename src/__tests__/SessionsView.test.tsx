@@ -122,6 +122,8 @@ describe('SessionsView', () => {
         scopePatterns: [] as string[],
         onAddScopePattern: jest.fn(),
         onRemoveScopePattern: jest.fn(),
+        joinedHeader: null as string | null,
+        joinedValue: null as string | null,
     };
 
     test('renders one group per key, omitting keyless sessions', () => {

@@ -174,6 +174,8 @@ function SessionsScreen({
             scopePatterns={mirrordUi.scopePatterns}
             onAddScopePattern={mirrordUi.addScopePattern}
             onRemoveScopePattern={mirrordUi.removeScopePattern}
+            joinedHeader={mirrordUi.joinedHeader}
+            joinedValue={mirrordUi.joinedValue}
         />
     );
 }

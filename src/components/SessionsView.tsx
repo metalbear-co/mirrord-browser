@@ -26,6 +26,8 @@ type Props = {
     scopePatterns: string[];
     onAddScopePattern: (pattern: string) => void | Promise<void>;
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
+    joinedHeader: string | null;
+    joinedValue: string | null;
 };
 
 function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
@@ -59,6 +61,8 @@ export function SessionsView({
     scopePatterns,
     onAddScopePattern,
     onRemoveScopePattern,
+    joinedHeader,
+    joinedValue,
 }: Props) {
     const [query, setQuery] = useState('');
     const [showAll, setShowAll] = useState(false);
@@ -117,6 +121,8 @@ export function SessionsView({
                     scopePatterns={scopePatterns}
                     onAddScopePattern={onAddScopePattern}
                     onRemoveScopePattern={onRemoveScopePattern}
+                    joinedHeader={joinedHeader}
+                    joinedValue={joinedValue}
                 />
             )}
 

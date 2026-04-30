@@ -76,6 +76,8 @@ export const STRINGS = {
     TAB_MANUAL: 'Override',
     LABEL_URL_SCOPE_HEADING: 'URL scope',
     LABEL_HEADER_OBSERVED: 'header observed',
+    LABEL_INJECTING: 'injecting',
+    BTN_COPY_HEADER: 'Copy header',
     PLACEHOLDER_URL_PATTERN: '+ pattern',
     LABEL_REMOVE_PATTERN: 'Remove pattern',
     PLACEHOLDER_SEARCH_SESSIONS: 'search sessions',
