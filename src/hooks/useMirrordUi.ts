@@ -65,6 +65,8 @@ export async function pingHealth(
 export const BAGGAGE_HEADER_NAME = 'baggage';
 export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
+const OPERATOR_SESSIONS_POLL_MS = 5000;
+
 const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.JOINED_KEY,
     STORAGE_KEYS.JOINED_SESSION_NAME,
@@ -181,19 +183,24 @@ export function useMirrordUi() {
     useEffect(() => {
         if (!backend || !token || healthy !== true) return;
         let cancelled = false;
-        fetchOperatorSessions(backend, token)
-            .then((resp) => {
-                if (cancelled) return;
-                setSessions(resp);
-                setStatus(resp.watch_status);
-                setError(null);
-            })
-            .catch((err) => {
-                if (cancelled) return;
-                setError(String(err));
-            });
+        const refresh = () => {
+            fetchOperatorSessions(backend, token)
+                .then((resp) => {
+                    if (cancelled) return;
+                    setSessions(resp);
+                    setStatus(resp.watch_status);
+                    setError(null);
+                })
+                .catch((err) => {
+                    if (cancelled) return;
+                    setError(String(err));
+                });
+        };
+        refresh();
+        const interval = setInterval(refresh, OPERATOR_SESSIONS_POLL_MS);
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
     }, [backend, token, healthy]);
 
