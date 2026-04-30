@@ -62,8 +62,8 @@ export async function pingHealth(
     }
 }
 
-const BAGGAGE_HEADER_NAME = 'baggage';
-const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+export const BAGGAGE_HEADER_NAME = 'baggage';
+export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
 const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.JOINED_KEY,
@@ -371,8 +371,11 @@ function applyNotification(
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_ADDED ||
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_UPDATED
     ) {
-        const others = current.sessions.filter((s) => s.id !== msg.session.id);
-        const next = [...others, msg.session];
+        const idx = current.sessions.findIndex((s) => s.id === msg.session.id);
+        const next =
+            idx === -1
+                ? [...current.sessions, msg.session]
+                : current.sessions.map((s, i) => (i === idx ? msg.session : s));
         return rebuild(next, current.watch_status);
     }
     if (msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED) {

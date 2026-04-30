@@ -1,5 +1,19 @@
 import { STORAGE_KEYS } from './types';
-import { refreshIconIndicator } from './util';
+import {
+    buildDnrRule,
+    deriveInjectionHint,
+    getDynamicRules,
+    refreshIconIndicator,
+    storageGet,
+    storageRemove,
+    storageSet,
+    updateDynamicRules,
+} from './util';
+import {
+    BAGGAGE_HEADER_NAME,
+    BAGGAGE_VALUE_PREFIX,
+    fetchOperatorSessions,
+} from './hooks/useMirrordUi';
 import {
     HEADER_OBSERVATION_PORT,
     emptyObservation,
@@ -12,12 +26,22 @@ import {
 const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const TRUSTED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const OBSERVATION_SESSION_KEY = 'header_observation';
+const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 
 type ConfigureMessage = {
     type: typeof MIRRORD_UI_CONFIGURE_TYPE;
     backend: string;
     token: string;
 };
+
+type PingMessage = { type: 'ping' };
+type JoinMessage = { type: 'join'; key: string };
+type LeaveMessage = { type: 'leave' };
+type BridgeMessage =
+    | ConfigureMessage
+    | PingMessage
+    | JoinMessage
+    | LeaveMessage;
 
 let observation: HeaderObservation = emptyObservation('');
 const subscribers = new Set<chrome.runtime.Port>();
@@ -101,11 +125,24 @@ chrome.runtime.onMessageExternal.addListener(
     (
         message: unknown,
         sender: chrome.runtime.MessageSender,
-        sendResponse: (response: { ok: boolean; error?: string }) => void
+        sendResponse: (response: unknown) => void
     ) => {
         if (!isTrustedSender(sender)) {
             sendResponse({ ok: false, error: 'untrusted sender' });
             return;
+        }
+        const m = message as Partial<BridgeMessage> | null;
+        if (m && m.type === 'ping') {
+            handlePing().then(sendResponse);
+            return true;
+        }
+        if (m && m.type === 'join' && typeof m.key === 'string') {
+            handleJoin(m.key).then(sendResponse);
+            return true;
+        }
+        if (m && m.type === 'leave') {
+            handleLeave().then(sendResponse);
+            return true;
         }
         if (!isConfigureMessage(message)) {
             sendResponse({ ok: false, error: 'unknown message' });
@@ -130,6 +167,101 @@ chrome.runtime.onMessageExternal.addListener(
         return true;
     }
 );
+
+async function handlePing() {
+    const stored = await storageGet([
+        STORAGE_KEYS.JOINED_KEY,
+        STORAGE_KEYS.MIRRORD_UI_BACKEND,
+        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+    ]);
+    return {
+        type: 'pong',
+        version: EXTENSION_VERSION,
+        joinedKey:
+            (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ?? null,
+        hasBackend: !!stored[STORAGE_KEYS.MIRRORD_UI_BACKEND],
+        watching: !!stored[STORAGE_KEYS.MIRRORD_UI_TOKEN],
+    };
+}
+
+async function handleJoin(key: string) {
+    try {
+        const stored = await storageGet([
+            STORAGE_KEYS.MIRRORD_UI_BACKEND,
+            STORAGE_KEYS.MIRRORD_UI_TOKEN,
+            STORAGE_KEYS.SCOPE_PATTERNS,
+        ]);
+        const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
+            | string
+            | undefined;
+        const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
+            | string
+            | undefined;
+        if (!backend || !token) {
+            return {
+                type: 'join_result',
+                ok: false,
+                error: 'mirrord ui not configured in extension',
+            };
+        }
+        const sessionsResp = await fetchOperatorSessions(backend, token);
+        const target = sessionsResp.sessions.find((s) => s.key === key);
+        if (!target) {
+            return {
+                type: 'join_result',
+                ok: false,
+                error: `key ${key} not visible from extension`,
+            };
+        }
+        const filterHint = deriveInjectionHint(target.httpFilter?.headerFilter);
+        const header = filterHint?.header ?? BAGGAGE_HEADER_NAME;
+        const value = filterHint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
+        const scope =
+            (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
+        const existing = await getDynamicRules();
+        await updateDynamicRules({
+            removeRuleIds: existing.map((r) => r.id),
+            addRules: buildDnrRule(header, value, scope),
+        });
+        await storageSet({
+            [STORAGE_KEYS.JOINED_KEY]: key,
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+            [STORAGE_KEYS.JOINED_HEADER]: header,
+            [STORAGE_KEYS.JOINED_VALUE]: value,
+        });
+        return { type: 'join_result', ok: true, joinedKey: key };
+    } catch (err) {
+        return {
+            type: 'join_result',
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+}
+
+async function handleLeave() {
+    try {
+        const existing = await getDynamicRules();
+        await updateDynamicRules({
+            removeRuleIds: existing.map((r) => r.id),
+            addRules: [],
+        });
+        await storageRemove([
+            STORAGE_KEYS.JOINED_KEY,
+            STORAGE_KEYS.JOINED_SESSION_NAME,
+            STORAGE_KEYS.JOINED_HEADER,
+            STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.SCOPE_PATTERNS,
+        ]);
+        return { type: 'leave_result', ok: true };
+    } catch (err) {
+        return {
+            type: 'leave_result',
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+}
 
 function isTrustedSender(sender: chrome.runtime.MessageSender): boolean {
     if (!sender.url) return false;
