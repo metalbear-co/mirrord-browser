@@ -223,7 +223,7 @@ function GroupFooter({
                         type="button"
                         aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
                         onClick={() => onJoin(groupKey)}
-                        className="h-9 text-xs px-4"
+                        className="h-7 text-xs px-3"
                     >
                         {STRINGS.BTN_JOIN}
                     </Button>
