@@ -14,6 +14,7 @@ import {
 
 initTheme();
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
+import mirrordIconLight from './assets/mirrord-icon-light.svg';
 import { Moon, Settings, Share2, Sun, Check } from 'lucide-react';
 import { loadTheme, saveTheme, resolveDark } from './theme';
 import type { ThemePref } from './types';
@@ -70,9 +71,14 @@ export function Popup() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
+                            src={mirrordIconLight}
+                            alt=""
+                            className="h-5 w-auto block dark:hidden"
+                        />
+                        <img
                             src={mirrordIconDark}
                             alt=""
-                            className="h-5 w-auto invert dark:invert-0"
+                            className="h-5 w-auto hidden dark:block"
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">

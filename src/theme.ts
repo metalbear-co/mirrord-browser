@@ -70,10 +70,11 @@ export function initTheme(): () => void {
         currentPref = next;
         applyDark(resolveDark(next));
     };
-    chrome.storage.onChanged.addListener(onStorage);
+    const storageListener = chrome.storage?.onChanged;
+    storageListener?.addListener(onStorage);
 
     return () => {
         media?.removeEventListener('change', onMedia);
-        chrome.storage.onChanged.removeListener(onStorage);
+        storageListener?.removeListener(onStorage);
     };
 }
