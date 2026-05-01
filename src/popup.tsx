@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
 import './tokens.css';
+import { initTheme } from './theme';
 import {
     Button,
     Tabs,
@@ -10,8 +11,12 @@ import {
     TabsTrigger,
     TooltipProvider,
 } from '@metalbear/ui';
+
+initTheme();
 import mirrordIconDark from './assets/mirrord-icon-dark.svg';
-import { Settings, Share2, Check } from 'lucide-react';
+import { Moon, Settings, Share2, Sun, Check } from 'lucide-react';
+import { loadTheme, saveTheme, resolveDark } from './theme';
+import type { ThemePref } from './types';
 import { SessionsView, ManualSetup } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
@@ -35,6 +40,11 @@ export function Popup() {
 
     const [tab, setTab] = useState<TabId>(TAB.MANUAL);
     const [tabRestored, setTabRestored] = useState(false);
+    const [themePref, setThemeState] = useState<ThemePref>('system');
+    const isDark = resolveDark(themePref);
+    useEffect(() => {
+        loadTheme().then(setThemeState);
+    }, []);
 
     useEffect(() => {
         chrome.storage.local.get(
@@ -62,7 +72,7 @@ export function Popup() {
                         <img
                             src={mirrordIconDark}
                             alt=""
-                            className="h-5 w-auto"
+                            className="h-5 w-auto dark:invert"
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">
@@ -95,6 +105,22 @@ export function Popup() {
                                 )}
                             </Button>
                         )}
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                                const next: ThemePref = isDark
+                                    ? 'light'
+                                    : 'dark';
+                                setThemeState(next);
+                                saveTheme(next);
+                            }}
+                            title={isDark ? 'Light mode' : 'Dark mode'}
+                            aria-label={isDark ? 'Light mode' : 'Dark mode'}
+                            className="h-7 w-7"
+                        >
+                            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+                        </Button>
                         <Button
                             size="icon"
                             variant="ghost"

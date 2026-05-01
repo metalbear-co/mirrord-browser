@@ -28,7 +28,10 @@ export const STORAGE_KEYS = {
     JOINED_VALUE: 'joined_value',
     SCOPE_PATTERNS: 'scope_patterns',
     ACTIVE_TAB: 'active_tab',
+    THEME: 'theme',
 } as const;
+
+export type ThemePref = 'system' | 'light' | 'dark';
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
     'main_frame' as chrome.declarativeNetRequest.ResourceType,
