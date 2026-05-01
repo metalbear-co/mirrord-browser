@@ -221,11 +221,9 @@ function GroupFooter({
                 {!joined && (
                     <Button
                         type="button"
-                        size="sm"
-                        variant="outline"
                         aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
                         onClick={() => onJoin(groupKey)}
-                        style={{ height: 28, padding: '0 12px' }}
+                        className="h-9 text-xs px-4"
                     >
                         {STRINGS.BTN_JOIN}
                     </Button>
