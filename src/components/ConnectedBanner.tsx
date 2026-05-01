@@ -108,8 +108,8 @@ export function ConnectedBanner({
                         className="font-semibold"
                         style={{
                             fontSize: 10.5,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
                             color: titleColor,
                         }}
                     >
@@ -157,8 +157,8 @@ export function ConnectedBanner({
                             className="inline-flex items-center text-muted-foreground font-semibold"
                             style={{
                                 gap: 6,
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
+                                letterSpacing: 'normal',
+                                textTransform: 'none',
                             }}
                         >
                             <Globe style={{ height: 12, width: 12 }} />
@@ -273,8 +273,8 @@ export function ConnectedBanner({
                         <span
                             className="text-muted-foreground font-semibold"
                             style={{
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
+                                letterSpacing: 'normal',
+                                textTransform: 'none',
                             }}
                         >
                             {STRINGS.LABEL_HEADER_OBSERVED}
@@ -337,8 +337,8 @@ export function ConnectedBanner({
                                 className="font-semibold"
                                 style={{
                                     fontSize: 9,
-                                    letterSpacing: '0.1em',
-                                    textTransform: 'uppercase',
+                                    letterSpacing: 'normal',
+                                    textTransform: 'none',
                                     color: COLORS.brand.lilac,
                                     flexShrink: 0,
                                 }}

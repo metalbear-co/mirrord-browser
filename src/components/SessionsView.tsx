@@ -180,8 +180,8 @@ export function SessionsView({
                         style={{
                             padding: '0 2px',
                             fontSize: 10.5,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
                         }}
                     >
                         <span>

@@ -34,7 +34,7 @@ export function Options() {
     return (
         <div className="max-w-md mx-auto p-6">
             <div className="flex items-center gap-2 pb-3 mb-6 border-b border-border">
-                <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <span className="text-meta font-medium text-muted-foreground">
                     mirrord
                 </span>
                 <span className="text-xs text-muted-foreground">
