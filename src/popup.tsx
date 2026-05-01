@@ -72,7 +72,7 @@ export function Popup() {
                         <img
                             src={mirrordIconDark}
                             alt=""
-                            className="h-5 w-auto dark:invert"
+                            className="h-5 w-auto invert dark:invert-0"
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">
@@ -83,7 +83,7 @@ export function Popup() {
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                         {tab === TAB.MANUAL && (
                             <Button
                                 size="icon"

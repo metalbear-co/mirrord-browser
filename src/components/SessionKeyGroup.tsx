@@ -119,7 +119,7 @@ function GroupHeader({
             {joined && (
                 <Badge
                     variant="outline"
-                    className="shrink-0 font-mono text-foreground border-foreground/30 bg-muted"
+                    className="shrink-0 font-mono text-foreground border-foreground/30 bg-foreground/10"
                     style={{
                         gap: 5,
                         fontSize: 9.5,
