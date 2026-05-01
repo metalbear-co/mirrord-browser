@@ -107,7 +107,7 @@ describe('useHeaderRules analytics', () => {
             });
 
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-                { removeRuleIds: [1] },
+                { removeRuleIds: [1], addRules: [] },
                 expect.any(Function)
             );
         });

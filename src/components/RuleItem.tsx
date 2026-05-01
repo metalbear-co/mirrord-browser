@@ -18,7 +18,7 @@ export function RuleItem({ rule }: RuleItemProps) {
                 {rule.header}: {rule.value}
             </code>
             <span
-                className="text-[10px] text-muted-foreground block mt-1"
+                className="text-meta text-muted-foreground block mt-1"
                 style={{ overflowWrap: 'anywhere' }}
             >
                 {rule.scope}

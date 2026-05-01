@@ -72,7 +72,8 @@ export function useHeaderRules() {
                 STORAGE_KEYS.JOINED_KEY in changes ||
                 STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
                 STORAGE_KEYS.OVERRIDE in changes ||
-                STORAGE_KEYS.DEFAULTS in changes
+                STORAGE_KEYS.DEFAULTS in changes ||
+                STORAGE_KEYS.SCOPE_PATTERNS in changes
             ) {
                 loadRules();
                 loadFormValues();
@@ -154,20 +155,49 @@ export function useHeaderRules() {
         [loadRules]
     );
 
+    const handleRemoveAll = useCallback(async () => {
+        setError(null);
+        try {
+            const existingRules = await getDynamicRules();
+            await updateDynamicRules({
+                removeRuleIds: existingRules.map((r) => r.id),
+                addRules: [],
+            });
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.SCOPE_PATTERNS,
+            ]);
+            await loadRules();
+            capture('extension_header_rule_removed');
+        } catch (e) {
+            const msg =
+                e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
+            setError(msg);
+            console.error(STRINGS.ERR_REMOVE_RULE, e);
+            capture('extension_error', {
+                action: 'remove',
+                error: msg,
+            });
+        }
+    }, [loadRules]);
+
     const handleToggle = useCallback(async () => {
         if (isToggling) return;
         setIsToggling(true);
 
         try {
             if (rules.length > 0) {
-                await handleRemove(rules[0].id);
+                await handleRemoveAll();
             } else {
                 await handleActivate();
             }
         } finally {
             setIsToggling(false);
         }
-    }, [rules, handleRemove, handleActivate, isToggling]);
+    }, [rules, handleRemoveAll, handleActivate, isToggling]);
 
     const handleSave = useCallback(async () => {
         setError(null);

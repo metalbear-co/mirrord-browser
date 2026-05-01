@@ -27,7 +27,7 @@ export function HeaderForm({
     return (
         <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-                <Label htmlFor="headerName" className="text-[10px]">
+                <Label htmlFor="headerName" className="text-meta">
                     {STRINGS.LABEL_HEADER_NAME}
                 </Label>
                 <Input
@@ -39,7 +39,7 @@ export function HeaderForm({
                 />
             </div>
             <div className="flex flex-col gap-1">
-                <Label htmlFor="headerValue" className="text-[10px]">
+                <Label htmlFor="headerValue" className="text-meta">
                     {STRINGS.LABEL_HEADER_VALUE}
                 </Label>
                 <Input
@@ -52,12 +52,12 @@ export function HeaderForm({
             </div>
             <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1">
-                    <Label htmlFor="scope" className="text-[10px]">
+                    <Label htmlFor="scope" className="text-meta">
                         {STRINGS.LABEL_URL_SCOPE}
                     </Label>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-[10px]">
+                            <span className="text-muted-foreground cursor-help text-meta">
                                 ⓘ
                             </span>
                         </TooltipTrigger>

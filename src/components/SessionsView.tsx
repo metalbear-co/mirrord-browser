@@ -1,4 +1,7 @@
+import { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import groupBy from 'lodash.groupby';
+import { Input } from '@metalbear/ui';
 import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
@@ -20,7 +23,29 @@ type Props = {
     onJoin: (key: string) => void;
     onClear: () => void;
     onShare: (key: string) => void;
+    scopePatterns: string[];
+    onAddScopePattern: (pattern: string) => void | Promise<void>;
+    onRemoveScopePattern: (pattern: string) => void | Promise<void>;
+    joinedHeader: string | null;
+    joinedValue: string | null;
 };
+
+function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
+    if (!q) return true;
+    const haystack = [
+        s.key,
+        s.namespace,
+        s.owner?.username,
+        s.owner?.k8sUsername,
+        s.target ? `${s.target.kind}/${s.target.name}` : '',
+        s.target?.name,
+        s.target?.container,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    return haystack.includes(q);
+}
 
 export function SessionsView({
     sessions,
@@ -33,7 +58,24 @@ export function SessionsView({
     onJoin,
     onClear,
     onShare,
+    scopePatterns,
+    onAddScopePattern,
+    onRemoveScopePattern,
+    joinedHeader,
+    joinedValue,
 }: Props) {
+    const [query, setQuery] = useState('');
+    const [showAll, setShowAll] = useState(false);
+
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = useMemo(() => {
+        return sessions.filter(
+            (s) =>
+                (!namespace || s.namespace === namespace) &&
+                matchesQuery(s, normalizedQuery)
+        );
+    }, [sessions, namespace, normalizedQuery]);
+
     if (!sessionsLoaded) {
         return <NotConfiguredPrompt />;
     }
@@ -43,10 +85,6 @@ export function SessionsView({
         : undefined;
     const joinedVanished = joinState.joinedKey !== null && !joinedSession;
     const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
-
-    const filtered = namespace
-        ? sessions.filter((s) => s.namespace === namespace)
-        : sessions;
     const groups = groupBy(filtered, (s) => s.key);
 
     const joinedKey = joinState.joinedKey;
@@ -60,6 +98,17 @@ export function SessionsView({
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
+    const totalSessionsBeforeQuery = namespace
+        ? sessions.filter((s) => s.namespace === namespace).length
+        : sessions.length;
+    const showSearch = totalSessionsBeforeQuery > 0;
+
+    const VISIBLE_CAP = 5;
+    const visibleKeys =
+        showAll || normalizedQuery
+            ? orderedKeys
+            : orderedKeys.slice(0, VISIBLE_CAP);
+    const hiddenCount = orderedKeys.length - visibleKeys.length;
 
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
@@ -69,10 +118,60 @@ export function SessionsView({
                     session={joinedSession}
                     sessionEnded={effectiveSessionEnded}
                     onLeave={onClear}
+                    scopePatterns={scopePatterns}
+                    onAddScopePattern={onAddScopePattern}
+                    onRemoveScopePattern={onRemoveScopePattern}
+                    joinedHeader={joinedHeader}
+                    joinedValue={joinedValue}
                 />
             )}
 
             {operatorUnavailable && <OperatorUnavailableNote />}
+
+            {showSearch && (
+                <div className="flex items-center" style={{ gap: 8 }}>
+                    <div
+                        className="flex items-center"
+                        style={{
+                            flex: 1,
+                            position: 'relative',
+                        }}
+                    >
+                        <Search
+                            className="text-muted-foreground"
+                            style={{
+                                position: 'absolute',
+                                left: 10,
+                                height: 13,
+                                width: 13,
+                                pointerEvents: 'none',
+                            }}
+                        />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={STRINGS.PLACEHOLDER_SEARCH_SESSIONS}
+                            aria-label={STRINGS.LABEL_SEARCH_SESSIONS}
+                            spellCheck={false}
+                            autoComplete="off"
+                            className="font-mono"
+                            style={{
+                                width: '100%',
+                                height: 32,
+                                paddingLeft: 30,
+                                fontSize: 11,
+                            }}
+                        />
+                    </div>
+                    {hasNamespaces && (
+                        <NamespaceFilter
+                            namespaces={namespaces}
+                            value={namespace}
+                            onChange={setNamespace}
+                        />
+                    )}
+                </div>
+            )}
 
             {hasGroups && (
                 <>
@@ -81,11 +180,13 @@ export function SessionsView({
                         style={{
                             padding: '0 2px',
                             fontSize: 10.5,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
                         }}
                     >
-                        <span>{STRINGS.MSG_LIVE_SESSIONS}</span>
+                        <span>
+                            {filtered.length} {STRINGS.MSG_LIVE_SESSIONS}
+                        </span>
                         {status && (
                             <span
                                 className="inline-flex items-center"
@@ -99,16 +200,8 @@ export function SessionsView({
                         )}
                     </div>
 
-                    {hasNamespaces && (
-                        <NamespaceFilter
-                            namespaces={namespaces}
-                            value={namespace}
-                            onChange={setNamespace}
-                        />
-                    )}
-
                     <div className="flex flex-col" style={{ gap: 10 }}>
-                        {orderedKeys.map((k) => (
+                        {visibleKeys.map((k) => (
                             <SessionKeyGroup
                                 key={k}
                                 groupKey={k}
@@ -119,6 +212,29 @@ export function SessionsView({
                             />
                         ))}
                     </div>
+
+                    {(hiddenCount > 0 ||
+                        (showAll && orderedKeys.length > VISIBLE_CAP)) &&
+                        !normalizedQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAll((v) => !v)}
+                                className="text-muted-foreground hover:text-foreground"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    padding: '6px 2px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    textAlign: 'center',
+                                    fontFamily: 'inherit',
+                                }}
+                            >
+                                {showAll
+                                    ? STRINGS.MSG_SHOW_LESS
+                                    : STRINGS.MSG_SHOW_MORE(hiddenCount)}
+                            </button>
+                        )}
                 </>
             )}
 
@@ -132,7 +248,9 @@ export function SessionsView({
                         margin: 0,
                     }}
                 >
-                    {STRINGS.MSG_NO_ACTIVE_SESSIONS}
+                    {totalSessionsBeforeQuery > 0
+                        ? STRINGS.MSG_NO_SESSIONS_MATCH_QUERY
+                        : STRINGS.MSG_NO_ACTIVE_SESSIONS}
                 </p>
             )}
         </div>

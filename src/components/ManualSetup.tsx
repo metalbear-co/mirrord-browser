@@ -54,7 +54,7 @@ export function ManualSetup({ headerRules }: Props) {
                     </span>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-[10px]">
+                            <span className="text-muted-foreground cursor-help text-meta">
                                 {STRINGS.LABEL_INFO}
                             </span>
                         </TooltipTrigger>
@@ -83,7 +83,7 @@ export function ManualSetup({ headerRules }: Props) {
                         {activeRule.header}: {activeRule.value}
                     </code>
                     <span
-                        className="text-[10px] text-muted-foreground block mt-0.5"
+                        className="text-meta text-muted-foreground block mt-0.5"
                         style={{ overflowWrap: 'anywhere' }}
                     >
                         {activeRule.scope}
@@ -103,7 +103,7 @@ export function ManualSetup({ headerRules }: Props) {
                     />
                     {error && (
                         <p
-                            className="text-[10px] text-destructive mt-2"
+                            className="text-meta text-destructive mt-2"
                             role="alert"
                         >
                             {error}
