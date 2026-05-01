@@ -1,0 +1,25 @@
+/* Typography scale — use these instead of text-[Npx] literals */
+.text-caps {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.text-meta {
+    font-size: 11px;
+}
+.text-body {
+    font-size: 12px;
+}
+.text-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Surface tokens */
+.surface-section {
+    background: hsl(var(--card) / 0.5);
+}
+.surface-inset {
+    background: hsl(var(--card) / 0.3);
+}

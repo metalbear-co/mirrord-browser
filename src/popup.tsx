@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
+import './tokens.css';
 import {
     Button,
     Tabs,
@@ -67,7 +68,7 @@ export function Popup() {
                             <span className="text-sm font-semibold tracking-tight leading-none">
                                 {STRINGS.LABEL_MIRRORD}
                             </span>
-                            <span className="text-[10px] text-muted-foreground leading-tight">
+                            <span className="text-meta text-muted-foreground leading-tight">
                                 {STRINGS.LABEL_HEADER_INJECTOR}
                             </span>
                         </div>

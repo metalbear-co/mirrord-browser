@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
+import './tokens.css';
 import { Label, Switch } from '@metalbear/ui';
 import { STRINGS } from './constants';
 import { optOutReady, setOptOut } from './analytics';

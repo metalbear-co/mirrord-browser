@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@metalbear/ui/styles.css';
+import './tokens.css';
 import { Card, CardContent } from '@metalbear/ui';
 import { STORAGE_KEYS } from './types';
 import { capture } from './analytics';
