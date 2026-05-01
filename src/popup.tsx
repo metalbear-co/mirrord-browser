@@ -71,14 +71,9 @@ export function Popup() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
-                            src={mirrordIconLight}
+                            src={isDark ? mirrordIconDark : mirrordIconLight}
                             alt=""
-                            className="h-5 w-auto block dark:hidden"
-                        />
-                        <img
-                            src={mirrordIconDark}
-                            alt=""
-                            className="h-5 w-auto hidden dark:block"
+                            className="h-5 w-auto"
                         />
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold tracking-tight leading-none">
