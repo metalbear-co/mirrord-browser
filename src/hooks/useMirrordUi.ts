@@ -17,6 +17,9 @@ import {
     deriveInjectionHint,
     buildDnrRule,
 } from '../util';
+import { emitUserBlocked, emitUserSucceeded } from '../analytics';
+
+let bridgeHealthy = true;
 
 export async function fetchOperatorSessions(
     backend: string,
@@ -26,11 +29,38 @@ export async function fetchOperatorSessions(
     const url = `${backend}/api/operator-sessions?token=${encodeURIComponent(token)}`;
     const resp = await fetchImpl(url);
     if (!resp.ok) {
-        throw new Error(
+        const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
         );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
     }
     return (await resp.json()) as OperatorSessionsResponse;
+}
+
+export async function runPoll(
+    backend: string,
+    token: string
+): Promise<OperatorSessionsResponse | null> {
+    try {
+        const resp = await fetchOperatorSessions(backend, token);
+        if (!bridgeHealthy) {
+            bridgeHealthy = true;
+            emitUserSucceeded('bridge_recovered', 'health');
+        }
+        return resp;
+    } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        const status = (err as { status?: number })?.status;
+        if (bridgeHealthy) {
+            bridgeHealthy = false;
+            emitUserBlocked('bridge_unhealthy', 'health', {
+                error,
+                ...(status !== undefined && { status }),
+            });
+        }
+        return null;
+    }
 }
 
 export function buildWsUrl(backend: string, token: string): string {
@@ -184,17 +214,14 @@ export function useMirrordUi() {
         if (!backend || !token || healthy !== true) return;
         let cancelled = false;
         const refresh = () => {
-            fetchOperatorSessions(backend, token)
-                .then((resp) => {
-                    if (cancelled) return;
+            runPoll(backend, token).then((resp) => {
+                if (cancelled) return;
+                if (resp !== null) {
                     setSessions(resp);
                     setStatus(resp.watch_status);
                     setError(null);
-                })
-                .catch((err) => {
-                    if (cancelled) return;
-                    setError(String(err));
-                });
+                }
+            });
         };
         refresh();
         const interval = setInterval(refresh, OPERATOR_SESSIONS_POLL_MS);
