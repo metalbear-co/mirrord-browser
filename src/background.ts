@@ -24,6 +24,9 @@ import {
 } from './headerObservation';
 
 const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
+const PONG_TYPE = 'pong';
+const JOIN_RESULT_TYPE = 'join_result';
+const LEAVE_RESULT_TYPE = 'leave_result';
 const TRUSTED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const OBSERVATION_SESSION_KEY = 'header_observation';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
@@ -175,7 +178,7 @@ async function handlePing() {
         STORAGE_KEYS.MIRRORD_UI_TOKEN,
     ]);
     return {
-        type: 'pong',
+        type: PONG_TYPE,
         version: EXTENSION_VERSION,
         joinedKey:
             (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ?? null,
@@ -199,7 +202,7 @@ async function handleJoin(key: string) {
             | undefined;
         if (!backend || !token) {
             return {
-                type: 'join_result',
+                type: JOIN_RESULT_TYPE,
                 ok: false,
                 error: 'mirrord ui not configured in extension',
             };
@@ -208,7 +211,7 @@ async function handleJoin(key: string) {
         const target = sessionsResp.sessions.find((s) => s.key === key);
         if (!target) {
             return {
-                type: 'join_result',
+                type: JOIN_RESULT_TYPE,
                 ok: false,
                 error: `key ${key} not visible from extension`,
             };
@@ -229,10 +232,10 @@ async function handleJoin(key: string) {
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
-        return { type: 'join_result', ok: true, joinedKey: key };
+        return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
         return {
-            type: 'join_result',
+            type: JOIN_RESULT_TYPE,
             ok: false,
             error: err instanceof Error ? err.message : String(err),
         };
@@ -253,10 +256,10 @@ async function handleLeave() {
             STORAGE_KEYS.JOINED_VALUE,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
-        return { type: 'leave_result', ok: true };
+        return { type: LEAVE_RESULT_TYPE, ok: true };
     } catch (err) {
         return {
-            type: 'leave_result',
+            type: LEAVE_RESULT_TYPE,
             ok: false,
             error: err instanceof Error ? err.message : String(err),
         };
