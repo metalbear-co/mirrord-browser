@@ -11,6 +11,16 @@ jest.mock('../analytics', () => ({
     emitUserSucceeded: jest.fn(),
 }));
 
+jest.mock('../headerObservation', () => {
+    const actual = jest.requireActual('../headerObservation');
+    return {
+        ...actual,
+        armCanary: jest.fn(),
+        cancelCanary: jest.fn(),
+        notifyHeaderObserved: jest.fn(),
+    };
+});
+
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
     Button: ({

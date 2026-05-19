@@ -2,16 +2,6 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useMirrordUi } from '../hooks/useMirrordUi';
 import type { OperatorSessionsResponse } from '../types';
 import { STORAGE_KEYS } from '../types';
-import { emitUserBlocked, emitUserSucceeded } from '../analytics';
-
-jest.mock('../analytics', () => ({
-    emitUserBlocked: jest.fn(),
-    emitUserSucceeded: jest.fn(),
-    capture: jest.fn(),
-    captureBeacon: jest.fn(),
-    optOutReady: Promise.resolve(),
-    loadOptOutState: jest.fn(() => Promise.resolve()),
-}));
 
 const owner = { username: 'alice', k8sUsername: 'alice@ex' };
 const createdAt = '2026-01-01T00:00:00Z';
@@ -196,88 +186,4 @@ test('join writes the DNR rule and stores joined key', async () => {
         expect.objectContaining({ [STORAGE_KEYS.JOINED_KEY]: 'k1' }),
         expect.any(Function)
     );
-});
-
-describe('useMirrordUi bridge health emission', () => {
-    let mockEmitUserBlocked: jest.Mock;
-    let mockEmitUserSucceeded: jest.Mock;
-    let runPoll: (
-        backend: string,
-        token: string
-    ) => Promise<OperatorSessionsResponse | null>;
-
-    beforeEach(() => {
-        jest.resetModules();
-        mockEmitUserBlocked = jest.fn();
-        mockEmitUserSucceeded = jest.fn();
-        jest.doMock('../analytics', () => ({
-            emitUserBlocked: mockEmitUserBlocked,
-            emitUserSucceeded: mockEmitUserSucceeded,
-            capture: jest.fn(),
-            captureBeacon: jest.fn(),
-            optOutReady: Promise.resolve(),
-            loadOptOutState: jest.fn(() => Promise.resolve()),
-        }));
-        ({ runPoll } = require('../hooks/useMirrordUi'));
-    });
-
-    it('emits bridge_unhealthy ONCE on first poll failure, NOT on subsequent failures', async () => {
-        global.fetch = jest.fn(() =>
-            Promise.resolve({
-                ok: false,
-                status: 503,
-                statusText: 'Service Unavailable',
-                text: () => Promise.resolve(''),
-            } as unknown as Response)
-        ) as jest.Mock;
-        await runPoll('http://x', 'tok');
-        await runPoll('http://x', 'tok');
-        await runPoll('http://x', 'tok');
-        expect(mockEmitUserBlocked).toHaveBeenCalledTimes(1);
-        expect(mockEmitUserBlocked).toHaveBeenCalledWith(
-            'bridge_unhealthy',
-            'health',
-            expect.objectContaining({ status: 503 })
-        );
-    });
-
-    it('emits bridge_recovered ONCE when poll succeeds after failure, NOT on subsequent successes', async () => {
-        global.fetch = jest
-            .fn()
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 503,
-                statusText: 'Service Unavailable',
-                text: () => Promise.resolve(''),
-            } as unknown as Response)
-            .mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ sessions: [] }),
-            } as Response)
-            .mockResolvedValueOnce({
-                ok: true,
-                json: () => Promise.resolve({ sessions: [] }),
-            } as Response);
-        await runPoll('http://x', 'tok');
-        await runPoll('http://x', 'tok');
-        await runPoll('http://x', 'tok');
-        expect(mockEmitUserSucceeded).toHaveBeenCalledTimes(1);
-        expect(mockEmitUserSucceeded).toHaveBeenCalledWith(
-            'bridge_recovered',
-            'health'
-        );
-    });
-
-    it('emits nothing when first poll succeeds (steady-state)', async () => {
-        global.fetch = jest.fn(() =>
-            Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve({ sessions: [] }),
-            } as Response)
-        ) as jest.Mock;
-        await runPoll('http://x', 'tok');
-        await runPoll('http://x', 'tok');
-        expect(mockEmitUserBlocked).not.toHaveBeenCalled();
-        expect(mockEmitUserSucceeded).not.toHaveBeenCalled();
-    });
 });
