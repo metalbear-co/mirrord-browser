@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import '@metalbear/ui/styles.css';
 import './tokens.css';
 import { initTheme } from './theme';
@@ -191,7 +192,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <ConfigurePage />
+            <ErrorBoundary flow="configure" component="configure">
+                <ConfigurePage />
+            </ErrorBoundary>
         </StrictMode>
     );
 }

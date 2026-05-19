@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import '@metalbear/ui/styles.css';
 import './tokens.css';
 import { initTheme } from './theme';
@@ -69,7 +70,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <StrictMode>
-            <Options />
+            <ErrorBoundary flow="header_injector" component="options">
+                <Options />
+            </ErrorBoundary>
         </StrictMode>
     );
 }
