@@ -55,6 +55,27 @@ const subscribers = new Set<chrome.runtime.Port>();
 let rotationTimer: ReturnType<typeof setInterval> | null = null;
 let observationLoaded = false;
 
+self.addEventListener('error', (event: ErrorEvent) => {
+    emitUserBlocked('unhandled_error', 'health', {
+        error: event.message ?? 'unknown',
+        source: 'error',
+    });
+});
+
+self.addEventListener('unhandledrejection', (event: Event) => {
+    const reason = (event as Event & { reason?: unknown }).reason;
+    const error =
+        reason instanceof Error
+            ? reason.message
+            : typeof reason === 'string'
+              ? reason
+              : 'unknown rejection';
+    emitUserBlocked('unhandled_error', 'health', {
+        error,
+        source: 'unhandledrejection',
+    });
+});
+
 restrictStorageAccess();
 configureSidePanel();
 chrome.runtime.onStartup.addListener(restrictStorageAccess);
@@ -70,6 +91,27 @@ chrome.runtime.onStartup.addListener(() => {
 });
 chrome.runtime.onInstalled.addListener(() => {
     restoreObservation().then(loadHeaderName);
+});
+
+self.addEventListener('error', (event: ErrorEvent) => {
+    emitUserBlocked('unhandled_error', 'health', {
+        error: event.message ?? 'unknown',
+        source: 'error',
+    });
+});
+
+self.addEventListener('unhandledrejection', (event: Event) => {
+    const reason = (event as Event & { reason?: unknown }).reason;
+    const error =
+        reason instanceof Error
+            ? reason.message
+            : typeof reason === 'string'
+              ? reason
+              : 'unknown rejection';
+    emitUserBlocked('unhandled_error', 'health', {
+        error,
+        source: 'unhandledrejection',
+    });
 });
 
 const RULE_TRIGGERING_KEYS: readonly string[] = [
