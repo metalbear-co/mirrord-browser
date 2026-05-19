@@ -7,6 +7,8 @@ jest.mock('../analytics', () => ({
     capture: jest.fn(),
     captureBeacon: jest.fn(),
     optOutReady: Promise.resolve(),
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
 }));
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps

@@ -12,7 +12,7 @@ import {
 } from '../util';
 import { Config, StoredConfig, STORAGE_KEYS } from '../types';
 import { STRINGS } from '../constants';
-import { capture } from '../analytics';
+import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
@@ -117,6 +117,7 @@ export function useHeaderRules() {
             setScope(config.scope || '');
             await loadRules();
             capture('extension_header_rule_activated');
+            emitUserSucceeded('header_rule_activated', 'user_action');
         } catch (e) {
             const msg =
                 e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
@@ -124,6 +125,9 @@ export function useHeaderRules() {
             console.error(STRINGS.ERR_SAVE_FAILED, e);
             capture('extension_error', {
                 action: 'activate',
+                error: msg,
+            });
+            emitUserBlocked('header_rule_save_failed', 'user_action', {
                 error: msg,
             });
         }
@@ -141,6 +145,7 @@ export function useHeaderRules() {
                 ]);
                 await loadRules();
                 capture('extension_header_rule_removed');
+                emitUserSucceeded('header_rule_removed', 'user_action');
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
@@ -148,6 +153,9 @@ export function useHeaderRules() {
                 console.error(STRINGS.ERR_REMOVE_RULE, e);
                 capture('extension_error', {
                     action: 'remove',
+                    error: msg,
+                });
+                emitUserBlocked('header_rule_remove_failed', 'user_action', {
                     error: msg,
                 });
             }
@@ -172,6 +180,7 @@ export function useHeaderRules() {
             ]);
             await loadRules();
             capture('extension_header_rule_removed');
+            emitUserSucceeded('header_rule_removed', 'user_action');
         } catch (e) {
             const msg =
                 e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
@@ -179,6 +188,9 @@ export function useHeaderRules() {
             console.error(STRINGS.ERR_REMOVE_RULE, e);
             capture('extension_error', {
                 action: 'remove',
+                error: msg,
+            });
+            emitUserBlocked('header_rule_remove_failed', 'user_action', {
                 error: msg,
             });
         }
@@ -247,6 +259,9 @@ export function useHeaderRules() {
                     step: 'update_rules',
                     error: msg,
                 });
+                emitUserBlocked('header_rule_save_failed', 'user_action', {
+                    error: msg,
+                });
                 return;
             }
         }
@@ -263,6 +278,9 @@ export function useHeaderRules() {
                 step: 'storage_write',
                 error: msg,
             });
+            emitUserBlocked('header_rule_save_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -274,6 +292,7 @@ export function useHeaderRules() {
             has_scope: !!scope.trim(),
             was_active: wasActive,
         });
+        emitUserSucceeded('header_rule_saved', 'user_action');
     }, [headerName, headerValue, scope, loadRules, rules]);
 
     const handleReset = useCallback(async () => {
@@ -303,6 +322,9 @@ export function useHeaderRules() {
                 step: 'storage_remove',
                 error: msg,
             });
+            emitUserBlocked('header_rule_reset_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -328,6 +350,9 @@ export function useHeaderRules() {
                 step: 'update_rules',
                 error: msg,
             });
+            emitUserBlocked('header_rule_reset_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -338,6 +363,7 @@ export function useHeaderRules() {
         setResetState('reset');
         setTimeout(() => setResetState('idle'), 1500);
         capture('extension_header_rule_reset');
+        emitUserSucceeded('header_rule_reset', 'user_action');
     }, [loadRules]);
 
     const handleShare = useCallback(async () => {
