@@ -84,3 +84,52 @@ export function setHeaderName(
     if (obs.headerName.toLowerCase() === headerName.toLowerCase()) return obs;
     return emptyObservation(headerName);
 }
+
+import { emitUserBlocked, emitUserSucceeded } from './analytics';
+
+type CanaryArm = {
+    headerName: string;
+    flow: 'session_monitor' | 'header_injector';
+};
+
+let activeArm: CanaryArm | null = null;
+let activeTimer: ReturnType<typeof setTimeout> | null = null;
+let observed = false;
+
+export const CANARY_TIMEOUT_MS = 60_000;
+
+export function armCanary(arm: CanaryArm): void {
+    cancelCanary();
+    activeArm = arm;
+    observed = false;
+    activeTimer = setTimeout(() => {
+        if (activeArm) {
+            emitUserBlocked('no_header_observed', 'health', {
+                headerName: activeArm.headerName,
+                flow: activeArm.flow,
+            });
+        }
+        activeArm = null;
+        activeTimer = null;
+    }, CANARY_TIMEOUT_MS);
+}
+
+export function cancelCanary(): void {
+    if (activeTimer) clearTimeout(activeTimer);
+    activeTimer = null;
+    activeArm = null;
+    observed = false;
+}
+
+export function notifyHeaderObserved(headerName: string): void {
+    if (!activeArm) return;
+    if (observed) return;
+    if (activeArm.headerName.toLowerCase() !== headerName.toLowerCase()) return;
+    observed = true;
+    emitUserSucceeded('header_observed', 'health', {
+        headerName: activeArm.headerName,
+        flow: activeArm.flow,
+    });
+    if (activeTimer) clearTimeout(activeTimer);
+    activeTimer = null;
+}
