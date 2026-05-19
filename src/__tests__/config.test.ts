@@ -5,9 +5,18 @@ import {
     promptForValidHeader,
     storeDefaults,
 } from '../config';
+import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 import { STORAGE_KEYS } from '../types';
 
-// Mock the chrome API for storage tests
+jest.mock('../analytics', () => ({
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
+    capture: jest.fn(),
+    captureBeacon: jest.fn(),
+    optOutReady: Promise.resolve(),
+    loadOptOutState: jest.fn(() => Promise.resolve()),
+}));
+
 const mockStorageSet = jest.fn();
 
 globalThis.chrome = {
@@ -307,5 +316,32 @@ describe('storeDefaults', () => {
             'Defaults stored successfully.'
         );
         consoleSpy.mockRestore();
+    });
+});
+
+describe('config emit on success/failure', () => {
+    beforeEach(() => {
+        (emitUserBlocked as jest.Mock).mockClear();
+        (emitUserSucceeded as jest.Mock).mockClear();
+    });
+
+    it('emits configure_invalid on parseHeader with missing colon', () => {
+        expect(() => parseHeader('InvalidHeader')).toThrow(
+            'Invalid header format.'
+        );
+        expect(emitUserBlocked).toHaveBeenCalledWith(
+            'configure_invalid',
+            'user_action',
+            expect.objectContaining({ error: expect.any(String) })
+        );
+    });
+
+    it('emits configure_invalid on decodeConfig with bad JSON', () => {
+        expect(() => decodeConfig('hehehe')).toThrow('Invalid configuration');
+        expect(emitUserBlocked).toHaveBeenCalledWith(
+            'configure_invalid',
+            'user_action',
+            expect.objectContaining({ error: expect.any(String) })
+        );
     });
 });

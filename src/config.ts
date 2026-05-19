@@ -6,7 +6,7 @@ import {
     STORAGE_KEYS,
     ALL_RESOURCE_TYPES,
 } from './types';
-import { capture } from './analytics';
+import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 
 /**
  * Check if the input string is a regex or an explicit HTTP header.
@@ -30,6 +30,9 @@ export function isRegex(str: string): boolean {
 export function parseHeader(header: string): { key: string; value: string } {
     const [key, value] = header.split(':').map((s) => s.trim());
     if (!key || !value) {
+        emitUserBlocked('configure_invalid', 'user_action', {
+            error: 'Invalid header format.',
+        });
         throw new Error('Invalid header format.');
     }
     return { key, value };
@@ -45,6 +48,9 @@ export function decodeConfig(encoded: string): Config {
     try {
         return JSON.parse(decoded) as Config;
     } catch (error) {
+        emitUserBlocked('configure_invalid', 'user_action', {
+            error: 'Invalid configuration',
+        });
         throw new Error('Invalid configuration');
     }
 }
@@ -165,6 +171,11 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
                             'Failed to set header:',
                             chrome.runtime.lastError.message
                         );
+                        emitUserBlocked('configure_failed', 'user_action', {
+                            error:
+                                chrome.runtime.lastError.message ??
+                                'DNR update failed',
+                        });
                         reject(new Error(chrome.runtime.lastError.message));
                     } else {
                         console.log('Header rule set successfully.');
@@ -224,8 +235,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             is_regex: isRegex(config.header_filter),
             has_scope: !!scope,
         });
+        emitUserSucceeded('configured', 'user_action', {
+            hasJoinParam: !!scope,
+        });
         alert('Header set successfully!' + scopeMsg);
     } catch (err) {
-        alert('Failed to set header: ' + (err as Error).message);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        emitUserBlocked('configure_failed', 'user_action', { error: errMsg });
+        alert('Failed to set header: ' + errMsg);
     }
 });
