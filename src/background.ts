@@ -22,6 +22,7 @@ import {
     setHeaderName,
     type HeaderObservation,
 } from './headerObservation';
+import { emitUserBlocked, emitUserSucceeded } from './analytics';
 
 const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
@@ -187,7 +188,7 @@ async function handlePing() {
     };
 }
 
-async function handleJoin(key: string) {
+export async function handleJoin(key: string) {
     try {
         const stored = await storageGet([
             STORAGE_KEYS.MIRRORD_UI_BACKEND,
@@ -201,20 +202,23 @@ async function handleJoin(key: string) {
             | string
             | undefined;
         if (!backend || !token) {
+            const error = 'mirrord ui not configured in extension';
+            emitUserBlocked('join_misconfigured', 'user_action', { error });
             return {
                 type: JOIN_RESULT_TYPE,
                 ok: false,
-                error: 'mirrord ui not configured in extension',
+                error,
             };
         }
         const sessionsResp = await fetchOperatorSessions(backend, token);
         const target = sessionsResp.sessions.find((s) => s.key === key);
         if (!target) {
-            return {
-                type: JOIN_RESULT_TYPE,
-                ok: false,
-                error: `key ${key} not visible from extension`,
-            };
+            const error = `key ${key} not visible from extension`;
+            emitUserBlocked('join_key_not_visible', 'user_action', {
+                error,
+                key,
+            });
+            return { type: JOIN_RESULT_TYPE, ok: false, error };
         }
         const filterHint = deriveInjectionHint(target.httpFilter?.headerFilter);
         const header = filterHint?.header ?? BAGGAGE_HEADER_NAME;
@@ -232,12 +236,15 @@ async function handleJoin(key: string) {
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
+        emitUserSucceeded('joined', 'user_action', { key });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        emitUserBlocked('join_failed', 'user_action', { error });
         return {
             type: JOIN_RESULT_TYPE,
             ok: false,
-            error: err instanceof Error ? err.message : String(err),
+            error,
         };
     }
 }
