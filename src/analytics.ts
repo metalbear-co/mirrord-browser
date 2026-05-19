@@ -103,3 +103,31 @@ export function captureBeacon(
         // Analytics should never break the extension
     }
 }
+
+export type EventKind = 'user_action' | 'health';
+
+export function emitUserBlocked(
+    reason: string,
+    kind: EventKind,
+    properties: Record<string, unknown> = {}
+): void {
+    capture('extension_user_blocked', {
+        reason,
+        kind,
+        surface: 'extension',
+        ...properties,
+    });
+}
+
+export function emitUserSucceeded(
+    reason: string,
+    kind: EventKind,
+    properties: Record<string, unknown> = {}
+): void {
+    capture('extension_user_succeeded', {
+        reason,
+        kind,
+        surface: 'extension',
+        ...properties,
+    });
+}
