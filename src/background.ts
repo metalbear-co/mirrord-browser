@@ -249,7 +249,7 @@ export async function handleJoin(key: string) {
     }
 }
 
-async function handleLeave() {
+export async function handleLeave() {
     try {
         const existing = await getDynamicRules();
         await updateDynamicRules({
@@ -263,12 +263,15 @@ async function handleLeave() {
             STORAGE_KEYS.JOINED_VALUE,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
+        emitUserSucceeded('left', 'user_action');
         return { type: LEAVE_RESULT_TYPE, ok: true };
     } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        emitUserBlocked('leave_failed', 'user_action', { error });
         return {
             type: LEAVE_RESULT_TYPE,
             ok: false,
-            error: err instanceof Error ? err.message : String(err),
+            error,
         };
     }
 }
