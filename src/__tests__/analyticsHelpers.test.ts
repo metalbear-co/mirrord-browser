@@ -28,6 +28,7 @@ describe('emitUserSucceeded', () => {
     it('captures with the umbrella success event, reason, kind, surface', async () => {
         emitUserSucceeded('joined', 'user_action', { key: 'abc' });
         await Promise.resolve();
+        expect(global.fetch).toHaveBeenCalledTimes(1);
         const body = JSON.parse(
             (global.fetch as jest.Mock).mock.calls[0][1].body
         );
