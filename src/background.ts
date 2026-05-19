@@ -93,27 +93,6 @@ chrome.runtime.onInstalled.addListener(() => {
     restoreObservation().then(loadHeaderName);
 });
 
-self.addEventListener('error', (event: ErrorEvent) => {
-    emitUserBlocked('unhandled_error', 'health', {
-        error: event.message ?? 'unknown',
-        source: 'error',
-    });
-});
-
-self.addEventListener('unhandledrejection', (event: Event) => {
-    const reason = (event as Event & { reason?: unknown }).reason;
-    const error =
-        reason instanceof Error
-            ? reason.message
-            : typeof reason === 'string'
-              ? reason
-              : 'unknown rejection';
-    emitUserBlocked('unhandled_error', 'health', {
-        error,
-        source: 'unhandledrejection',
-    });
-});
-
 const RULE_TRIGGERING_KEYS: readonly string[] = [
     STORAGE_KEYS.OVERRIDE,
     STORAGE_KEYS.DEFAULTS,

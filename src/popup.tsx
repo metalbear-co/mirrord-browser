@@ -27,12 +27,17 @@ import { STRINGS, TAB, type TabId } from './constants';
 import { STORAGE_KEYS } from './types';
 
 const popupOpenedAt = Date.now();
-optOutReady.then(() => capture('extension_popup_opened'));
+const surface: 'side_panel' | 'popup_fallback' =
+    typeof (chrome as { sidePanel?: unknown }).sidePanel === 'undefined'
+        ? 'popup_fallback'
+        : 'side_panel';
+optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return;
     captureBeacon('extension_popup_closed', {
         duration_ms: Date.now() - popupOpenedAt,
+        surface,
     });
 });
 
