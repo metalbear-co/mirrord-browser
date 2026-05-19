@@ -13,6 +13,7 @@ import {
 import { Config, StoredConfig, STORAGE_KEYS } from '../types';
 import { STRINGS } from '../constants';
 import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics';
+import { armCanary, cancelCanary } from '../headerObservation';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
@@ -146,6 +147,7 @@ export function useHeaderRules() {
                 await loadRules();
                 capture('extension_header_rule_removed');
                 emitUserSucceeded('header_rule_removed', 'user_action');
+                cancelCanary();
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
@@ -181,6 +183,7 @@ export function useHeaderRules() {
             await loadRules();
             capture('extension_header_rule_removed');
             emitUserSucceeded('header_rule_removed', 'user_action');
+            cancelCanary();
         } catch (e) {
             const msg =
                 e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
@@ -292,6 +295,7 @@ export function useHeaderRules() {
             has_scope: !!scope.trim(),
             was_active: wasActive,
         });
+        armCanary({ headerName: headerName.trim(), flow: 'header_injector' });
         emitUserSucceeded('header_rule_saved', 'user_action');
     }, [headerName, headerValue, scope, loadRules, rules]);
 
@@ -363,6 +367,7 @@ export function useHeaderRules() {
         setResetState('reset');
         setTimeout(() => setResetState('idle'), 1500);
         capture('extension_header_rule_reset');
+        cancelCanary();
         emitUserSucceeded('header_rule_reset', 'user_action');
     }, [loadRules]);
 

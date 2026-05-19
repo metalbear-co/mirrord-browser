@@ -1,4 +1,15 @@
 import { renderHook, act } from '@testing-library/react';
+import { armCanary, cancelCanary } from '../headerObservation';
+
+jest.mock('../headerObservation', () => {
+    const actual = jest.requireActual('../headerObservation');
+    return {
+        ...actual,
+        armCanary: jest.fn(),
+        cancelCanary: jest.fn(),
+        notifyHeaderObserved: jest.fn(),
+    };
+});
 
 // Mock analytics module
 const mockCapture = jest.fn();
@@ -1072,6 +1083,102 @@ describe('useHeaderRules analytics', () => {
             });
 
             expect(mockClipboardWriteText).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('canary wiring', () => {
+        beforeEach(() => {
+            (armCanary as jest.Mock).mockClear();
+            (cancelCanary as jest.Mock).mockClear();
+        });
+
+        it('arms canary on successful save with flow=header_injector', async () => {
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Canary');
+                result.current.setHeaderValue('canary-val');
+            });
+
+            await act(async () => {
+                result.current.handleSave();
+            });
+
+            expect(armCanary).toHaveBeenCalledWith({
+                headerName: 'X-Canary',
+                flow: 'header_injector',
+            });
+        });
+
+        it('cancels canary on successful remove', async () => {
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Test',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'val',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+            await act(async () => {});
+
+            await act(async () => {
+                result.current.handleToggle();
+            });
+
+            expect(cancelCanary).toHaveBeenCalled();
+        });
+
+        it('cancels canary on successful reset', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Default',
+                            headerValue: 'defaultval',
+                        },
+                    })
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                result.current.handleReset();
+            });
+
+            expect(cancelCanary).toHaveBeenCalled();
         });
     });
 

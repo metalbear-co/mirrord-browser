@@ -16,7 +16,10 @@ import {
 } from './hooks/useMirrordUi';
 import {
     HEADER_OBSERVATION_PORT,
+    armCanary,
+    cancelCanary,
     emptyObservation,
+    notifyHeaderObserved,
     recordRequest,
     rotateBuckets,
     setHeaderName,
@@ -95,6 +98,10 @@ chrome.webRequest.onSendHeaders.addListener(
             details.method,
             Date.now()
         );
+        const matchedHeader = headers.find(
+            (h) => h.name.toLowerCase() === target
+        );
+        if (matchedHeader) notifyHeaderObserved(matchedHeader.name);
         persistObservation();
         broadcast();
     },
@@ -236,6 +243,7 @@ export async function handleJoin(key: string) {
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
+        armCanary({ headerName: header, flow: 'session_monitor' });
         emitUserSucceeded('joined', 'user_action', { key });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
@@ -263,6 +271,7 @@ export async function handleLeave() {
             STORAGE_KEYS.JOINED_VALUE,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
+        cancelCanary();
         emitUserSucceeded('left', 'user_action');
         return { type: LEAVE_RESULT_TYPE, ok: true };
     } catch (err) {
