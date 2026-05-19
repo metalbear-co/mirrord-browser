@@ -24,7 +24,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm
+              run: npm install -g pnpm@10
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
@@ -47,7 +47,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm
+              run: npm install -g pnpm@10
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
@@ -70,7 +70,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm
+              run: npm install -g pnpm@10
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
