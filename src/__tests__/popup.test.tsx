@@ -7,7 +7,19 @@ jest.mock('../analytics', () => ({
     capture: jest.fn(),
     captureBeacon: jest.fn(),
     optOutReady: Promise.resolve(),
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
 }));
+
+jest.mock('../headerObservation', () => {
+    const actual = jest.requireActual('../headerObservation');
+    return {
+        ...actual,
+        armCanary: jest.fn(),
+        cancelCanary: jest.fn(),
+        notifyHeaderObserved: jest.fn(),
+    };
+});
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
@@ -344,7 +356,7 @@ describe('Popup', () => {
 
         await waitFor(() => {
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-                { removeRuleIds: [42] },
+                { removeRuleIds: [42], addRules: [] },
                 expect.any(Function)
             );
         });

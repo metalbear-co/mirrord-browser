@@ -2,7 +2,8 @@ import { Info } from 'lucide-react';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 
-const OPERATOR_INSTALL_URL = 'https://metalbear.co/operator';
+const OPERATOR_INSTALL_URL =
+    'https://app.metalbear.com/?utm_source=install-operator-note&utm_medium=browser-extension';
 
 export function OperatorUnavailableNote() {
     return (

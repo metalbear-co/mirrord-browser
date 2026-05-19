@@ -32,8 +32,8 @@ export function NotConfiguredPrompt() {
                         className="font-semibold text-foreground"
                         style={{
                             fontSize: 10.5,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
                         }}
                     >
                         {STRINGS.MSG_NOT_CONFIGURED}

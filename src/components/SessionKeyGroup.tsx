@@ -34,20 +34,28 @@ type GroupAggregate = {
     owners: string[];
     namespaces: string[];
     earliestCreatedAt: string | null;
+    isPreview: boolean;
 };
+
+const PREVIEW_OWNER_USERNAME = 'preview-env';
 
 function aggregate(sessions: OperatorSessionSummary[]): GroupAggregate {
     const targets = new Set<string>();
     const owners = new Set<string>();
     const namespaces = new Set<string>();
     let earliest: string | null = null;
+    let isPreview = false;
 
     for (const s of sessions) {
         const targetLabel = s.target
             ? `${s.target.kind}/${s.target.name}`
             : 'targetless';
         targets.add(targetLabel);
-        if (s.owner?.username) owners.add(s.owner.username);
+        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
+            isPreview = true;
+        } else if (s.owner?.username) {
+            owners.add(s.owner.username);
+        }
         namespaces.add(s.namespace);
         if (s.createdAt && (!earliest || s.createdAt < earliest)) {
             earliest = s.createdAt;
@@ -59,15 +67,18 @@ function aggregate(sessions: OperatorSessionSummary[]): GroupAggregate {
         owners: Array.from(owners),
         namespaces: Array.from(namespaces),
         earliestCreatedAt: earliest,
+        isPreview,
     };
 }
 
 function GroupHeader({
     groupKey,
     joined,
+    isPreview,
 }: {
     groupKey: string;
     joined: boolean;
+    isPreview: boolean;
 }) {
     return (
         <div
@@ -92,9 +103,23 @@ function GroupHeader({
             >
                 {groupKey}
             </span>
+            {isPreview && (
+                <Badge
+                    variant="outline"
+                    className="shrink-0 font-mono"
+                    style={{
+                        fontSize: 9.5,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                    }}
+                >
+                    preview
+                </Badge>
+            )}
             {joined && (
                 <Badge
-                    className="shrink-0 font-mono"
+                    variant="outline"
+                    className="shrink-0 font-mono text-foreground border-foreground/30 bg-foreground/10"
                     style={{
                         gap: 5,
                         fontSize: 9.5,
@@ -197,6 +222,7 @@ function GroupFooter({
                     <Button
                         type="button"
                         size="sm"
+                        variant="outline"
                         aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
                         onClick={() => onJoin(groupKey)}
                         style={{ height: 28, padding: '0 12px' }}
@@ -243,7 +269,11 @@ export function SessionKeyGroup({
                     : undefined
             }
         >
-            <GroupHeader groupKey={groupKey} joined={joined} />
+            <GroupHeader
+                groupKey={groupKey}
+                joined={joined}
+                isPreview={agg.isPreview}
+            />
 
             <CardContent style={{ padding: '10px 14px 8px' }}>
                 <div className="flex flex-col" style={{ gap: 4 }}>

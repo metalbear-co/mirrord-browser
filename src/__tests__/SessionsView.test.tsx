@@ -76,6 +76,10 @@ jest.mock('@metalbear/ui', () => ({
     }: React.PropsWithChildren<{ value?: string }>) => (
         <div data-value={value}>{children}</div>
     ),
+    Input: React.forwardRef<
+        HTMLInputElement,
+        React.InputHTMLAttributes<HTMLInputElement>
+    >((props, ref) => <input ref={ref} {...props} />),
 }));
 
 import { SessionsView } from '../components/SessionsView';
@@ -115,6 +119,11 @@ describe('SessionsView', () => {
         onJoin: jest.fn(),
         onClear: jest.fn(),
         onShare: jest.fn(),
+        scopePatterns: [] as string[],
+        onAddScopePattern: jest.fn(),
+        onRemoveScopePattern: jest.fn(),
+        joinedHeader: null as string | null,
+        joinedValue: null as string | null,
     };
 
     test('renders one group per key, omitting keyless sessions', () => {

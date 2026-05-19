@@ -1,5 +1,4 @@
 import {
-    Label,
     Select,
     SelectContent,
     SelectItem,
@@ -18,70 +17,33 @@ export function NamespaceFilter({ namespaces, value, onChange }: Props) {
     const distinct = namespaces.filter((ns) => ns !== '');
     const selectValue = value === '' ? NAMESPACE_ALL_SENTINEL : value;
 
-    if (distinct.length === 1) {
-        return (
-            <div
-                className="flex items-center"
-                style={{ gap: 8, padding: '0 2px' }}
-            >
-                <Label
-                    className="text-muted-foreground font-semibold"
-                    style={{
-                        fontSize: 10.5,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                    }}
-                >
-                    {STRINGS.LABEL_NAMESPACE}
-                </Label>
-                <span
-                    className="font-mono text-foreground"
-                    style={{ fontSize: 12 }}
-                >
-                    {distinct[0]}
-                </span>
-            </div>
-        );
-    }
+    if (distinct.length <= 1) return null;
 
     return (
-        <div className="flex items-center" style={{ gap: 8, padding: '0 2px' }}>
-            <Label
-                htmlFor="ns-select"
-                className="text-muted-foreground font-semibold"
-                style={{
-                    fontSize: 10.5,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                }}
+        <Select
+            value={selectValue}
+            onValueChange={(v: string) =>
+                onChange(v === NAMESPACE_ALL_SENTINEL ? '' : v)
+            }
+        >
+            <SelectTrigger
+                id="ns-select"
+                className="font-mono"
+                style={{ height: 32, fontSize: 11, width: 110, flexShrink: 0 }}
+                aria-label={`Filter by ${STRINGS.LABEL_NAMESPACE.toLowerCase()}`}
             >
-                {STRINGS.LABEL_NAMESPACE}
-            </Label>
-            <Select
-                value={selectValue}
-                onValueChange={(v: string) =>
-                    onChange(v === NAMESPACE_ALL_SENTINEL ? '' : v)
-                }
-            >
-                <SelectTrigger
-                    id="ns-select"
-                    className="font-mono"
-                    style={{ height: 28, fontSize: 12, flex: 1 }}
-                    aria-label={`Filter by ${STRINGS.LABEL_NAMESPACE.toLowerCase()}`}
-                >
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {namespaces.map((ns) => (
-                        <SelectItem
-                            key={ns === '' ? NAMESPACE_ALL_SENTINEL : ns}
-                            value={ns === '' ? NAMESPACE_ALL_SENTINEL : ns}
-                        >
-                            {ns === '' ? STRINGS.MSG_ALL_NAMESPACES : ns}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value={NAMESPACE_ALL_SENTINEL}>
+                    {STRINGS.MSG_ALL_NAMESPACES}
+                </SelectItem>
+                {distinct.map((ns) => (
+                    <SelectItem key={ns} value={ns}>
+                        {ns}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     );
 }

@@ -1,0 +1,47 @@
+/* Typography scale — use these instead of text-[Npx] literals */
+.text-caps {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.text-meta {
+    font-size: 11px;
+}
+.text-body {
+    font-size: 12px;
+}
+.text-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Surface tokens */
+.surface-section {
+    background: hsl(var(--card) / 0.5);
+}
+.surface-inset {
+    background: hsl(var(--card) / 0.3);
+}
+
+/* Neutralize the prebuilt @metalbear/ui purple. Buttons + active states use
+   near-black in light mode and near-white in dark mode; muted/accent tints
+   collapse to neutral grays so the popup reads as monochrome. */
+:root {
+    --primary: 0 0% 12%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 35%;
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 12%;
+    --ring: 0 0% 60%;
+}
+.dark {
+    --primary: 0 0% 90%;
+    --primary-foreground: 0 0% 0%;
+    --muted: 240 4% 22%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 240 4% 22%;
+    --accent-foreground: 0 0% 95%;
+    --ring: 0 0% 60%;
+}

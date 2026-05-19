@@ -64,5 +64,10 @@
         "*.{json,md,yaml,yml,html,css}": [
             "prettier --write"
         ]
+    },
+    "pnpm": {
+        "onlyBuiltDependencies": [
+            "esbuild"
+        ]
     }
 }

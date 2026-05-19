@@ -1,12 +1,17 @@
 export const COLORS = {
+    // The "primary" shades used to be drawn from --primary (brand purple),
+    // but the user wanted the popup to lean less on purple chrome. They map
+    // to neutral foreground tints now — readable in both themes, no
+    // ambient AI-purple wash. The brand purple still lives in the JOINED
+    // pill background and the joined row's left strip via direct usage.
     primary: {
-        border: 'hsl(var(--primary) / 0.45)',
-        borderSoft: 'hsl(var(--primary) / 0.4)',
-        borderSubtle: 'hsl(var(--primary) / 0.3)',
-        tint: 'hsl(var(--primary) / 0.22)',
-        band: 'hsl(var(--primary) / 0.14)',
-        bg: 'hsl(var(--primary) / 0.12)',
-        bgSoft: 'hsl(var(--primary) / 0.06)',
+        border: 'hsl(var(--foreground) / 0.25)',
+        borderSoft: 'hsl(var(--foreground) / 0.20)',
+        borderSubtle: 'hsl(var(--foreground) / 0.12)',
+        tint: 'hsl(var(--foreground) / 0.10)',
+        band: 'hsl(var(--foreground) / 0.05)',
+        bg: 'hsl(var(--foreground) / 0.04)',
+        bgSoft: 'hsl(var(--foreground) / 0.02)',
     },
     destructive: {
         solid: 'hsl(var(--destructive))',
@@ -26,7 +31,11 @@ export const COLORS = {
         glowInactive: 'hsl(var(--muted-foreground) / 0.12)',
     },
     brand: {
-        lilac: 'hsl(var(--brand-purple-medium))',
-        yellow: 'hsl(var(--brand-yellow))',
+        // Use --foreground (theme-aware: dark text in light mode, light text in
+        // dark mode) instead of brand-purple-medium / brand-yellow which were
+        // tuned for dark mode only and washed out in light mode. Also keeps
+        // the UI from leaning too hard on the purple accent.
+        lilac: 'hsl(var(--foreground))',
+        yellow: 'hsl(var(--foreground))',
     },
 } as const;

@@ -17,6 +17,9 @@ import {
     deriveInjectionHint,
     buildDnrRule,
 } from '../util';
+import { emitUserBlocked, emitUserSucceeded } from '../analytics';
+
+let bridgeHealthy = true;
 
 export async function fetchOperatorSessions(
     backend: string,
@@ -26,11 +29,38 @@ export async function fetchOperatorSessions(
     const url = `${backend}/api/operator-sessions?token=${encodeURIComponent(token)}`;
     const resp = await fetchImpl(url);
     if (!resp.ok) {
-        throw new Error(
+        const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
         );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
     }
     return (await resp.json()) as OperatorSessionsResponse;
+}
+
+export async function runPoll(
+    backend: string,
+    token: string
+): Promise<OperatorSessionsResponse | null> {
+    try {
+        const resp = await fetchOperatorSessions(backend, token);
+        if (!bridgeHealthy) {
+            bridgeHealthy = true;
+            emitUserSucceeded('bridge_recovered', 'health');
+        }
+        return resp;
+    } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        const status = (err as { status?: number })?.status;
+        if (bridgeHealthy) {
+            bridgeHealthy = false;
+            emitUserBlocked('bridge_unhealthy', 'health', {
+                error,
+                ...(status !== undefined && { status }),
+            });
+        }
+        return null;
+    }
 }
 
 export function buildWsUrl(backend: string, token: string): string {
@@ -62,12 +92,17 @@ export async function pingHealth(
     }
 }
 
-const BAGGAGE_HEADER_NAME = 'baggage';
-const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+export const BAGGAGE_HEADER_NAME = 'baggage';
+export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+
+const OPERATOR_SESSIONS_POLL_MS = 5000;
 
 const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.JOINED_KEY,
     STORAGE_KEYS.JOINED_SESSION_NAME,
+    STORAGE_KEYS.JOINED_HEADER,
+    STORAGE_KEYS.JOINED_VALUE,
+    STORAGE_KEYS.SCOPE_PATTERNS,
     STORAGE_KEYS.MIRRORD_UI_BACKEND,
     STORAGE_KEYS.MIRRORD_UI_TOKEN,
 ];
@@ -105,6 +140,11 @@ export function useMirrordUi() {
         joinedSessionName: null,
         sessionEnded: false,
     });
+    const [scopePatterns, setScopePatternsState] = useState<string[]>([]);
+    const [joinedHeader, setJoinedHeader] = useState<string | null>(null);
+    const [joinedValue, setJoinedValue] = useState<string | null>(null);
+    const joinedHeaderRef = useRef<string | null>(null);
+    const joinedValueRef = useRef<string | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -116,6 +156,9 @@ export function useMirrordUi() {
                 STORAGE_KEYS.MIRRORD_UI_TOKEN,
                 STORAGE_KEYS.JOINED_KEY,
                 STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.SCOPE_PATTERNS,
             ]);
             if (cancelled) return;
             setBackend(
@@ -129,6 +172,21 @@ export function useMirrordUi() {
                     null,
                 sessionEnded: false,
             });
+            const header =
+                (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
+            const value = (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+            joinedHeaderRef.current = header;
+            joinedValueRef.current = value;
+            setJoinedHeader(header);
+            setJoinedValue(value);
+            const persisted = stored[STORAGE_KEYS.SCOPE_PATTERNS];
+            setScopePatternsState(
+                Array.isArray(persisted)
+                    ? (persisted as string[]).filter(
+                          (p) => typeof p === 'string'
+                      )
+                    : []
+            );
         };
 
         loadFromStorage();
@@ -155,19 +213,21 @@ export function useMirrordUi() {
     useEffect(() => {
         if (!backend || !token || healthy !== true) return;
         let cancelled = false;
-        fetchOperatorSessions(backend, token)
-            .then((resp) => {
+        const refresh = () => {
+            runPoll(backend, token).then((resp) => {
                 if (cancelled) return;
-                setSessions(resp);
-                setStatus(resp.watch_status);
-                setError(null);
-            })
-            .catch((err) => {
-                if (cancelled) return;
-                setError(String(err));
+                if (resp !== null) {
+                    setSessions(resp);
+                    setStatus(resp.watch_status);
+                    setError(null);
+                }
             });
+        };
+        refresh();
+        const interval = setInterval(refresh, OPERATOR_SESSIONS_POLL_MS);
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
     }, [backend, token, healthy]);
 
@@ -211,7 +271,9 @@ export function useMirrordUi() {
 
     const namespaces = useMemo(() => {
         const set = new Set<string>();
-        sessions?.sessions.forEach((s) => set.add(s.namespace));
+        sessions?.sessions.forEach((s) => {
+            if (s.namespace) set.add(s.namespace);
+        });
         return ['', ...Array.from(set).sort()];
     }, [sessions]);
 
@@ -240,19 +302,25 @@ export function useMirrordUi() {
             const existing = await getDynamicRules();
             await updateDynamicRules({
                 removeRuleIds: existing.map((r) => r.id),
-                addRules: buildDnrRule(header, value),
+                addRules: buildDnrRule(header, value, scopePatterns),
             });
             await storageSet({
                 [STORAGE_KEYS.JOINED_KEY]: key,
                 [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+                [STORAGE_KEYS.JOINED_HEADER]: header,
+                [STORAGE_KEYS.JOINED_VALUE]: value,
             });
+            joinedHeaderRef.current = header;
+            joinedValueRef.current = value;
+            setJoinedHeader(header);
+            setJoinedValue(value);
             setJoinState({
                 joinedKey: key,
                 joinedSessionName: target.id,
                 sessionEnded: false,
             });
         },
-        [sessions]
+        [sessions, scopePatterns]
     );
 
     const clearJoin = useCallback(async () => {
@@ -264,13 +332,48 @@ export function useMirrordUi() {
         await storageRemove([
             STORAGE_KEYS.JOINED_KEY,
             STORAGE_KEYS.JOINED_SESSION_NAME,
+            STORAGE_KEYS.JOINED_HEADER,
+            STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
+        joinedHeaderRef.current = null;
+        joinedValueRef.current = null;
+        setJoinedHeader(null);
+        setJoinedValue(null);
+        setScopePatternsState([]);
         setJoinState({
             joinedKey: null,
             joinedSessionName: null,
             sessionEnded: false,
         });
     }, []);
+
+    const applyScopePatterns = useCallback(async (next: string[]) => {
+        const cleaned = next.map((p) => p.trim()).filter((p) => p.length > 0);
+        const dedup = Array.from(new Set(cleaned));
+        await storageSet({ [STORAGE_KEYS.SCOPE_PATTERNS]: dedup });
+        setScopePatternsState(dedup);
+        const header = joinedHeaderRef.current;
+        const value = joinedValueRef.current;
+        if (header && value) {
+            const existing = await getDynamicRules();
+            await updateDynamicRules({
+                removeRuleIds: existing.map((r) => r.id),
+                addRules: buildDnrRule(header, value, dedup),
+            });
+        }
+    }, []);
+
+    const addScopePattern = useCallback(
+        (pattern: string) => applyScopePatterns([...scopePatterns, pattern]),
+        [scopePatterns, applyScopePatterns]
+    );
+
+    const removeScopePattern = useCallback(
+        (pattern: string) =>
+            applyScopePatterns(scopePatterns.filter((p) => p !== pattern)),
+        [scopePatterns, applyScopePatterns]
+    );
 
     const buildShareUrl = useCallback(
         (key: string): string => {
@@ -294,9 +397,14 @@ export function useMirrordUi() {
         setNamespace,
         groupedFiltered,
         joinState,
+        joinedHeader,
+        joinedValue,
         join,
         clearJoin,
         buildShareUrl,
+        scopePatterns,
+        addScopePattern,
+        removeScopePattern,
     };
 }
 
@@ -308,8 +416,11 @@ function applyNotification(
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_ADDED ||
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_UPDATED
     ) {
-        const others = current.sessions.filter((s) => s.id !== msg.session.id);
-        const next = [...others, msg.session];
+        const idx = current.sessions.findIndex((s) => s.id === msg.session.id);
+        const next =
+            idx === -1
+                ? [...current.sessions, msg.session]
+                : current.sessions.map((s, i) => (i === idx ? msg.session : s));
         return rebuild(next, current.watch_status);
     }
     if (msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED) {

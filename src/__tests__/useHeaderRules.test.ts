@@ -4,7 +4,19 @@ import { renderHook, act } from '@testing-library/react';
 const mockCapture = jest.fn();
 jest.mock('../analytics', () => ({
     capture: (...args: unknown[]) => mockCapture(...args),
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
 }));
+
+jest.mock('../headerObservation', () => {
+    const actual = jest.requireActual('../headerObservation');
+    return {
+        ...actual,
+        armCanary: jest.fn(),
+        cancelCanary: jest.fn(),
+        notifyHeaderObserved: jest.fn(),
+    };
+});
 
 // Mock chrome API
 const mockGetDynamicRules = jest.fn();
@@ -107,7 +119,7 @@ describe('useHeaderRules analytics', () => {
             });
 
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-                { removeRuleIds: [1] },
+                { removeRuleIds: [1], addRules: [] },
                 expect.any(Function)
             );
         });

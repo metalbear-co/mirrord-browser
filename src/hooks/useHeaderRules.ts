@@ -12,7 +12,8 @@ import {
 } from '../util';
 import { Config, StoredConfig, STORAGE_KEYS } from '../types';
 import { STRINGS } from '../constants';
-import { capture } from '../analytics';
+import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics';
+import { armCanary, cancelCanary } from '../headerObservation';
 
 type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
@@ -72,7 +73,8 @@ export function useHeaderRules() {
                 STORAGE_KEYS.JOINED_KEY in changes ||
                 STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
                 STORAGE_KEYS.OVERRIDE in changes ||
-                STORAGE_KEYS.DEFAULTS in changes
+                STORAGE_KEYS.DEFAULTS in changes ||
+                STORAGE_KEYS.SCOPE_PATTERNS in changes
             ) {
                 loadRules();
                 loadFormValues();
@@ -116,6 +118,7 @@ export function useHeaderRules() {
             setScope(config.scope || '');
             await loadRules();
             capture('extension_header_rule_activated');
+            emitUserSucceeded('header_rule_activated', 'user_action');
         } catch (e) {
             const msg =
                 e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
@@ -123,6 +126,9 @@ export function useHeaderRules() {
             console.error(STRINGS.ERR_SAVE_FAILED, e);
             capture('extension_error', {
                 action: 'activate',
+                error: msg,
+            });
+            emitUserBlocked('header_rule_save_failed', 'user_action', {
                 error: msg,
             });
         }
@@ -140,6 +146,8 @@ export function useHeaderRules() {
                 ]);
                 await loadRules();
                 capture('extension_header_rule_removed');
+                emitUserSucceeded('header_rule_removed', 'user_action');
+                cancelCanary();
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
@@ -149,10 +157,47 @@ export function useHeaderRules() {
                     action: 'remove',
                     error: msg,
                 });
+                emitUserBlocked('header_rule_remove_failed', 'user_action', {
+                    error: msg,
+                });
             }
         },
         [loadRules]
     );
+
+    const handleRemoveAll = useCallback(async () => {
+        setError(null);
+        try {
+            const existingRules = await getDynamicRules();
+            await updateDynamicRules({
+                removeRuleIds: existingRules.map((r) => r.id),
+                addRules: [],
+            });
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.SCOPE_PATTERNS,
+            ]);
+            await loadRules();
+            capture('extension_header_rule_removed');
+            emitUserSucceeded('header_rule_removed', 'user_action');
+            cancelCanary();
+        } catch (e) {
+            const msg =
+                e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
+            setError(msg);
+            console.error(STRINGS.ERR_REMOVE_RULE, e);
+            capture('extension_error', {
+                action: 'remove',
+                error: msg,
+            });
+            emitUserBlocked('header_rule_remove_failed', 'user_action', {
+                error: msg,
+            });
+        }
+    }, [loadRules]);
 
     const handleToggle = useCallback(async () => {
         if (isToggling) return;
@@ -160,14 +205,14 @@ export function useHeaderRules() {
 
         try {
             if (rules.length > 0) {
-                await handleRemove(rules[0].id);
+                await handleRemoveAll();
             } else {
                 await handleActivate();
             }
         } finally {
             setIsToggling(false);
         }
-    }, [rules, handleRemove, handleActivate, isToggling]);
+    }, [rules, handleRemoveAll, handleActivate, isToggling]);
 
     const handleSave = useCallback(async () => {
         setError(null);
@@ -217,6 +262,9 @@ export function useHeaderRules() {
                     step: 'update_rules',
                     error: msg,
                 });
+                emitUserBlocked('header_rule_save_failed', 'user_action', {
+                    error: msg,
+                });
                 return;
             }
         }
@@ -233,6 +281,9 @@ export function useHeaderRules() {
                 step: 'storage_write',
                 error: msg,
             });
+            emitUserBlocked('header_rule_save_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -244,6 +295,8 @@ export function useHeaderRules() {
             has_scope: !!scope.trim(),
             was_active: wasActive,
         });
+        armCanary({ headerName: headerName.trim(), flow: 'header_injector' });
+        emitUserSucceeded('header_rule_saved', 'user_action');
     }, [headerName, headerValue, scope, loadRules, rules]);
 
     const handleReset = useCallback(async () => {
@@ -273,6 +326,9 @@ export function useHeaderRules() {
                 step: 'storage_remove',
                 error: msg,
             });
+            emitUserBlocked('header_rule_reset_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -298,6 +354,9 @@ export function useHeaderRules() {
                 step: 'update_rules',
                 error: msg,
             });
+            emitUserBlocked('header_rule_reset_failed', 'user_action', {
+                error: msg,
+            });
             return;
         }
 
@@ -308,6 +367,8 @@ export function useHeaderRules() {
         setResetState('reset');
         setTimeout(() => setResetState('idle'), 1500);
         capture('extension_header_rule_reset');
+        cancelCanary();
+        emitUserSucceeded('header_rule_reset', 'user_action');
     }, [loadRules]);
 
     const handleShare = useCallback(async () => {
