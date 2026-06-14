@@ -24,7 +24,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm@10
+              run: npm install -g pnpm@11
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
@@ -47,7 +47,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm@10
+              run: npm install -g pnpm@11
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
@@ -70,18 +70,21 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm@10
+              run: npm install -g pnpm@11
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
-            - name: Build extension
+            - name: Build extensions (Chrome + Firefox)
               run: pnpm build
+
+            - name: Lint Firefox build (web-ext)
+              run: pnpm exec web-ext lint --source-dir packages/firefox/dist --no-config-discovery --self-hosted
 
             - name: Install Playwright Chromium
               run: pnpm exec playwright install chromium --with-deps
 
-            - name: Run E2E tests
+            - name: Run E2E tests (Chrome)
               run: xvfb-run pnpm test:e2e
 
             - name: Upload Playwright report

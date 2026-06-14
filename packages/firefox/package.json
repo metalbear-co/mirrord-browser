@@ -1,0 +1,14 @@
+{
+    "name": "@mirrord/browser-firefox",
+    "version": "0.3.1",
+    "description": "Firefox build of the mirrord browser extension",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    },
+    "dependencies": {
+        "@mirrord/browser-core": "workspace:*"
+    }
+}

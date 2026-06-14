@@ -1,0 +1,18 @@
+{
+    "name": "@mirrord/browser-core",
+    "version": "0.3.1",
+    "description": "Shared browser-agnostic code for the mirrord browser extension",
+    "type": "module",
+    "private": true,
+    "dependencies": {
+        "@metalbear/ui": "^0.1.4",
+        "class-variance-authority": "^0.7.1",
+        "dayjs": "^1.11.20",
+        "lodash.groupby": "^4.6.0",
+        "lucide-react": "^0.575.0",
+        "randexp": "^0.5.3",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
+        "webextension-polyfill": "^0.12.0"
+    }
+}

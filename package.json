@@ -3,9 +3,14 @@
     "version": "0.3.1",
     "description": "Browser extension for mirrord",
     "type": "module",
+    "private": true,
     "scripts": {
-        "dev": "vite",
-        "build": "vite build",
+        "build": "pnpm -r build",
+        "build:chrome": "pnpm --filter @mirrord/browser-chrome build",
+        "build:firefox": "pnpm --filter @mirrord/browser-firefox build",
+        "dev:chrome": "pnpm --filter @mirrord/browser-chrome dev",
+        "dev:firefox": "pnpm --filter @mirrord/browser-firefox dev",
+        "typecheck": "tsc --noEmit",
         "test": "jest",
         "fmt": "prettier --write .",
         "format:check": "prettier --check .",
@@ -22,15 +27,16 @@
     "author": "metalbear.co",
     "license": "MIT",
     "devDependencies": {
-        "@crxjs/vite-plugin": "^2.0.0",
         "@playwright/test": "^1.58.1",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",
         "@types/chrome": "^0.0.323",
         "@types/jest": "^29.5.14",
         "@types/lodash.groupby": "^4.6.9",
+        "@types/node": "^24.0.1",
         "@types/react": "^19.2.10",
         "@types/react-dom": "^19.2.3",
+        "@types/webextension-polyfill": "^0.12.5",
         "@typescript-eslint/parser": "^8.33.1",
         "@vitejs/plugin-react": "^5.1.2",
         "class-variance-authority": "^0.7.1",
@@ -45,16 +51,9 @@
         "ts-jest": "^29.3.4",
         "tsx": "^4.21.0",
         "typescript": "^5.8.3",
-        "vite": "^5.4.19"
-    },
-    "dependencies": {
-        "@metalbear/ui": "^0.1.4",
-        "dayjs": "^1.11.20",
-        "lodash.groupby": "^4.6.0",
-        "lucide-react": "^0.575.0",
-        "randexp": "^0.5.3",
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4"
+        "vite": "^5.4.19",
+        "vite-plugin-web-extension": "^4.5.1",
+        "web-ext": "^10.4.0"
     },
     "lint-staged": {
         "*.{ts,tsx}": [
@@ -63,11 +62,6 @@
         ],
         "*.{json,md,yaml,yml,html,css}": [
             "prettier --write"
-        ]
-    },
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "esbuild"
         ]
     }
 }

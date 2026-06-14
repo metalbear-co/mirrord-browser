@@ -8,8 +8,14 @@
         "esModuleInterop": true,
         "resolveJsonModule": true,
         "skipLibCheck": true,
-        "outDir": "dist",
+        "noEmit": true,
+        "allowImportingTsExtensions": true,
         "jsx": "react-jsx"
     },
-    "include": ["src", "vite.config.ts", "e2e", "playwright.config.ts"]
+    "include": [
+        "packages/core/src",
+        "e2e",
+        "playwright.config.ts",
+        "jest.setup.ts"
+    ]
 }

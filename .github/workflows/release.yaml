@@ -10,6 +10,10 @@ permissions:
 jobs:
     build-and-publish:
         runs-on: ubuntu-latest
+        env:
+            # Whether the Firefox (AMO) credentials are configured; gates the AMO submit step
+            # so the release still succeeds for Chrome if AMO isn't set up yet.
+            AMO_CONFIGURED: ${{ secrets.AMO_JWT_ISSUER != '' }}
 
         steps:
             - name: Checkout code
@@ -21,7 +25,7 @@ jobs:
                   node-version: '24'
 
             - name: Install pnpm
-              run: npm install -g pnpm@10
+              run: npm install -g pnpm@11
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
@@ -30,30 +34,33 @@ jobs:
               run: |
                   TAG_VERSION="${GITHUB_REF_NAME#v}"
                   PKG_VERSION=$(node -p "require('./package.json').version")
-                  MANIFEST_VERSION=$(node -p "require('./src/manifest.json').version")
+                  MANIFEST_VERSION=$(node -p "require('./packages/core/manifest.base.json').version")
                   echo "Tag version: $TAG_VERSION"
                   echo "package.json version: $PKG_VERSION"
-                  echo "manifest.json version: $MANIFEST_VERSION"
+                  echo "manifest.base.json version: $MANIFEST_VERSION"
                   if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
                     echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
                     exit 1
                   fi
-                  # manifest.json may use shorter format (e.g. "0.3" vs "0.3.0")
+                  # manifest version may use shorter format (e.g. "0.3" vs "0.3.0")
                   # Strip trailing ".0" segments from tag for comparison
                   TAG_SHORT=$(echo "$TAG_VERSION" | sed 's/\.0$//')
                   if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ] && [ "$MANIFEST_VERSION" != "$TAG_SHORT" ]; then
-                    echo "::error::manifest.json version ($MANIFEST_VERSION) does not match tag ($TAG_VERSION or $TAG_SHORT)"
+                    echo "::error::manifest version ($MANIFEST_VERSION) does not match tag ($TAG_VERSION or $TAG_SHORT)"
                     exit 1
                   fi
 
             - name: Run tests
               run: pnpm test
 
-            - name: Build extension
+            - name: Build extensions (Chrome + Firefox)
               run: pnpm build
 
-            - name: Zip extension
-              run: cd dist && zip -r ../extension.zip .
+            - name: Zip Chrome extension
+              run: cd packages/chrome/dist && zip -r "$GITHUB_WORKSPACE/chrome-extension.zip" .
+
+            - name: Zip Firefox extension
+              run: cd packages/firefox/dist && zip -r "$GITHUB_WORKSPACE/firefox-extension.zip" .
 
             - name: Upload to Chrome Web Store
               run: |
@@ -68,7 +75,7 @@ jobs:
                     "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${{ secrets.CWS_EXTENSION_ID }}" \
                     -H "Authorization: Bearer $ACCESS_TOKEN" \
                     -H "x-goog-api-version: 2" \
-                    -T extension.zip)
+                    -T chrome-extension.zip)
                   echo "$UPLOAD_RESPONSE"
 
                   UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | jq -r '.uploadState')
@@ -84,7 +91,19 @@ jobs:
                     -H "x-goog-api-version: 2")
                   echo "$PUBLISH_RESPONSE"
 
+            - name: Submit Firefox add-on to AMO
+              if: env.AMO_CONFIGURED == 'true'
+              run: |
+                  pnpm exec web-ext sign \
+                    --channel listed \
+                    --source-dir packages/firefox/dist \
+                    --api-key "${{ secrets.AMO_JWT_ISSUER }}" \
+                    --api-secret "${{ secrets.AMO_JWT_SECRET }}"
+
             - name: Create GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh release create "$GITHUB_REF_NAME" extension.zip --generate-notes
+              run: |
+                  gh release create "$GITHUB_REF_NAME" \
+                    chrome-extension.zip firefox-extension.zip \
+                    --generate-notes

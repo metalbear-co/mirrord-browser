@@ -9,7 +9,10 @@ import {
 } from '@playwright/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const EXTENSION_PATH = path.resolve(__dirname, '..', 'dist');
+// The Chrome build output. Override with MIRRORD_EXT_DIST to point at another build.
+const EXTENSION_PATH =
+    process.env.MIRRORD_EXT_DIST ??
+    path.resolve(__dirname, '..', 'packages', 'chrome', 'dist');
 
 type ExtensionFixtures = {
     context: BrowserContext;

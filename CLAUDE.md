@@ -5,14 +5,17 @@ Context for Claude Code when working with the mirrord browser extension.
 ## Quick Reference
 
 ```bash
-# Install dependencies
+# Install dependencies (pnpm workspace)
 pnpm install
 
-# Dev mode (Vite HMR)
-pnpm dev
+# Dev mode (Vite HMR) — pick a target
+pnpm dev:chrome
+pnpm dev:firefox
 
-# Production build (output: dist/)
+# Production build — builds BOTH targets (output: packages/<target>/dist/)
 pnpm build
+pnpm build:chrome      # Chrome only
+pnpm build:firefox     # Firefox only
 
 # Lint and format check
 pnpm run check
@@ -20,10 +23,13 @@ pnpm run check
 # Auto-fix lint/format
 pnpm lint:fix && pnpm fmt
 
+# Type check (whole workspace)
+pnpm typecheck
+
 # Unit tests (Jest)
 pnpm test
 
-# E2E tests (Playwright, requires build first)
+# E2E tests (Playwright, Chrome; requires build first)
 pnpm build && pnpm test:e2e
 
 # E2E with interactive UI
@@ -32,45 +38,55 @@ pnpm test:e2e:ui
 
 ## Overview
 
-mirrord-browser is a Chrome extension (Manifest V3) that injects HTTP headers into browser requests. Users configure header name, value, and optional URL scope via a popup UI. The extension uses Chrome's Declarative Net Request API to modify matching requests.
+mirrord-browser is a cross-browser extension (Manifest V3) for **Chrome and Firefox** that injects HTTP headers into browser requests. Users configure header name, value, and optional URL scope via a popup/side-panel UI. The extension uses the Declarative Net Request API to modify matching requests.
 
-- **Package manager:** pnpm
+- **Package manager:** pnpm (workspace / monorepo)
 - **Language:** TypeScript (strict mode, ES6 target, jsx: react-jsx)
 - **UI:** React 19 with @metalbear/ui (Radix-based components) and Tailwind CSS
-- **Build:** Vite 5.4 with @crxjs/vite-plugin for Chrome extension bundling
-- **Published to:** Chrome Web Store (automated on git tag)
+- **Cross-browser API:** `webextension-polyfill` — code imports the promise-based `browser` from `packages/core/src/browser.ts`, never the global `chrome.*`
+- **Build:** Vite 5.4 with `vite-plugin-web-extension` (per-target manifest + build)
+- **Published to:** Chrome Web Store + Firefox AMO (automated on git tag)
 
 ## Architecture
 
+This is a pnpm monorepo. ~95% of the code is shared in `packages/core`; the per-browser packages hold only the manifest and build config.
+
 ```
-src/
-├── background.ts          # Service worker (icon badge on install/startup)
-├── popup.tsx              # Main popup UI (React, 2-card layout)
-├── config.ts              # CLI payload handler (base64 decode, store defaults)
-├── hooks/
-│   └── useHeaderRules.ts  # All popup state logic (rules, form, save/reset)
-├── components/
-│   ├── HeaderForm.tsx     # Form inputs (header name, value, scope)
-│   ├── RulesList.tsx      # Active rules display
-│   └── RuleItem.tsx       # Single rule display
-├── analytics.ts           # PostHog event capture (fetch + sendBeacon)
-├── types.ts               # TypeScript interfaces, DNR resource types
-├── constants.ts           # UI strings (STRINGS object), badge config
-├── util.ts                # Icon refresh, rule/header parsing
-└── __tests__/             # Jest unit tests (7 files)
-
-pages/
-├── popup.html             # Popup entry point
-└── config.html            # CLI config entry point
+packages/
+├── core/                       # @mirrord/browser-core — all shared code
+│   ├── manifest.base.json      # Shared manifest fields (name, version, permissions)
+│   ├── pages/                  # popup/config/configure/options HTML entry points
+│   ├── public/images/          # Icons (copied into each dist)
+│   └── src/
+│       ├── browser.ts          # Re-exports the webextension-polyfill `browser` (single seam)
+│       ├── background.ts       # Background script (DNR rules, header observation, CLI bridge)
+│       ├── popup.tsx           # Main popup/side-panel UI (React)
+│       ├── config.ts           # CLI payload handler (base64 decode, store defaults)
+│       ├── configure.tsx       # mirrord ui configure/join landing page
+│       ├── content/            # Content scripts (metalbear.com #config= → config flow)
+│       ├── hooks/              # useHeaderRules, useMirrordUi, useHeaderObservation
+│       ├── components/         # React components
+│       ├── analytics.ts        # PostHog event capture (fetch + sendBeacon)
+│       ├── types.ts            # Interfaces + DNR/runtime/storage type aliases (from polyfill)
+│       ├── util.ts             # DNR helpers, storage wrappers, icon refresh, parsing
+│       ├── __mocks__/          # Shared `webextension-polyfill` jest mock
+│       └── __tests__/          # Jest unit tests (14 files)
+├── chrome/                     # @mirrord/browser-chrome — manifest.ts + vite.config.ts
+└── firefox/                    # @mirrord/browser-firefox — manifest.ts + vite.config.ts
 ```
 
-**Data flow:** CLI config link -> config.ts decodes payload, stores defaults -> popup.tsx renders form via useHeaderRules hook -> save updates chrome.storage.local + DNR rules -> Chrome injects headers into matching requests.
+**Data flow:** CLI config link -> config.ts decodes payload, stores defaults -> popup.tsx renders form via useHeaderRules hook -> save updates `browser.storage.local` + DNR rules -> the browser injects headers into matching requests.
 
-**Chrome APIs used:**
+**Web config entry point:** A shareable link `https://metalbear.com/mirrord/extension#config=<payload>` carries the same base64 payload as the in-extension `config.html?payload=`. A content script (`src/content/metalbearConfig.ts`, matched on that path) reads the `#config=` hash, decodes/validates it, and shows a small **in-page message box** with the outcome — applied, "no config found" (empty hash), or an error (malformed payload). On a valid payload it resolves the header (prompting in-page if it's a regex) and sends `APPLY_CONFIG_MESSAGE` to the background, which installs the DNR rule and replies with success/failure. Content scripts can't call `declarativeNetRequest`, so the background does that work. Pure decode/parse helpers live in `configCore.ts` (side-effect-free) and are shared with `config.ts`; the hash value is read verbatim so base64 `+`/`/`/`=` survive.
 
-- `chrome.declarativeNetRequest` - HTTP header injection via MODIFY_HEADERS rules
-- `chrome.storage.local` - Persist header configs
-- `chrome.action.setBadgeText` - Icon indicator
+**Cross-browser APIs (all via the polyfill `browser`):**
+
+- `browser.declarativeNetRequest` - HTTP header injection via `modifyHeaders` rules
+- `browser.storage.local` / `.session` - Persist header configs / observation state
+- `browser.action.setBadgeText` - Icon indicator
+- `browser.webRequest.onSendHeaders` - Observe injected headers (observational; works in MV3 + Firefox)
+
+**Chrome-only touchpoints** (feature-detected, no-op on Firefox): the side panel (`chrome.sidePanel`), `storage.local.setAccessLevel`, and the `externally_connectable` + `onMessageExternal` CLI bridge. On Firefox the action renders as a popup and the CLI handoff falls back to the `config.html`/`configure.html` URL-payload flow. These are reached via a guarded `globalThis.chrome` cast in `background.ts`/`popup.tsx`.
 
 ## Code Style
 
@@ -84,16 +100,20 @@ pages/
 
 **Unit tests (Jest):**
 
-- `src/__tests__/` with 7 test files
+- `packages/core/src/__tests__/` with 14 test files
 - Tests: utility functions, hooks, React components, analytics, config parsing
-- Mock Chrome APIs via jest setup
+- The cross-browser `browser` API is mocked by a shared stateful mock at
+  `packages/core/src/__mocks__/webextension-polyfill.ts` (mapped via `moduleNameMapper`).
+  `jest.setup.ts` mirrors it onto the global `chrome`/`browser` and resets it before each test.
 
 **E2E tests (Playwright):**
 
-- `e2e/` directory with custom fixtures that load the built extension into Chromium
+- `e2e/` directory with custom fixtures that load the built **Chrome** extension into Chromium
+  (from `packages/chrome/dist`; override with `MIRRORD_EXT_DIST`)
 - Test server on localhost:3456 echoes request headers
 - Tests: header injection, URL scoping, rule removal, reset to defaults, analytics
-- Requires `pnpm build` before running
+- Requires `pnpm build` before running. Firefox is smoke-checked in CI via `web-ext lint`
+  (Playwright can't load extensions into Firefox the same way).
 
 **Operator sessions e2e against real mirrord ui (playground):**
 
@@ -114,14 +134,22 @@ The `live-real.spec.ts` spec auto-skips when `MIRRORD_UI_TOKEN` is unset, so CI 
 - **PostHog analytics:** Direct HTTP calls (no SDK). Events tracked: popup_opened/closed, header_saved/removed/reset, config_received, errors. Failures silently caught.
 - **sendBeacon for teardown:** Popup can close before useEffect runs. Module-level listeners + sendBeacon handle cleanup analytics.
 
-## Chrome Extension Notes
+## Extension Notes
 
-- Manifest V3 service worker (async, no DOM access)
-- All resource types must be explicitly listed in DNR rules (omitting excludes main_frame)
+- Manifest V3. Chrome uses a service worker background; Firefox uses `background.scripts`
+  (event page). The background code only registers listeners, so it works in both.
+- All resource types must be explicitly listed in DNR rules (omitting excludes main_frame) —
+  see `ALL_RESOURCE_TYPES` in `types.ts`.
 - URL filter `|` matches all URLs; custom patterns for scoped rules
-- `chrome.storage.local` for configs (synced across browser), `localStorage` for PostHog distinct ID
+- `browser.storage.local` for configs, `localStorage` for the PostHog distinct ID
+- The single source of the version is `packages/core/manifest.base.json`; both per-browser
+  manifests derive from it. Keep `package.json` version in sync (CI enforces on release).
 
 ## CI/CD
 
-- **ci.yaml:** lint/format check, Jest unit tests, Playwright E2E (xvfb-run on Ubuntu)
-- **release.yaml:** On git tag, validates version match (package.json + manifest.json), builds, uploads to Chrome Web Store via API, creates GitHub release
+- **ci.yaml:** lint/format check, Jest unit tests, build both targets, `web-ext lint` the
+  Firefox build, Playwright E2E on Chrome (xvfb-run on Ubuntu)
+- **release.yaml:** On git tag, validates version match (package.json + manifest.base.json),
+  builds both targets, uploads to Chrome Web Store via API, submits the Firefox build to AMO
+  via `web-ext sign` (gated on `AMO_JWT_ISSUER`/`AMO_JWT_SECRET` secrets), attaches both zips
+  to a GitHub release
