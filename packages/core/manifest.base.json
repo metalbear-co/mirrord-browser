@@ -18,5 +18,14 @@
             "js": ["src/content/metalbearConfig.ts"],
             "run_at": "document_idle"
         }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["pages/applied.html"],
+            "matches": [
+                "https://metalbear.com/*",
+                "https://www.metalbear.com/*"
+            ]
+        }
     ]
 }

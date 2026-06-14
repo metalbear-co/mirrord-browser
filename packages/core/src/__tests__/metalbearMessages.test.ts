@@ -1,6 +1,4 @@
 /** @jest-environment jsdom */
-import { APPLY_CONFIG_MESSAGE } from '../constants';
-
 const BOX_ID = 'mirrord-config-message';
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -10,72 +8,34 @@ function setHash(hash: string): void {
     window.history.replaceState({}, '', `/mirrord/extension${hash}`);
 }
 
-describe('metalbear content script in-page messages', () => {
+describe('metalbear content script', () => {
     beforeEach(() => {
         document.body.innerHTML = '';
     });
 
-    it('shows "no config found" when the link has no payload', async () => {
+    it('shows a "no config found" box and does not redirect on a bare visit', async () => {
         setHash('');
         await jest.isolateModulesAsync(async () => {
-            await import('../content/metalbearConfig');
-            await flush();
-            const box = document.getElementById(BOX_ID);
-            expect(box).not.toBeNull();
-            expect(box?.textContent).toContain('No config found');
-        });
-    });
-
-    it('shows an error when the payload is malformed', async () => {
-        setHash('#config=@@@not-base64@@@');
-        await jest.isolateModulesAsync(async () => {
-            await import('../content/metalbearConfig');
-            await flush();
-            const box = document.getElementById(BOX_ID);
-            expect(box?.textContent).toContain('Invalid config');
-        });
-    });
-
-    it('applies a valid payload via the background and shows success', async () => {
-        const payload = btoa(JSON.stringify({ header_filter: 'X-Test: v' }));
-        setHash(`#config=${payload}`);
-        await jest.isolateModulesAsync(async () => {
             const browser = (await import('webextension-polyfill')).default;
-            (browser.runtime.sendMessage as jest.Mock).mockResolvedValue({
-                ok: true,
-                header: 'X-Test',
-                value: 'v',
-            });
             await import('../content/metalbearConfig');
             await flush();
-
-            expect(browser.runtime.sendMessage).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: APPLY_CONFIG_MESSAGE,
-                    header: 'X-Test',
-                    value: 'v',
-                })
+            expect(document.getElementById(BOX_ID)?.textContent).toContain(
+                'No config found'
             );
-            const box = document.getElementById(BOX_ID);
-            expect(box?.textContent).toContain('Config applied');
+            expect(browser.runtime.getURL).not.toHaveBeenCalled();
         });
     });
 
-    it('surfaces a background failure as an error message', async () => {
-        const payload = btoa(JSON.stringify({ header_filter: 'X-Test: v' }));
-        setHash(`#config=${payload}`);
+    it('redirects to the result page when a payload is present', async () => {
+        setHash('#config=abc123');
         await jest.isolateModulesAsync(async () => {
             const browser = (await import('webextension-polyfill')).default;
-            (browser.runtime.sendMessage as jest.Mock).mockResolvedValue({
-                ok: false,
-                error: 'DNR update failed',
-            });
             await import('../content/metalbearConfig');
             await flush();
-
-            const box = document.getElementById(BOX_ID);
-            expect(box?.textContent).toContain('Failed to apply config');
-            expect(box?.textContent).toContain('DNR update failed');
+            expect(browser.runtime.getURL).toHaveBeenCalledWith(
+                'pages/applied.html'
+            );
+            expect(document.getElementById(BOX_ID)).toBeNull();
         });
     });
 });

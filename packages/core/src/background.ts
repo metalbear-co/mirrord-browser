@@ -3,7 +3,6 @@ import {
     type RuntimePort,
     type RuntimeMessageSender,
 } from './types';
-import { APPLY_CONFIG_MESSAGE } from './constants';
 import { browser } from './browser';
 import {
     buildDnrRule,
@@ -145,67 +144,6 @@ browser.runtime.onConnect.addListener((port) => {
         subscribers.delete(port);
         if (subscribers.size === 0) stopRotation();
     });
-});
-
-// Internal messages from the metalbear.com content script: install the header rule it
-// resolved from the page's `#config=` payload. Returning a promise sends the result back so
-// the content script can report success/failure in-page.
-async function applyHeaderConfig(
-    header: string,
-    value: string,
-    scope?: string
-): Promise<
-    | { ok: true; header: string; value: string }
-    | {
-          ok: false;
-          error: string;
-      }
-> {
-    try {
-        const existing = await getDynamicRules();
-        const rules = buildDnrRule(header, value, scope);
-        await updateDynamicRules({
-            removeRuleIds: [
-                ...rules.map((r) => r.id),
-                ...existing.map((r) => r.id),
-            ],
-            addRules: rules,
-        });
-        await storageSet({
-            [STORAGE_KEYS.DEFAULTS]: {
-                headerName: header,
-                headerValue: value,
-                scope,
-            },
-        });
-        refreshIconIndicator(rules.length);
-        emitUserSucceeded('configured', 'user_action', { source: 'web_link' });
-        return { ok: true, header, value };
-    } catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
-        emitUserBlocked('configure_failed', 'user_action', {
-            error,
-            source: 'web_link',
-        });
-        return { ok: false, error };
-    }
-}
-
-browser.runtime.onMessage.addListener((message: unknown) => {
-    const m = message as {
-        type?: string;
-        header?: string;
-        value?: string;
-        scope?: string;
-    } | null;
-    if (
-        m?.type !== APPLY_CONFIG_MESSAGE ||
-        typeof m.header !== 'string' ||
-        typeof m.value !== 'string'
-    ) {
-        return undefined;
-    }
-    return applyHeaderConfig(m.header, m.value, m.scope);
 });
 
 function restrictStorageAccess() {

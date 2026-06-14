@@ -1,26 +1,17 @@
 // Content script for metalbear.com/mirrord/extension. Links of the form
 //   https://metalbear.com/mirrord/extension#config=<payload>
-// carry the same base64 config payload that the in-extension config page accepts. We decode
-// and validate it here so we can report status in-page (a small message box), then hand the
-// resolved header to the background to actually install the DNR rule — content scripts can't
-// call declarativeNetRequest themselves.
+// carry the same base64 config payload that the in-extension config page accepts. When a
+// payload is present we redirect the tab to our own web-accessible result page
+// (pages/applied.html), which decodes it, installs the rule, and shows the outcome — so the
+// user lands on an extension page instead of staying on the website. A bare visit (no
+// `#config=`) just gets a small in-page note and is otherwise left alone.
 import { browser } from '../browser';
-import {
-    decodeConfig,
-    isRegex,
-    parseHeader,
-    promptForValidHeader,
-} from '../configCore';
-import { APPLY_CONFIG_MESSAGE, CONFIG_HASH_PARAM } from '../constants';
-
-type ApplyResult =
-    | { ok: true; header: string; value: string }
-    | { ok: false; error: string };
+import { CONFIG_HASH_PARAM } from '../constants';
 
 /**
  * Extract the config payload from a URL hash like `#config=PAYLOAD`. The value is taken
  * verbatim (not via URLSearchParams) so a base64 payload keeps its `+`/`/`/`=` characters
- * intact; the background re-encodes it when building the config URL.
+ * intact; it is re-encoded with encodeURIComponent when building the result-page URL.
  */
 export function parseConfigPayload(hash: string): string | null {
     const raw = hash.startsWith('#') ? hash.slice(1) : hash;
@@ -36,122 +27,62 @@ export function parseConfigPayload(hash: string): string | null {
 }
 
 const MESSAGE_BOX_ID = 'mirrord-config-message';
-const ACCENT: Record<'info' | 'success' | 'error', string> = {
-    info: '#756df3',
-    success: '#16a34a',
-    error: '#dc2626',
-};
 
-/** Render (or update) a small fixed message box in the page. */
-function showMessage(
-    kind: 'info' | 'success' | 'error',
-    title: string,
-    detail?: string
-): void {
+/** Render a small fixed note in the page (used only for the "no config" case). */
+function showMessage(title: string, detail: string): void {
     const parent = document.body ?? document.documentElement;
-    if (!parent) return;
+    if (!parent || document.getElementById(MESSAGE_BOX_ID)) return;
 
-    let box = document.getElementById(MESSAGE_BOX_ID);
-    if (!box) {
-        box = document.createElement('div');
-        box.id = MESSAGE_BOX_ID;
-        Object.assign(box.style, {
-            position: 'fixed',
-            top: '16px',
-            right: '16px',
-            zIndex: '2147483647',
-            maxWidth: '320px',
-            padding: '12px 14px',
-            borderRadius: '8px',
-            background: '#ffffff',
-            color: '#111827',
-            boxShadow: '0 6px 24px rgba(0, 0, 0, 0.18)',
-            font: '13px/1.4 system-ui, -apple-system, sans-serif',
-        });
-        parent.appendChild(box);
-    }
-    box.style.borderLeft = `4px solid ${ACCENT[kind]}`;
+    const box = document.createElement('div');
+    box.id = MESSAGE_BOX_ID;
+    Object.assign(box.style, {
+        position: 'fixed',
+        top: '16px',
+        right: '16px',
+        zIndex: '2147483647',
+        maxWidth: '320px',
+        padding: '12px 14px',
+        borderRadius: '8px',
+        background: '#ffffff',
+        color: '#111827',
+        boxShadow: '0 6px 24px rgba(0, 0, 0, 0.18)',
+        borderLeft: '4px solid #756df3',
+        font: '13px/1.4 system-ui, -apple-system, sans-serif',
+    });
 
-    box.textContent = '';
     const titleEl = document.createElement('div');
     titleEl.style.fontWeight = '600';
     titleEl.textContent = `mirrord — ${title}`;
     box.appendChild(titleEl);
-    if (detail) {
-        const detailEl = document.createElement('div');
-        Object.assign(detailEl.style, {
-            marginTop: '4px',
-            color: '#4b5563',
-            wordBreak: 'break-word',
-        });
-        detailEl.textContent = detail;
-        box.appendChild(detailEl);
-    }
+
+    const detailEl = document.createElement('div');
+    Object.assign(detailEl.style, { marginTop: '4px', color: '#4b5563' });
+    detailEl.textContent = detail;
+    box.appendChild(detailEl);
+
+    parent.appendChild(box);
 }
 
-// Sentinel distinct from `null` (= "no config") so the very first run still reports an empty
-// link, while repeated hashchange events with the same value don't re-apply.
+// Sentinel distinct from `null` (= "no config") so the first run still notes an empty link,
+// while repeated hashchange events with the same value don't redirect twice.
 let lastPayload: string | null | undefined = undefined;
 
-async function handleHash(): Promise<void> {
+function handleHash(): void {
     const payload = parseConfigPayload(window.location.hash);
     if (payload === lastPayload) return;
     lastPayload = payload;
 
     if (!payload) {
         showMessage(
-            'info',
             'No config found',
             'This link has no “#config=…” payload to apply.'
         );
         return;
     }
 
-    let header: string;
-    let value: string;
-    let scope: string | undefined;
-    try {
-        const config = decodeConfig(payload);
-        if (!config.header_filter) {
-            throw new Error('Config is missing a header filter.');
-        }
-        const headerLine = isRegex(config.header_filter)
-            ? promptForValidHeader(config.header_filter)
-            : config.header_filter;
-        ({ key: header, value } = parseHeader(headerLine));
-        scope = config.inject_scope || undefined;
-    } catch (err) {
-        showMessage(
-            'error',
-            'Invalid config',
-            err instanceof Error ? err.message : 'The config link is malformed.'
-        );
-        return;
-    }
-
-    showMessage('info', 'Applying config…', `${header}: ${value}`);
-    const result = (await browser.runtime.sendMessage({
-        type: APPLY_CONFIG_MESSAGE,
-        header,
-        value,
-        scope,
-    })) as ApplyResult | undefined;
-
-    if (result?.ok) {
-        showMessage(
-            'success',
-            'Config applied',
-            `Injecting ${result.header}: ${result.value}` +
-                (scope ? ` (scope: ${scope})` : ' on all URLs')
-        );
-    } else {
-        showMessage(
-            'error',
-            'Failed to apply config',
-            result?.error ?? 'Unknown error.'
-        );
-    }
+    const url = `${browser.runtime.getURL('pages/applied.html')}?payload=${encodeURIComponent(payload)}`;
+    window.location.replace(url);
 }
 
-void handleHash();
-window.addEventListener('hashchange', () => void handleHash());
+handleHash();
+window.addEventListener('hashchange', handleHash);

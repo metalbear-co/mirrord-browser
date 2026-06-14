@@ -17,7 +17,11 @@ export default defineConfig({
         webExtension({
             manifest: () => manifest,
             browser: 'chrome',
-            additionalInputs: ['pages/config.html', 'pages/configure.html'],
+            additionalInputs: [
+                'pages/config.html',
+                'pages/configure.html',
+                'pages/applied.html',
+            ],
             disableAutoLaunch: true,
         }),
     ],

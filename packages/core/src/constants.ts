@@ -131,10 +131,6 @@ export type RowTag = (typeof ROW_TAG)[keyof typeof ROW_TAG];
 
 export const NAMESPACE_ALL_SENTINEL = '__all__';
 
-// Internal runtime message: the metalbear.com content script asks the background to apply a
-// resolved header config (the content script does decode/validation so it can report errors
-// in-page; the background does the declarativeNetRequest work content scripts can't).
-export const APPLY_CONFIG_MESSAGE = 'mirrord-apply-config';
 // The hash parameter on metalbear.com/mirrord/extension that carries the config payload.
 export const CONFIG_HASH_PARAM = 'config';
 
