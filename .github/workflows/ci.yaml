@@ -59,6 +59,7 @@ jobs:
         name: E2E Tests
         runs-on: ubuntu-latest
         needs: lint-and-format
+        timeout-minutes: 20
 
         steps:
             - name: Checkout code
@@ -80,6 +81,12 @@ jobs:
 
             - name: Install Playwright Chromium
               run: pnpm exec playwright install chromium --with-deps
+              env:
+                  # `--with-deps` runs apt via sudo; on newer ubuntu-latest images the
+                  # needrestart prompt blocks the install until the job timeout. Force
+                  # both apt and needrestart non-interactive so it can't hang.
+                  DEBIAN_FRONTEND: noninteractive
+                  NEEDRESTART_MODE: a
 
             - name: Run E2E tests
               run: xvfb-run pnpm test:e2e
