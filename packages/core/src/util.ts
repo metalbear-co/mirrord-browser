@@ -4,6 +4,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import {
     Config,
     HeaderRule,
+    OperatorSessionSummary,
     ALL_RESOURCE_TYPES,
     DnrRule,
     DnrUpdateOptions,
@@ -129,10 +130,14 @@ export function encodeConfig(config: Config): string {
     return btoa(JSON.stringify(config));
 }
 
-export function buildShareUrl(config: Config): string {
+export function buildShareUrl(
+    config: Config,
+    options?: { storage?: 'override' }
+): string {
     const encoded = encodeConfig(config);
+    const storageParam = options?.storage ? `&storage=${options.storage}` : '';
     const base = browser.runtime.getURL('pages/config.html');
-    return `${base}?payload=${encoded}`;
+    return `${base}?payload=${encoded}${storageParam}`;
 }
 
 export type InjectionHint = {
@@ -168,4 +173,18 @@ export function deriveInjectionHint(
     const generated = generateLowestMatch(trimmed);
     if (!generated) return null;
     return parseHeaderLine(generated);
+}
+
+export const BAGGAGE_HEADER_NAME = 'baggage';
+export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+
+export function sessionInjectionPair(
+    session: Pick<OperatorSessionSummary, 'key' | 'httpFilter'>
+): InjectionHint {
+    return (
+        deriveInjectionHint(session.httpFilter?.headerFilter) ?? {
+            header: BAGGAGE_HEADER_NAME,
+            value: `${BAGGAGE_VALUE_PREFIX}${session.key}`,
+        }
+    );
 }

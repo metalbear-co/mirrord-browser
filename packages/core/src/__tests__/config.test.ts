@@ -4,11 +4,16 @@ import {
     decodeConfig,
     promptForValidHeader,
     storeDefaults,
+    storeOverride,
+    joinMatchingSession,
 } from '../config';
 import { STORAGE_KEYS } from '../types';
+import type { OperatorSessionSummary } from '../types';
 
-// chrome.storage.local is backed by the shared webextension-polyfill mock installed on the
-// global by jest.setup.ts; we assert against `chrome.storage.local.set`.
+// chrome.storage.local / declarativeNetRequest are backed by the shared
+// webextension-polyfill mock installed on the global by jest.setup.ts; we assert against
+// `chrome.storage.local.set` etc. Test helpers (`__setRules`) live on the mock.
+import browser from '../__mocks__/webextension-polyfill';
 
 describe('isRegex', () => {
     it('detects simple regex-like strings', () => {
@@ -36,6 +41,17 @@ describe('parseHeader', () => {
     it('throws on empty key/value', () => {
         expect(() => parseHeader('KeyOnly:')).toThrow();
         expect(() => parseHeader(':ValueOnly')).toThrow();
+    });
+
+    it('keeps colons in the value (splits on the first colon only)', () => {
+        expect(parseHeader('X-Forwarded: host:8080')).toEqual({
+            key: 'X-Forwarded',
+            value: 'host:8080',
+        });
+        expect(parseHeader('baggage: mirrord-session=k1')).toEqual({
+            key: 'baggage',
+            value: 'mirrord-session=k1',
+        });
     });
 });
 
@@ -278,8 +294,143 @@ describe('storeDefaults', () => {
         await storeDefaults('X-Test-Header', 'test-value');
 
         expect(consoleSpy).toHaveBeenCalledWith(
-            'Defaults stored successfully.'
+            'defaults stored successfully.'
         );
         consoleSpy.mockRestore();
+    });
+});
+
+describe('storeOverride', () => {
+    it('stores header name and value as an override', async () => {
+        await storeOverride('X-Test-Header', 'test-value');
+
+        expect(chrome.storage.local.set).toHaveBeenCalledWith({
+            [STORAGE_KEYS.OVERRIDE]: {
+                headerName: 'X-Test-Header',
+                headerValue: 'test-value',
+                scope: undefined,
+            },
+        });
+    });
+});
+
+describe('joinMatchingSession', () => {
+    const session: OperatorSessionSummary = {
+        id: 'sess-1',
+        key: 'k1',
+        namespace: 'default',
+        owner: { username: 'alice', k8sUsername: 'alice@ex' },
+        target: null,
+        createdAt: '2026-01-01T00:00:00Z',
+    };
+
+    const sessionsResponse = (sessions: OperatorSessionSummary[]) => ({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(''),
+        json: () =>
+            Promise.resolve({
+                sessions,
+                by_key: {},
+                watch_status: { status: 'watching' },
+            }),
+    });
+
+    beforeEach(async () => {
+        // Storage / DNR are backed by the shared (promise-based) polyfill mock.
+        // Seed mirrord ui backend + token and an existing rule, then clear the
+        // recorded `set` call so assertions only see the join writes.
+        await chrome.storage.local.set({
+            [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:9000',
+            [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'tok',
+        });
+        browser.declarativeNetRequest.__setRules([{ id: 7 }]);
+        (chrome.storage.local.set as jest.Mock).mockClear();
+        global.fetch = jest.fn().mockResolvedValue(sessionsResponse([session]));
+    });
+
+    it('joins the live session whose baggage value matches', async () => {
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBe('k1');
+        expect(
+            chrome.declarativeNetRequest.updateDynamicRules
+        ).toHaveBeenCalledWith(expect.objectContaining({ removeRuleIds: [7] }));
+        expect(chrome.storage.local.set).toHaveBeenCalledWith({
+            [STORAGE_KEYS.JOINED_KEY]: 'k1',
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: 'sess-1',
+            [STORAGE_KEYS.JOINED_HEADER]: 'baggage',
+            [STORAGE_KEYS.JOINED_VALUE]: 'mirrord-session=k1',
+        });
+    });
+
+    it('matches the header name case-insensitively against the http filter', async () => {
+        (global.fetch as jest.Mock).mockResolvedValue(
+            sessionsResponse([
+                {
+                    ...session,
+                    httpFilter: { headerFilter: '^x-tenant: alice$' },
+                },
+            ])
+        );
+
+        const joined = await joinMatchingSession('X-Tenant', 'alice');
+
+        expect(joined).toBe('k1');
+        expect(chrome.storage.local.set).toHaveBeenCalledWith(
+            expect.objectContaining({
+                [STORAGE_KEYS.JOINED_HEADER]: 'x-tenant',
+                [STORAGE_KEYS.JOINED_VALUE]: 'alice',
+            })
+        );
+    });
+
+    it('returns null when mirrord ui is not configured', async () => {
+        await chrome.storage.local.remove([
+            STORAGE_KEYS.MIRRORD_UI_BACKEND,
+            STORAGE_KEYS.MIRRORD_UI_TOKEN,
+        ]);
+
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBeNull();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(
+            chrome.declarativeNetRequest.updateDynamicRules
+        ).not.toHaveBeenCalled();
+    });
+
+    it('returns null when no live session matches', async () => {
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=other'
+        );
+
+        expect(joined).toBeNull();
+        expect(
+            chrome.declarativeNetRequest.updateDynamicRules
+        ).not.toHaveBeenCalled();
+        expect(chrome.storage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('returns null when fetching sessions fails', async () => {
+        (global.fetch as jest.Mock).mockRejectedValue(new Error('boom'));
+
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBeNull();
+        expect(
+            chrome.declarativeNetRequest.updateDynamicRules
+        ).not.toHaveBeenCalled();
     });
 });

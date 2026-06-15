@@ -59,6 +59,9 @@ jobs:
         name: E2E Tests
         runs-on: ubuntu-latest
         needs: lint-and-format
+        timeout-minutes: 20
+        container:
+            image: mcr.microsoft.com/playwright:v1.58.1-jammy
 
         steps:
             - name: Checkout code
@@ -80,9 +83,6 @@ jobs:
 
             - name: Lint Firefox build (web-ext)
               run: pnpm exec web-ext lint --source-dir packages/firefox/dist --no-config-discovery --self-hosted
-
-            - name: Install Playwright Chromium
-              run: pnpm exec playwright install chromium --with-deps
 
             - name: Run E2E tests (Chrome)
               run: xvfb-run pnpm test:e2e

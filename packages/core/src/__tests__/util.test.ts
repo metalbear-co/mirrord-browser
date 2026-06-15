@@ -4,6 +4,7 @@ import {
     buildDnrRule,
     encodeConfig,
     buildShareUrl,
+    sessionInjectionPair,
 } from '../util';
 import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
@@ -268,5 +269,41 @@ describe('buildShareUrl', () => {
         const url = buildShareUrl(config);
 
         expect(url).toContain('/pages/config.html');
+    });
+
+    it('can mark a config link as an override', () => {
+        const config = { header_filter: 'X-Test: value' };
+
+        const url = buildShareUrl(config, { storage: 'override' });
+
+        expect(url).toContain('?payload=');
+        expect(url).toContain('&storage=override');
+    });
+});
+
+describe('sessionInjectionPair', () => {
+    it('falls back to the baggage header when there is no http filter', () => {
+        expect(sessionInjectionPair({ key: 'k1' })).toEqual({
+            header: 'baggage',
+            value: 'mirrord-session=k1',
+        });
+    });
+
+    it('derives the pair from the session http filter when possible', () => {
+        expect(
+            sessionInjectionPair({
+                key: 'k1',
+                httpFilter: { headerFilter: '^x-tenant: alice$' },
+            })
+        ).toEqual({ header: 'x-tenant', value: 'alice' });
+    });
+
+    it('falls back to baggage when the filter cannot be derived', () => {
+        expect(
+            sessionInjectionPair({
+                key: 'k1',
+                httpFilter: { headerFilter: null },
+            })
+        ).toEqual({ header: 'baggage', value: 'mirrord-session=k1' });
     });
 });

@@ -23,7 +23,11 @@ export function isRegex(str: string): boolean {
  * @param header a string value to be parsed as HTTP header key and value
  */
 export function parseHeader(header: string): { key: string; value: string } {
-    const [key, value] = header.split(':').map((s) => s.trim());
+    // Split on the first colon only so header values may themselves contain colons
+    // (e.g. `X-Forwarded: host:8080`, `baggage: mirrord-session=k1`).
+    const separator = header.indexOf(':');
+    const key = separator === -1 ? '' : header.slice(0, separator).trim();
+    const value = separator === -1 ? '' : header.slice(separator + 1).trim();
     if (!key || !value) {
         emitUserBlocked('configure_invalid', 'user_action', {
             error: 'Invalid header format.',

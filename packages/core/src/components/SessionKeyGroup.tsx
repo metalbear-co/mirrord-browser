@@ -234,8 +234,8 @@ function GroupFooter({
                     type="button"
                     size="icon"
                     variant="ghost"
-                    aria-label={`Copy join link for ${groupKey}`}
-                    title="Copy join link"
+                    aria-label={`Copy override link for ${groupKey}`}
+                    title="Copy override link"
                     onClick={() => onShare(groupKey)}
                     style={{ height: 28, width: 28 }}
                 >

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import groupBy from 'lodash.groupby';
 import { STORAGE_KEYS } from '../types';
 import type {
+    Config,
     OperatorSessionSummary,
     OperatorSessionsResponse,
     OperatorWatchStatus,
@@ -16,8 +17,9 @@ import {
     storageRemove,
     getDynamicRules,
     updateDynamicRules,
-    deriveInjectionHint,
+    sessionInjectionPair,
     buildDnrRule,
+    buildShareUrl as buildConfigShareUrl,
 } from '../util';
 import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
@@ -102,9 +104,6 @@ export async function pingHealth(
         clearTimeout(timer);
     }
 }
-
-export const BAGGAGE_HEADER_NAME = 'baggage';
-export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
 const OPERATOR_SESSIONS_POLL_MS = 5000;
 
@@ -307,11 +306,7 @@ export function useMirrordUi() {
                 setError(STRINGS.ERR_KEY_NOT_VISIBLE(key));
                 return;
             }
-            const filterHint = deriveInjectionHint(
-                target.httpFilter?.headerFilter
-            );
-            const header = filterHint?.header ?? BAGGAGE_HEADER_NAME;
-            const value = filterHint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
+            const { header, value } = sessionInjectionPair(target);
             const existing = await getDynamicRules();
             await updateDynamicRules({
                 removeRuleIds: existing.map((r) => r.id),
@@ -390,13 +385,17 @@ export function useMirrordUi() {
 
     const buildShareUrl = useCallback(
         (key: string): string => {
-            const extUrl = browser.runtime.getURL('pages/configure.html');
-            const u = new URL(extUrl);
-            u.searchParams.set('join', key);
-            if (backend) u.searchParams.set('backend', backend);
-            return u.toString();
+            const target = sessions?.sessions.find((s) => s.key === key);
+            const { header, value } = sessionInjectionPair({
+                key,
+                httpFilter: target?.httpFilter,
+            });
+            const config: Config = {
+                header_filter: `${header}: ${value}`,
+            };
+            return buildConfigShareUrl(config, { storage: 'override' });
         },
-        [backend]
+        [sessions]
     );
 
     return {
