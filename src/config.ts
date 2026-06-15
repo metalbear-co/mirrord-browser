@@ -38,7 +38,9 @@ export function isRegex(str: string): boolean {
  * @returns HTTP header key-value pair
  */
 export function parseHeader(header: string): { key: string; value: string } {
-    const [key, value] = header.split(':').map((s) => s.trim());
+    const separator = header.indexOf(':');
+    const key = separator === -1 ? '' : header.slice(0, separator).trim();
+    const value = separator === -1 ? '' : header.slice(separator + 1).trim();
     if (!key || !value) {
         emitUserBlocked('configure_invalid', 'user_action', {
             error: 'Invalid header format.',

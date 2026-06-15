@@ -65,6 +65,17 @@ describe('parseHeader', () => {
         expect(() => parseHeader('KeyOnly:')).toThrow();
         expect(() => parseHeader(':ValueOnly')).toThrow();
     });
+
+    it('keeps colons in the value (splits on the first colon only)', () => {
+        expect(parseHeader('X-Forwarded: host:8080')).toEqual({
+            key: 'X-Forwarded',
+            value: 'host:8080',
+        });
+        expect(parseHeader('baggage: mirrord-session=k1')).toEqual({
+            key: 'baggage',
+            value: 'mirrord-session=k1',
+        });
+    });
 });
 
 describe('decodeConfig', () => {
