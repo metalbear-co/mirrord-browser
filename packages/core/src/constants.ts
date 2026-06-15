@@ -31,6 +31,13 @@ export const STRINGS = {
     MSG_NOT_CONFIGURED: 'Not configured',
     MSG_NOT_CONFIGURED_HINT: 'Run this in your terminal to connect.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
+    MSG_AUTH_FAILED_TITLE: 'mirrord ui token rejected',
+    MSG_AUTH_FAILED_HINT:
+        'The token seems wrong, or another process is listening on the mirrord ui port. Get a fresh token by running mirrord ui and paste it below, or re-open the mirrord ui page to set it automatically.',
+    LABEL_MIRRORD_UI_TOKEN: 'mirrord ui token',
+    PLACEHOLDER_MIRRORD_UI_TOKEN: 'Paste token from mirrord ui',
+    BTN_SET_TOKEN: 'Set token',
+    MSG_REOPEN_UI_PAGE: 'Re-open mirrord ui page:',
     MSG_NO_ACTIVE_SESSIONS: 'No active sessions yet.',
     MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
     MSG_INSTALL_OPERATOR: 'Install the operator',
@@ -133,6 +140,25 @@ export const NAMESPACE_ALL_SENTINEL = '__all__';
 
 // The hash parameter on metalbear.com/mirrord/extension that carries the config payload.
 export const CONFIG_HASH_PARAM = 'config';
+
+// Cross-browser bridge between the local `mirrord ui` page and the extension. The page posts
+// a `window.postMessage` envelope; a content script on localhost relays it to the background
+// via runtime messaging and posts the response back. This works on Firefox too (which has no
+// `externally_connectable`), so it's the portable replacement for the onMessageExternal path.
+//
+// Page -> content script:   { type: UI_BRIDGE_REQUEST_TYPE, requestId, payload: <BridgeMessage> }
+// content script -> page:   { type: UI_BRIDGE_RESPONSE_TYPE, requestId, payload: <response> }
+export const UI_BRIDGE_REQUEST_TYPE = 'mirrord-ext-request';
+export const UI_BRIDGE_RESPONSE_TYPE = 'mirrord-ext-response';
+// Marks the runtime message the content script forwards to the background.
+export const UI_BRIDGE_MARKER = '__mirrordUiBridge';
+// Only localhost / 127.0.0.1 (any port, http) may drive the bridge.
+export const TRUSTED_UI_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
+
+// Default port `mirrord ui` listens on (its `--port` default).
+// Source: metalbear-co/mirrord — mirrord/cli/src/config.rs `UI_DEFAULT_PORT`.
+export const MIRRORD_UI_DEFAULT_PORT = 59281;
+export const MIRRORD_UI_DEFAULT_BACKEND = `http://127.0.0.1:${MIRRORD_UI_DEFAULT_PORT}`;
 
 export const CONFIGURE_STATUS = {
     LOADING: 'loading',

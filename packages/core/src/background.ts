@@ -4,6 +4,7 @@ import {
     type RuntimeMessageSender,
 } from './types';
 import { browser } from './browser';
+import { UI_BRIDGE_MARKER, TRUSTED_UI_ORIGIN } from './constants';
 import {
     buildDnrRule,
     deriveInjectionHint,
@@ -36,7 +37,6 @@ const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
 const JOIN_RESULT_TYPE = 'join_result';
 const LEAVE_RESULT_TYPE = 'leave_result';
-const TRUSTED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const OBSERVATION_SESSION_KEY = 'header_observation';
 const EXTENSION_VERSION = browser.runtime.getManifest().version;
 
@@ -159,6 +159,32 @@ function restrictStorageAccess() {
         .catch(() => {});
 }
 
+// Shared dispatcher for messages from the local `mirrord ui` page — used by both the Chrome
+// `onMessageExternal` path and the cross-browser content-script bridge below.
+async function handleUiMessage(message: unknown): Promise<unknown> {
+    const m = message as Partial<BridgeMessage> | null;
+    if (m && m.type === 'ping') return handlePing();
+    if (m && m.type === 'join' && typeof m.key === 'string') {
+        return handleJoin(m.key);
+    }
+    if (m && m.type === 'leave') return handleLeave();
+    if (isConfigureMessage(message)) {
+        try {
+            await storageSet({
+                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
+                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
+            });
+            return { ok: true };
+        } catch (err) {
+            return {
+                ok: false,
+                error: err instanceof Error ? err.message : String(err),
+            };
+        }
+    }
+    return { ok: false, error: 'unknown message' };
+}
+
 function handleExternalMessage(
     message: unknown,
     sender: RuntimeMessageSender,
@@ -168,34 +194,7 @@ function handleExternalMessage(
         sendResponse({ ok: false, error: 'untrusted sender' });
         return;
     }
-    const m = message as Partial<BridgeMessage> | null;
-    if (m && m.type === 'ping') {
-        handlePing().then(sendResponse);
-        return true;
-    }
-    if (m && m.type === 'join' && typeof m.key === 'string') {
-        handleJoin(m.key).then(sendResponse);
-        return true;
-    }
-    if (m && m.type === 'leave') {
-        handleLeave().then(sendResponse);
-        return true;
-    }
-    if (!isConfigureMessage(message)) {
-        sendResponse({ ok: false, error: 'unknown message' });
-        return;
-    }
-    storageSet({
-        [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
-        [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
-    })
-        .then(() => sendResponse({ ok: true }))
-        .catch((err) =>
-            sendResponse({
-                ok: false,
-                error: err instanceof Error ? err.message : String(err),
-            })
-        );
+    handleUiMessage(message).then(sendResponse);
     return true;
 }
 
@@ -223,6 +222,21 @@ const chromeRuntime = (
 ).chrome?.runtime;
 
 chromeRuntime?.onMessageExternal?.addListener(handleExternalMessage);
+
+// Cross-browser equivalent: the localhost content script (src/content/mirrordUiBridge.ts)
+// relays the `mirrord ui` page's window.postMessage requests here as runtime messages.
+// Returning a promise sends the response back to the content script, which forwards it to the
+// page. Works on Firefox too, where `onMessageExternal` doesn't exist.
+browser.runtime.onMessage.addListener(
+    (message: unknown, sender: RuntimeMessageSender) => {
+        const m = message as Record<string, unknown> | null;
+        if (!m || m[UI_BRIDGE_MARKER] !== true) return undefined;
+        if (!isTrustedSender(sender)) {
+            return Promise.resolve({ ok: false, error: 'untrusted sender' });
+        }
+        return handleUiMessage(m.payload);
+    }
+);
 
 async function handlePing() {
     const stored = await storageGet([
@@ -334,7 +348,7 @@ function isTrustedSender(sender: RuntimeMessageSender): boolean {
     if (!sender.url) return false;
     try {
         const origin = new URL(sender.url).origin;
-        return TRUSTED_ORIGIN.test(origin);
+        return TRUSTED_UI_ORIGIN.test(origin);
     } catch {
         return false;
     }

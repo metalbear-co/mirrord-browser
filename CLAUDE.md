@@ -88,7 +88,12 @@ packages/
 
 **Per-browser surface for the popup UI:** Chrome opens `popup.html` in the **side panel** (`side_panel` + `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`). Firefox has no `side_panel`, so it hosts the same `popup.html` in the native **sidebar** (`sidebar_action`) with no action popup, and `background.ts` registers an `action.onClicked` → `sidebarAction.toggle()` handler (guarded, no-op on Chrome) so the toolbar icon toggles it — mirroring Chrome's behavior. `popup.tsx` reports the surface (`side_panel` / `sidebar` / `popup_fallback`) for analytics.
 
-**Other Chrome-only touchpoints** (feature-detected, no-op on Firefox): `storage.local.setAccessLevel` and the `externally_connectable` + `onMessageExternal` CLI bridge — on Firefox the CLI handoff falls back to the `config.html`/`configure.html` URL-payload flow. These are reached via a guarded `globalThis.chrome` cast.
+**`mirrord ui` page → extension messaging:** the local `mirrord ui` poller page (on `localhost`/`127.0.0.1`) drives the extension with `ping`/`join`/`leave`/`mirrord-ui-configure` messages, dispatched by `handleUiMessage` in `background.ts`. Two channels feed it:
+
+- **Chrome-only:** `externally_connectable` + `onMessageExternal` (the page calls `chrome.runtime.sendMessage(extensionId, …)` directly). Registered via a guarded `globalThis.chrome` cast; absent on Firefox.
+- **Cross-browser:** a content script on localhost (`src/content/mirrordUiBridge.ts`) relays the page's `window.postMessage` envelopes (`UI_BRIDGE_REQUEST_TYPE` / `UI_BRIDGE_RESPONSE_TYPE`) to the background via `runtime.sendMessage` and posts the response back. Origin-checked against `TRUSTED_UI_ORIGIN`. This is the portable path (works on Firefox); the page chooses a channel (`chrome.runtime.sendMessage` if available, else `window.postMessage`).
+
+The `configure.html`/`config.html` URL-payload handoff also works on both browsers as a non-messaging fallback. **Other Chrome-only touchpoint:** `storage.local.setAccessLevel` (guarded, no-op on Firefox).
 
 ## Code Style
 

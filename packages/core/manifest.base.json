@@ -17,6 +17,11 @@
             ],
             "js": ["src/content/metalbearConfig.ts"],
             "run_at": "document_idle"
+        },
+        {
+            "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+            "js": ["src/content/mirrordUiBridge.ts"],
+            "run_at": "document_idle"
         }
     ],
     "web_accessible_resources": [
