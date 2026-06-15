@@ -86,7 +86,9 @@ packages/
 - `browser.action.setBadgeText` - Icon indicator
 - `browser.webRequest.onSendHeaders` - Observe injected headers (observational; works in MV3 + Firefox)
 
-**Chrome-only touchpoints** (feature-detected, no-op on Firefox): the side panel (`chrome.sidePanel`), `storage.local.setAccessLevel`, and the `externally_connectable` + `onMessageExternal` CLI bridge. On Firefox the action renders as a popup and the CLI handoff falls back to the `config.html`/`configure.html` URL-payload flow. These are reached via a guarded `globalThis.chrome` cast in `background.ts`/`popup.tsx`.
+**Per-browser surface for the popup UI:** Chrome opens `popup.html` in the **side panel** (`side_panel` + `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`). Firefox has no `side_panel`, so it hosts the same `popup.html` in the native **sidebar** (`sidebar_action`) with no action popup, and `background.ts` registers an `action.onClicked` → `sidebarAction.toggle()` handler (guarded, no-op on Chrome) so the toolbar icon toggles it — mirroring Chrome's behavior. `popup.tsx` reports the surface (`side_panel` / `sidebar` / `popup_fallback`) for analytics.
+
+**Other Chrome-only touchpoints** (feature-detected, no-op on Firefox): `storage.local.setAccessLevel` and the `externally_connectable` + `onMessageExternal` CLI bridge — on Firefox the CLI handoff falls back to the `config.html`/`configure.html` URL-payload flow. These are reached via a guarded `globalThis.chrome` cast.
 
 ## Code Style
 

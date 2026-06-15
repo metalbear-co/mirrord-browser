@@ -83,6 +83,7 @@ self.addEventListener('unhandledrejection', (event: Event) => {
 
 restrictStorageAccess();
 configureSidePanel();
+configureSidebarToggle();
 browser.runtime.onStartup.addListener(restrictStorageAccess);
 browser.runtime.onInstalled.addListener(restrictStorageAccess);
 browser.runtime.onStartup.addListener(configureSidePanel);
@@ -366,6 +367,22 @@ function configureSidePanel() {
     sidePanel
         ?.setPanelBehavior?.({ openPanelOnActionClick: true })
         ?.catch(() => {});
+}
+
+// Firefox hosts the popup UI in the native sidebar (`sidebar_action`) and has no action
+// popup, so make the toolbar button toggle that sidebar — the closest match to Chrome's
+// "click the icon to open the side panel". No-op on Chrome (no `sidebarAction`; the action
+// opens the side panel directly there).
+function configureSidebarToggle() {
+    const sidebarAction = (
+        browser as unknown as {
+            sidebarAction?: { toggle: () => Promise<void> };
+        }
+    ).sidebarAction;
+    if (!sidebarAction) return;
+    browser.action.onClicked.addListener(() => {
+        sidebarAction.toggle().catch(() => {});
+    });
 }
 
 function refreshIcon() {

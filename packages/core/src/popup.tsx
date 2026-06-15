@@ -28,13 +28,19 @@ import { STORAGE_KEYS } from './types';
 import { browser } from './browser';
 
 const popupOpenedAt = Date.now();
-// The side panel is Chrome-only; on Firefox the action renders as a popup. Detect via the
-// raw `chrome` global since `sidePanel` isn't part of the polyfill surface.
-const surface: 'side_panel' | 'popup_fallback' =
-    typeof (globalThis as { chrome?: { sidePanel?: unknown } }).chrome
-        ?.sidePanel === 'undefined'
-        ? 'popup_fallback'
-        : 'side_panel';
+// This UI renders in Chrome's side panel, Firefox's sidebar, or a plain action popup. Detect
+// which surface we're in for analytics: `chrome.sidePanel` (Chrome) vs `browser.sidebarAction`
+// (Firefox); otherwise it's the popup fallback.
+const globalApis = globalThis as {
+    chrome?: { sidePanel?: unknown };
+    browser?: { sidebarAction?: unknown };
+};
+const surface: 'side_panel' | 'sidebar' | 'popup_fallback' =
+    typeof globalApis.chrome?.sidePanel !== 'undefined'
+        ? 'side_panel'
+        : typeof globalApis.browser?.sidebarAction !== 'undefined'
+          ? 'sidebar'
+          : 'popup_fallback';
 optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {
