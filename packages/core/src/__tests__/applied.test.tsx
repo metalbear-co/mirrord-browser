@@ -1,10 +1,4 @@
 /** @jest-environment jsdom */
-jest.mock('@metalbear/ui/styles.css', () => ({}), { virtual: true });
-jest.mock('@metalbear/ui', () => ({
-    Card: ({ children }: { children?: React.ReactNode }) => children,
-    CardContent: ({ children }: { children?: React.ReactNode }) => children,
-}));
-
 import { run } from '../applied';
 
 function setSearch(search: string): void {
