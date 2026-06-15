@@ -4,20 +4,37 @@ import {
     decodeConfig,
     promptForValidHeader,
     storeDefaults,
+    storeOverride,
+    joinMatchingSession,
 } from '../config';
 import { STORAGE_KEYS } from '../types';
+import type { OperatorSessionSummary } from '../types';
 
 // Mock the chrome API for storage tests
 const mockStorageSet = jest.fn();
+const mockStorageGet = jest.fn();
+const mockGetDynamicRules = jest.fn();
+const mockUpdateDynamicRules = jest.fn();
 
 globalThis.chrome = {
     storage: {
         local: {
             set: mockStorageSet,
+            get: mockStorageGet,
         },
     },
     runtime: {
         lastError: null,
+    },
+    declarativeNetRequest: {
+        getDynamicRules: mockGetDynamicRules,
+        updateDynamicRules: mockUpdateDynamicRules,
+        RuleActionType: { MODIFY_HEADERS: 'modifyHeaders' },
+        HeaderOperation: { SET: 'set' },
+    },
+    action: {
+        setBadgeText: jest.fn(),
+        setBadgeTextColor: jest.fn(),
     },
 } as any;
 
@@ -47,6 +64,17 @@ describe('parseHeader', () => {
     it('throws on empty key/value', () => {
         expect(() => parseHeader('KeyOnly:')).toThrow();
         expect(() => parseHeader(':ValueOnly')).toThrow();
+    });
+
+    it('keeps colons in the value (splits on the first colon only)', () => {
+        expect(parseHeader('X-Forwarded: host:8080')).toEqual({
+            key: 'X-Forwarded',
+            value: 'host:8080',
+        });
+        expect(parseHeader('baggage: mirrord-session=k1')).toEqual({
+            key: 'baggage',
+            value: 'mirrord-session=k1',
+        });
     });
 });
 
@@ -304,8 +332,155 @@ describe('storeDefaults', () => {
         await storeDefaults('X-Test-Header', 'test-value');
 
         expect(consoleSpy).toHaveBeenCalledWith(
-            'Defaults stored successfully.'
+            'defaults stored successfully.'
         );
         consoleSpy.mockRestore();
+    });
+});
+
+describe('storeOverride', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (chrome.runtime as any).lastError = null;
+    });
+
+    it('stores header name and value as an override', async () => {
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+
+        await storeOverride('X-Test-Header', 'test-value');
+
+        expect(mockStorageSet).toHaveBeenCalledWith(
+            {
+                [STORAGE_KEYS.OVERRIDE]: {
+                    headerName: 'X-Test-Header',
+                    headerValue: 'test-value',
+                    scope: undefined,
+                },
+            },
+            expect.any(Function)
+        );
+    });
+});
+
+describe('joinMatchingSession', () => {
+    const session: OperatorSessionSummary = {
+        id: 'sess-1',
+        key: 'k1',
+        namespace: 'default',
+        owner: { username: 'alice', k8sUsername: 'alice@ex' },
+        target: null,
+        createdAt: '2026-01-01T00:00:00Z',
+    };
+
+    const sessionsResponse = (sessions: OperatorSessionSummary[]) => ({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(''),
+        json: () =>
+            Promise.resolve({
+                sessions,
+                by_key: {},
+                watch_status: { status: 'watching' },
+            }),
+    });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (chrome.runtime as any).lastError = null;
+        mockStorageGet.mockImplementation((_keys, callback) =>
+            callback({
+                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:9000',
+                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'tok',
+            })
+        );
+        mockStorageSet.mockImplementation((_data, callback) => callback());
+        mockGetDynamicRules.mockImplementation((callback) =>
+            callback([{ id: 7 }])
+        );
+        mockUpdateDynamicRules.mockImplementation((_opts, callback) =>
+            callback()
+        );
+        global.fetch = jest.fn().mockResolvedValue(sessionsResponse([session]));
+    });
+
+    it('joins the live session whose baggage value matches', async () => {
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBe('k1');
+        expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
+            expect.objectContaining({ removeRuleIds: [7] }),
+            expect.any(Function)
+        );
+        expect(mockStorageSet).toHaveBeenCalledWith(
+            {
+                [STORAGE_KEYS.JOINED_KEY]: 'k1',
+                [STORAGE_KEYS.JOINED_SESSION_NAME]: 'sess-1',
+                [STORAGE_KEYS.JOINED_HEADER]: 'baggage',
+                [STORAGE_KEYS.JOINED_VALUE]: 'mirrord-session=k1',
+            },
+            expect.any(Function)
+        );
+    });
+
+    it('matches the header name case-insensitively against the http filter', async () => {
+        (global.fetch as jest.Mock).mockResolvedValue(
+            sessionsResponse([
+                {
+                    ...session,
+                    httpFilter: { headerFilter: '^x-tenant: alice$' },
+                },
+            ])
+        );
+
+        const joined = await joinMatchingSession('X-Tenant', 'alice');
+
+        expect(joined).toBe('k1');
+        expect(mockStorageSet).toHaveBeenCalledWith(
+            expect.objectContaining({
+                [STORAGE_KEYS.JOINED_HEADER]: 'x-tenant',
+                [STORAGE_KEYS.JOINED_VALUE]: 'alice',
+            }),
+            expect.any(Function)
+        );
+    });
+
+    it('returns null when mirrord ui is not configured', async () => {
+        mockStorageGet.mockImplementation((_keys, callback) => callback({}));
+
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBeNull();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+    });
+
+    it('returns null when no live session matches', async () => {
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=other'
+        );
+
+        expect(joined).toBeNull();
+        expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+        expect(mockStorageSet).not.toHaveBeenCalled();
+    });
+
+    it('returns null when fetching sessions fails', async () => {
+        (global.fetch as jest.Mock).mockRejectedValue(new Error('boom'));
+
+        const joined = await joinMatchingSession(
+            'baggage',
+            'mirrord-session=k1'
+        );
+
+        expect(joined).toBeNull();
+        expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
     });
 });

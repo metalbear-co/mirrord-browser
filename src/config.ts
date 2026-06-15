@@ -1,11 +1,21 @@
 import '@metalbear/ui/styles.css';
-import { refreshIconIndicator } from './util';
+import {
+    buildDnrRule,
+    getDynamicRules,
+    refreshIconIndicator,
+    sessionInjectionPair,
+    storageGet,
+    storageSet,
+    updateDynamicRules,
+} from './util';
 import {
     Config,
     StoredConfig,
+    OperatorSessionSummary,
     STORAGE_KEYS,
     ALL_RESOURCE_TYPES,
 } from './types';
+import { fetchOperatorSessions } from './hooks/useMirrordUi';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 
 /**
@@ -28,7 +38,9 @@ export function isRegex(str: string): boolean {
  * @returns HTTP header key-value pair
  */
 export function parseHeader(header: string): { key: string; value: string } {
-    const [key, value] = header.split(':').map((s) => s.trim());
+    const separator = header.indexOf(':');
+    const key = separator === -1 ? '' : header.slice(0, separator).trim();
+    const value = separator === -1 ? '' : header.slice(separator + 1).trim();
     if (!key || !value) {
         emitUserBlocked('configure_invalid', 'user_action', {
             error: 'Invalid header format.',
@@ -67,23 +79,122 @@ export function storeDefaults(
     headerValue: string,
     scope?: string
 ): Promise<void> {
+    return storeHeaderConfig(
+        STORAGE_KEYS.DEFAULTS,
+        headerName,
+        headerValue,
+        scope
+    );
+}
+
+export function storeOverride(
+    headerName: string,
+    headerValue: string,
+    scope?: string
+): Promise<void> {
+    return storeHeaderConfig(
+        STORAGE_KEYS.OVERRIDE,
+        headerName,
+        headerValue,
+        scope
+    );
+}
+
+function storeHeaderConfig(
+    storageKey: typeof STORAGE_KEYS.DEFAULTS | typeof STORAGE_KEYS.OVERRIDE,
+    headerName: string,
+    headerValue: string,
+    scope?: string
+): Promise<void> {
     return new Promise((resolve) => {
-        const defaults: StoredConfig = {
+        const config: StoredConfig = {
             headerName,
             headerValue,
             scope,
         };
-        chrome.storage.local.set({ [STORAGE_KEYS.DEFAULTS]: defaults }, () => {
+        chrome.storage.local.set({ [storageKey]: config }, () => {
             if (chrome.runtime.lastError) {
                 console.error(
-                    'Failed to store defaults:',
+                    `Failed to store ${storageKey}:`,
                     chrome.runtime.lastError.message
                 );
             } else {
-                console.log('Defaults stored successfully.');
+                console.log(`${storageKey} stored successfully.`);
             }
             resolve();
         });
+    });
+}
+
+/**
+ * Look for a live operator session whose injection header matches the shared
+ * header, and join it (same storage/DNR shape as the popup join flow).
+ * @param headerName the HTTP header name from the shared link
+ * @param headerValue the HTTP header value from the shared link
+ * @returns the joined session key, or null when mirrord ui isn't configured
+ * or no live session matches — the caller then falls back to a manual rule
+ */
+export async function joinMatchingSession(
+    headerName: string,
+    headerValue: string
+): Promise<string | null> {
+    const stored = await storageGet([
+        STORAGE_KEYS.MIRRORD_UI_BACKEND,
+        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+        STORAGE_KEYS.SCOPE_PATTERNS,
+    ]);
+    const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
+        | string
+        | undefined;
+    const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined;
+    if (!backend || !token) return null;
+
+    let sessions: OperatorSessionSummary[];
+    try {
+        ({ sessions } = await fetchOperatorSessions(backend, token));
+    } catch {
+        return null;
+    }
+
+    const target = sessions.find((s) => {
+        const pair = sessionInjectionPair(s);
+        return (
+            pair.header.toLowerCase() === headerName.toLowerCase() &&
+            pair.value === headerValue
+        );
+    });
+    if (!target) return null;
+
+    const { header, value } = sessionInjectionPair(target);
+    const scope =
+        (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
+    const existing = await getDynamicRules();
+    await updateDynamicRules({
+        removeRuleIds: existing.map((r) => r.id),
+        addRules: buildDnrRule(header, value, scope),
+    });
+    await storageSet({
+        [STORAGE_KEYS.JOINED_KEY]: target.key,
+        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+        [STORAGE_KEYS.JOINED_HEADER]: header,
+        [STORAGE_KEYS.JOINED_VALUE]: value,
+    });
+    refreshIconIndicator(1);
+    return target.key;
+}
+
+function clearJoinedSession(): Promise<void> {
+    return new Promise((resolve) => {
+        chrome.storage.local.remove(
+            [
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.SCOPE_PATTERNS,
+            ],
+            () => resolve()
+        );
     });
 }
 
@@ -114,7 +225,13 @@ export function promptForValidHeader(pattern: string): string {
     return header;
 }
 
-function setHeaderRule(header: string, scope?: string): Promise<void> {
+function setHeaderRule(
+    header: string,
+    scope?: string,
+    storageKey:
+        | typeof STORAGE_KEYS.DEFAULTS
+        | typeof STORAGE_KEYS.OVERRIDE = STORAGE_KEYS.DEFAULTS
+): Promise<void> {
     return new Promise((resolve, reject) => {
         let key: string, value: string;
 
@@ -181,10 +298,19 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
                         console.log('Header rule set successfully.');
                         refreshIconIndicator(rules.length);
 
-                        // Store defaults in chrome.storage
-                        storeDefaults(key.trim(), value.trim(), scope).then(
-                            resolve
-                        );
+                        const storeConfig =
+                            storageKey === STORAGE_KEYS.OVERRIDE
+                                ? storeOverride
+                                : storeDefaults;
+                        const clearSession =
+                            storageKey === STORAGE_KEYS.OVERRIDE
+                                ? clearJoinedSession()
+                                : Promise.resolve();
+                        clearSession
+                            .then(() =>
+                                storeConfig(key.trim(), value.trim(), scope)
+                            )
+                            .then(resolve);
                     }
                 }
             );
@@ -196,6 +322,10 @@ function setHeaderRule(header: string, scope?: string): Promise<void> {
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(location.search);
     const encoded = params.get('payload');
+    const storageKey =
+        params.get('storage') === STORAGE_KEYS.OVERRIDE
+            ? STORAGE_KEYS.OVERRIDE
+            : STORAGE_KEYS.DEFAULTS;
 
     if (!encoded) {
         alert(
@@ -229,7 +359,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const scope = config.inject_scope;
 
     try {
-        await setHeaderRule(header, scope);
+        if (storageKey === STORAGE_KEYS.OVERRIDE) {
+            const { key, value } = parseHeader(header);
+            const joinedKey = await joinMatchingSession(key, value);
+            if (joinedKey) {
+                capture('extension_config_received', {
+                    is_regex: isRegex(config.header_filter),
+                    has_scope: !!scope,
+                    joined_session: true,
+                });
+                emitUserSucceeded('joined', 'user_action', { key: joinedKey });
+                alert(`Joined live session "${joinedKey}"!`);
+                return;
+            }
+        }
+        await setHeaderRule(header, scope, storageKey);
         const scopeMsg = scope ? ` (scope: ${scope})` : ' (all URLs)';
         capture('extension_config_received', {
             is_regex: isRegex(config.header_filter),

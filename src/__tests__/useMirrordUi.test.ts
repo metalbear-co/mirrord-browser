@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useMirrordUi } from '../hooks/useMirrordUi';
 import type { OperatorSessionsResponse } from '../types';
 import { STORAGE_KEYS } from '../types';
+import { decodeConfig } from '../config';
 
 const owner = { username: 'alice', k8sUsername: 'alice@ex' };
 const createdAt = '2026-01-01T00:00:00Z';
@@ -105,6 +106,7 @@ beforeEach(() => {
             HeaderOperation: { SET: 'set' },
         },
         runtime: {
+            id: 'test-extension-id',
             getURL: (p: string) => `chrome-extension://test/${p}`,
             lastError: null,
         },
@@ -186,4 +188,72 @@ test('join writes the DNR rule and stores joined key', async () => {
         expect.objectContaining({ [STORAGE_KEYS.JOINED_KEY]: 'k1' }),
         expect.any(Function)
     );
+});
+
+test('session share builds an override config link without backend or join params', async () => {
+    const { result } = renderHook(() => useMirrordUi());
+    await waitFor(() =>
+        expect(result.current.sessions?.sessions.length).toBe(3)
+    );
+
+    const url = result.current.buildShareUrl('k1');
+    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+
+    expect(url).toContain('/pages/config.html');
+    expect(url).toContain('&storage=override');
+    expect(url).not.toContain('/pages/configure.html');
+    expect(url).not.toContain('backend=');
+    expect(url).not.toContain('join=');
+    expect(payload).toBeTruthy();
+    expect(decodeConfig(payload!)).toEqual({
+        header_filter: 'baggage: mirrord-session=k1',
+    });
+});
+
+test('session share uses the operator HTTP filter when it can derive a header', async () => {
+    const responseWithFilter: OperatorSessionsResponse = {
+        ...sampleResponse,
+        sessions: sampleResponse.sessions.map((session) =>
+            session.key === 'k0'
+                ? {
+                      ...session,
+                      httpFilter: {
+                          headerFilter: '^x-tenant: alice$',
+                      },
+                  }
+                : session
+        ),
+    };
+    (global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+        const makeResponse = (body: string, status = 200) =>
+            ({
+                ok: status >= 200 && status < 300,
+                status,
+                statusText: 'OK',
+                text: () => Promise.resolve(body),
+                json: () => Promise.resolve(JSON.parse(body)),
+            }) as unknown as Response;
+        if (String(url).includes('/api/operator-sessions')) {
+            return Promise.resolve(
+                makeResponse(JSON.stringify(responseWithFilter))
+            );
+        }
+        if (String(url).includes('/health')) {
+            return Promise.resolve(makeResponse('ok'));
+        }
+        return Promise.reject(new Error('unexpected fetch'));
+    });
+
+    const { result } = renderHook(() => useMirrordUi());
+    await waitFor(() =>
+        expect(result.current.sessions?.sessions.length).toBe(3)
+    );
+
+    const url = result.current.buildShareUrl('k0');
+    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+
+    expect(payload).toBeTruthy();
+    expect(decodeConfig(payload!)).toEqual({
+        header_filter: 'x-tenant: alice',
+    });
 });

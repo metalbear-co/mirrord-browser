@@ -1,19 +1,15 @@
 import { STORAGE_KEYS } from './types';
 import {
     buildDnrRule,
-    deriveInjectionHint,
     getDynamicRules,
     refreshIconIndicator,
+    sessionInjectionPair,
     storageGet,
     storageRemove,
     storageSet,
     updateDynamicRules,
 } from './util';
-import {
-    BAGGAGE_HEADER_NAME,
-    BAGGAGE_VALUE_PREFIX,
-    fetchOperatorSessions,
-} from './hooks/useMirrordUi';
+import { fetchOperatorSessions } from './hooks/useMirrordUi';
 import {
     HEADER_OBSERVATION_PORT,
     armCanary,
@@ -248,9 +244,7 @@ export async function handleJoin(key: string) {
             });
             return { type: JOIN_RESULT_TYPE, ok: false, error };
         }
-        const filterHint = deriveInjectionHint(target.httpFilter?.headerFilter);
-        const header = filterHint?.header ?? BAGGAGE_HEADER_NAME;
-        const value = filterHint?.value ?? `${BAGGAGE_VALUE_PREFIX}${key}`;
+        const { header, value } = sessionInjectionPair(target);
         const scope =
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
