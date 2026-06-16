@@ -36,6 +36,14 @@ const LEAVE_RESULT_TYPE = 'leave_result';
 const OBSERVATION_SESSION_KEY = 'header_observation';
 const EXTENSION_VERSION = browser.runtime.getManifest().version;
 
+// `extraHeaders` is a Chromium-only `extraInfoSpec` value. Firefox throws synchronously on the
+// unknown enum, which would abort background startup — taking down every listener registered
+// after the webRequest call below, including the mirrord-ui message bridge. Only ask for it on
+// Chromium (detected via the extension URL scheme).
+const IS_CHROMIUM = browser.runtime
+    .getURL('')
+    .startsWith('chrome-extension://');
+
 type ConfigureMessage = {
     type: typeof MIRRORD_UI_CONFIGURE_TYPE;
     backend: string;
@@ -129,7 +137,11 @@ browser.webRequest.onSendHeaders.addListener(
         broadcast();
     },
     { urls: ['<all_urls>'] },
-    ['requestHeaders', 'extraHeaders']
+    (IS_CHROMIUM
+        ? ['requestHeaders', 'extraHeaders']
+        : ['requestHeaders']) as Parameters<
+        typeof browser.webRequest.onSendHeaders.addListener
+    >[2]
 );
 
 browser.runtime.onConnect.addListener((port) => {

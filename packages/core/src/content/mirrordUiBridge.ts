@@ -33,10 +33,11 @@ function respond(origin: string, requestId: unknown, payload: unknown): void {
 }
 
 window.addEventListener('message', (event: MessageEvent) => {
+    // Ignore unrelated page messages; only handle our own request envelopes.
+    if (!isRequestEnvelope(event.data)) return;
     // Only accept messages the page posted to itself, from a trusted localhost origin.
     if (event.source !== window) return;
     if (!TRUSTED_UI_ORIGIN.test(event.origin)) return;
-    if (!isRequestEnvelope(event.data)) return;
 
     const { requestId, payload } = event.data;
     const origin = event.origin;
