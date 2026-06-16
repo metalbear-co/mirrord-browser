@@ -258,37 +258,21 @@ describe('encodeConfig', () => {
 });
 
 describe('buildShareUrl', () => {
-    beforeEach(() => {
-        globalThis.chrome = {
-            ...globalThis.chrome,
-            runtime: {
-                id: 'test-extension-id',
-            },
-        } as any;
-    });
-
-    it('builds URL with chrome-extension:// prefix', () => {
+    it('points at the metalbear.com extension landing page', () => {
         const config = { header_filter: 'X-Test: value' };
 
         const url = buildShareUrl(config);
 
-        expect(url).toMatch(/^chrome-extension:\/\//);
+        expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#/);
     });
 
-    it('includes extension ID in URL', () => {
+    it('carries the payload in the #config= hash', () => {
         const config = { header_filter: 'X-Test: value' };
 
         const url = buildShareUrl(config);
 
-        expect(url).toContain('test-extension-id');
-    });
-
-    it('includes payload query parameter', () => {
-        const config = { header_filter: 'X-Test: value' };
-
-        const url = buildShareUrl(config);
-
-        expect(url).toContain('?payload=');
+        expect(url).toContain('#config=');
+        expect(url).not.toContain('?payload=');
     });
 
     it('contains encoded config that can be decoded', () => {
@@ -298,18 +282,10 @@ describe('buildShareUrl', () => {
         };
 
         const url = buildShareUrl(config);
-        const payload = url.split('?payload=')[1];
+        const payload = url.split('#config=')[1];
         const decoded = decodeConfig(payload);
 
         expect(decoded).toEqual(config);
-    });
-
-    it('points to config.html page', () => {
-        const config = { header_filter: 'X-Test: value' };
-
-        const url = buildShareUrl(config);
-
-        expect(url).toContain('/pages/config.html');
     });
 
     it('can mark a config link as an override', () => {
@@ -317,7 +293,7 @@ describe('buildShareUrl', () => {
 
         const url = buildShareUrl(config, { storage: 'override' });
 
-        expect(url).toContain('?payload=');
+        expect(url).toContain('#config=');
         expect(url).toContain('&storage=override');
     });
 });

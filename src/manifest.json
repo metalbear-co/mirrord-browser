@@ -26,5 +26,24 @@
     "side_panel": {
         "default_path": "pages/popup.html"
     },
-    "options_page": "pages/options.html"
+    "options_page": "pages/options.html",
+    "content_scripts": [
+        {
+            "matches": [
+                "https://metalbear.com/mirrord/extension*",
+                "https://www.metalbear.com/mirrord/extension*"
+            ],
+            "js": ["src/content/metalbearConfig.ts"],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["pages/applied.html"],
+            "matches": [
+                "https://metalbear.com/*",
+                "https://www.metalbear.com/*"
+            ]
+        }
+    ]
 }

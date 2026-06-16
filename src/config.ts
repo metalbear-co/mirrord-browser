@@ -1,71 +1,23 @@
 import '@metalbear/ui/styles.css';
-import {
-    buildDnrRule,
-    getDynamicRules,
-    refreshIconIndicator,
-    sessionInjectionPair,
-    storageGet,
-    storageSet,
-    updateDynamicRules,
-} from './util';
+import { refreshIconIndicator } from './util';
 import {
     Config,
     StoredConfig,
-    OperatorSessionSummary,
     STORAGE_KEYS,
     ALL_RESOURCE_TYPES,
 } from './types';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    isRegex,
+    parseHeader,
+    decodeConfig,
+    promptForValidHeader,
+} from './configCore';
+import { joinMatchingSession } from './joinSession';
 
-/**
- * Check if the input string is a regex or an explicit HTTP header.
- * @param str a string value that's either a regex or an explicit HTTP header
- * @returns
- */
-export function isRegex(str: string): boolean {
-    const regexIndicators = [
-        /\\[dDsSwWbB]/, // escaped shorthand classes
-        /\\./, // escaped dot
-        /[.*+?^${}()|[\]]/, // unescaped special characters
-    ];
-    return regexIndicators.some((pattern) => pattern.test(str));
-}
-
-/**
- * Prase the input string value and return an HTTP header key-value pair.
- * @param header a string value to be parsed as HTTP header key and value
- * @returns HTTP header key-value pair
- */
-export function parseHeader(header: string): { key: string; value: string } {
-    const separator = header.indexOf(':');
-    const key = separator === -1 ? '' : header.slice(0, separator).trim();
-    const value = separator === -1 ? '' : header.slice(separator + 1).trim();
-    if (!key || !value) {
-        emitUserBlocked('configure_invalid', 'user_action', {
-            error: 'Invalid header format.',
-        });
-        throw new Error('Invalid header format.');
-    }
-    return { key, value };
-}
-
-/**
- * Decode the given string into a configuration object.
- * @param encoded a base64 encoded string configuration payload
- * @returns deserialized configuration object
- */
-export function decodeConfig(encoded: string): Config {
-    const decoded = atob(encoded);
-    try {
-        return JSON.parse(decoded) as Config;
-    } catch (error) {
-        emitUserBlocked('configure_invalid', 'user_action', {
-            error: 'Invalid configuration',
-        });
-        throw new Error('Invalid configuration');
-    }
-}
+// Re-exported so existing importers (and tests) keep using `./config`.
+export { isRegex, parseHeader, decodeConfig, promptForValidHeader };
+export { joinMatchingSession };
 
 /**
  * Store the given header configuration as defaults in chrome.storage.local.
@@ -126,63 +78,6 @@ function storeHeaderConfig(
     });
 }
 
-/**
- * Look for a live operator session whose injection header matches the shared
- * header, and join it (same storage/DNR shape as the popup join flow).
- * @param headerName the HTTP header name from the shared link
- * @param headerValue the HTTP header value from the shared link
- * @returns the joined session key, or null when mirrord ui isn't configured
- * or no live session matches — the caller then falls back to a manual rule
- */
-export async function joinMatchingSession(
-    headerName: string,
-    headerValue: string
-): Promise<string | null> {
-    const stored = await storageGet([
-        STORAGE_KEYS.MIRRORD_UI_BACKEND,
-        STORAGE_KEYS.MIRRORD_UI_TOKEN,
-        STORAGE_KEYS.SCOPE_PATTERNS,
-    ]);
-    const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-        | string
-        | undefined;
-    const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined;
-    if (!backend || !token) return null;
-
-    let sessions: OperatorSessionSummary[];
-    try {
-        ({ sessions } = await fetchOperatorSessions(backend, token));
-    } catch {
-        return null;
-    }
-
-    const target = sessions.find((s) => {
-        const pair = sessionInjectionPair(s);
-        return (
-            pair.header.toLowerCase() === headerName.toLowerCase() &&
-            pair.value === headerValue
-        );
-    });
-    if (!target) return null;
-
-    const { header, value } = sessionInjectionPair(target);
-    const scope =
-        (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
-    const existing = await getDynamicRules();
-    await updateDynamicRules({
-        removeRuleIds: existing.map((r) => r.id),
-        addRules: buildDnrRule(header, value, scope),
-    });
-    await storageSet({
-        [STORAGE_KEYS.JOINED_KEY]: target.key,
-        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
-        [STORAGE_KEYS.JOINED_HEADER]: header,
-        [STORAGE_KEYS.JOINED_VALUE]: value,
-    });
-    refreshIconIndicator(1);
-    return target.key;
-}
-
 function clearJoinedSession(): Promise<void> {
     return new Promise((resolve) => {
         chrome.storage.local.remove(
@@ -196,33 +91,6 @@ function clearJoinedSession(): Promise<void> {
             () => resolve()
         );
     });
-}
-
-/**
- * Prompt the user for an HTTP header value that matches the given pattern.
- * @param pattern a regex pattern for HTTP headers
- * @returns
- */
-export function promptForValidHeader(pattern: string): string {
-    const regex = new RegExp(pattern);
-    let header: string | null = null;
-
-    while (!header) {
-        const input = prompt(
-            `Enter a header that matches pattern:\n${pattern}`
-        );
-        if (!input) {
-            alert('No input provided.');
-            continue;
-        }
-        if (!regex.test(input)) {
-            alert('Input does not match the required pattern.');
-            continue;
-        }
-        header = input;
-    }
-
-    return header;
 }
 
 function setHeaderRule(

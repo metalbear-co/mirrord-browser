@@ -197,9 +197,9 @@ test('session share builds an override config link without backend or join param
     );
 
     const url = result.current.buildShareUrl('k1');
-    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+    const payload = url.match(/#config=([^&]+)/)?.[1];
 
-    expect(url).toContain('/pages/config.html');
+    expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#/);
     expect(url).toContain('&storage=override');
     expect(url).not.toContain('/pages/configure.html');
     expect(url).not.toContain('backend=');
@@ -250,7 +250,7 @@ test('session share uses the operator HTTP filter when it can derive a header', 
     );
 
     const url = result.current.buildShareUrl('k0');
-    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+    const payload = url.match(/#config=([^&]+)/)?.[1];
 
     expect(payload).toBeTruthy();
     expect(decodeConfig(payload!)).toEqual({

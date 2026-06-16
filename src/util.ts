@@ -7,7 +7,12 @@ import {
     OperatorSessionSummary,
     ALL_RESOURCE_TYPES,
 } from './types';
-import { STRINGS } from './constants';
+import {
+    STRINGS,
+    METALBEAR_EXTENSION_URL,
+    CONFIG_HASH_PARAM,
+    CONFIG_STORAGE_PARAM,
+} from './constants';
 
 dayjs.extend(relativeTime);
 
@@ -171,8 +176,13 @@ export function buildShareUrl(
     options?: { storage?: 'override' }
 ): string {
     const encoded = encodeConfig(config);
-    const storageParam = options?.storage ? `&storage=${options.storage}` : '';
-    return `chrome-extension://${chrome.runtime.id}/pages/config.html?payload=${encoded}${storageParam}`;
+    const storageParam = options?.storage
+        ? `&${CONFIG_STORAGE_PARAM}=${options.storage}`
+        : '';
+    // Land on metalbear.com so the link works for recipients who don't have the extension yet;
+    // the content script there forwards the payload to the result page. Carried in the hash
+    // (not the query) so the base64 payload survives verbatim and never hits the server.
+    return `${METALBEAR_EXTENSION_URL}#${CONFIG_HASH_PARAM}=${encoded}${storageParam}`;
 }
 
 export type InjectionHint = {
