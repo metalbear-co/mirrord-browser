@@ -1,27 +1,118 @@
 <!doctype html>
-<html class="dark">
+<html>
     <head>
         <meta charset="utf-8" />
         <title>mirrord — Config Applied</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&family=Poppins:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
             rel="stylesheet"
         />
         <script type="module" src="../src/applied.tsx"></script>
         <style>
+            :root {
+                --mb-purple: #756df3;
+                --mb-yellow: #ffcb7d;
+                --mb-purple-mid: #e4e3fd;
+                --mb-ink: #232141;
+                --mb-cream: #fffdf9;
+                --mb-grey-50: #fafafd;
+                --mb-grey-500: #888899;
+                --mb-grey-700: #333344;
+                --code-bg: #232141;
+                --code-text: #e2e2f0;
+            }
             html,
             body {
                 margin: 0;
                 padding: 0;
             }
             body {
+                min-height: 100vh;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px;
+                background: var(--mb-grey-50);
+                color: var(--mb-grey-700);
                 font-family: 'Poppins', system-ui, sans-serif;
+                font-size: 15px;
+                line-height: 1.65;
+            }
+            .mb-card {
+                box-sizing: border-box;
+                width: 100%;
+                max-width: 520px;
+                background: var(--mb-cream);
+                border: 2px solid var(--mb-ink);
+                border-radius: 16px;
+                box-shadow: 4px 5px 0 var(--mb-ink);
+                padding: 28px 32px;
+            }
+            .mb-eyebrow {
+                display: inline-block;
+                font-family: 'Unbounded', system-ui, sans-serif;
+                font-weight: 700;
+                font-size: 11px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--mb-ink);
+                border: 1.5px solid var(--mb-ink);
+                border-radius: 100px;
+                padding: 4px 12px;
+                margin-bottom: 16px;
+            }
+            .mb-eyebrow--success {
+                background: var(--mb-yellow);
+            }
+            .mb-eyebrow--error {
+                background: var(--mb-purple-mid);
+            }
+            .mb-title {
+                font-family: 'Unbounded', system-ui, sans-serif;
+                font-weight: 700;
+                font-size: 24px;
+                line-height: 1.2;
+                letter-spacing: -0.02em;
+                color: #000;
+                margin: 0 0 8px;
+            }
+            .mb-text {
+                margin: 0;
+            }
+            .mb-code {
+                font-family: 'IBM Plex Mono', ui-monospace, monospace;
+                font-size: 13px;
+                background: var(--code-bg);
+                color: var(--code-text);
+                padding: 2px 6px;
+                border-radius: 6px;
+            }
+            .mb-label {
+                font-size: 13px;
+                color: var(--mb-grey-500);
+                margin: 14px 0 6px;
+            }
+            .mb-terminal {
+                margin: 0;
+                font-family: 'IBM Plex Mono', ui-monospace, monospace;
+                font-size: 12px;
+                line-height: 1.5;
+                background: var(--code-bg);
+                color: var(--code-text);
+                border: 2px solid var(--mb-ink);
+                border-radius: 8px;
+                padding: 12px 14px;
+                white-space: pre-wrap;
+                word-break: break-all;
+                max-height: 180px;
+                overflow: auto;
             }
         </style>
     </head>
-    <body class="bg-background text-foreground">
+    <body>
         <div id="root"></div>
     </body>
 </html>

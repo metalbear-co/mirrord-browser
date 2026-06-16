@@ -1,16 +1,8 @@
 /** @jest-environment jsdom */
-import React from 'react';
-
-// initTheme touches chrome.storage at module load; stub it so importing applied is safe.
-jest.mock('../theme', () => ({ initTheme: jest.fn() }));
 jest.mock('../analytics', () => ({
     capture: jest.fn(),
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
-}));
-jest.mock('@metalbear/ui', () => ({
-    Card: ({ children }: React.PropsWithChildren) => children,
-    CardContent: ({ children }: React.PropsWithChildren) => children,
 }));
 // joinMatchingSession's internals are covered by config.test; here we control its result to
 // exercise run()'s join-vs-static-override orchestration.
