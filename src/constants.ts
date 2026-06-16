@@ -31,6 +31,10 @@ export const STRINGS = {
     MSG_NOT_CONFIGURED: 'Not configured',
     MSG_NOT_CONFIGURED_HINT: 'Run this in your terminal to connect.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
+    MSG_UI_DETECTED_TITLE: 'mirrord ui is running',
+    MSG_UI_DETECTED_HINT:
+        'mirrord ui is up, but the extension doesn’t have its token yet. Open the mirrord ui page to configure it automatically, or re-run mirrord ui.',
+    BTN_OPEN_MIRRORD_UI: 'Open mirrord ui',
     MSG_AUTH_FAILED_TITLE: 'mirrord ui token rejected',
     MSG_AUTH_FAILED_HINT:
         'mirrord ui restarted with a new token, or another process is using its port. Re-run mirrord ui to reconnect automatically. You can also paste the current token below.',

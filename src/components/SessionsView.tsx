@@ -7,6 +7,7 @@ import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
 import { StatusDot } from './StatusDot';
 import { NotConfiguredPrompt } from './NotConfiguredPrompt';
+import { MirrordUiDetectedPrompt } from './MirrordUiDetectedPrompt';
 import { MirrordUiAuthError } from './MirrordUiAuthError';
 import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
@@ -17,6 +18,7 @@ type Props = {
     sessions: OperatorSessionSummary[];
     sessionsLoaded: boolean;
     authFailed: boolean;
+    uiDetectedNoToken: boolean;
     backend: string | null;
     namespaces: string[];
     namespace: string;
@@ -54,6 +56,7 @@ export function SessionsView({
     sessions,
     sessionsLoaded,
     authFailed,
+    uiDetectedNoToken,
     backend,
     namespaces,
     namespace,
@@ -86,7 +89,11 @@ export function SessionsView({
     }
 
     if (!sessionsLoaded) {
-        return <NotConfiguredPrompt />;
+        return uiDetectedNoToken ? (
+            <MirrordUiDetectedPrompt />
+        ) : (
+            <NotConfiguredPrompt />
+        );
     }
 
     const joinedSession = joinState.joinedSessionName

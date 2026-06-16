@@ -8,7 +8,11 @@ import type {
     OperatorWatchStatus,
     SessionNotification,
 } from '../types';
-import { SESSION_NOTIFICATION_TYPE, STRINGS } from '../constants';
+import {
+    MIRRORD_UI_DEFAULT_BACKEND,
+    SESSION_NOTIFICATION_TYPE,
+    STRINGS,
+} from '../constants';
 import {
     storageGet,
     storageSet,
@@ -136,7 +140,11 @@ export type JoinState = {
 export function useMirrordUi() {
     const [backend, setBackend] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
+    const [configLoaded, setConfigLoaded] = useState(false);
     const [healthy, setHealthy] = useState<boolean | null>(null);
+    // True when we have no token but a `mirrord ui` server is answering on the default port.
+    // Lets the popup tell the user it's running and point them at the page to get configured.
+    const [uiDetectedNoToken, setUiDetectedNoToken] = useState(false);
     const [sessions, setSessions] = useState<OperatorSessionsResponse | null>(
         null
     );
@@ -198,6 +206,7 @@ export function useMirrordUi() {
                       )
                     : []
             );
+            setConfigLoaded(true);
         };
 
         loadFromStorage();
@@ -220,6 +229,32 @@ export function useMirrordUi() {
             .then(setHealthy)
             .catch(() => setHealthy(false));
     }, [backend]);
+
+    // When the extension has no token, poll the default `mirrord ui` port so we can tell the
+    // user it's already running and just needs configuring (instead of the generic "run mirrord
+    // ui" prompt). Stops as soon as a token arrives.
+    useEffect(() => {
+        if (!configLoaded || token) {
+            setUiDetectedNoToken(false);
+            return;
+        }
+        let cancelled = false;
+        const probe = () => {
+            pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
+                .then((ok) => {
+                    if (!cancelled) setUiDetectedNoToken(ok);
+                })
+                .catch(() => {
+                    if (!cancelled) setUiDetectedNoToken(false);
+                });
+        };
+        probe();
+        const interval = setInterval(probe, OPERATOR_SESSIONS_POLL_MS);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [configLoaded, token]);
 
     useEffect(() => {
         if (!backend || !token || healthy !== true) return;
@@ -403,6 +438,7 @@ export function useMirrordUi() {
     return {
         backend,
         healthy,
+        uiDetectedNoToken,
         sessions,
         status,
         error,
