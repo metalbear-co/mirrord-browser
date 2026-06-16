@@ -107,6 +107,8 @@ describe('SessionsView', () => {
 
     const baseProps = {
         sessionsLoaded: true,
+        authFailed: false,
+        backend: null as string | null,
         namespaces: ['', 'ns-a', 'ns-b'],
         namespace: '',
         setNamespace: jest.fn(),
@@ -181,6 +183,34 @@ describe('SessionsView', () => {
         );
         expect(screen.getByText(/not configured/i)).toBeInTheDocument();
         expect(screen.getByText('mirrord ui')).toBeInTheDocument();
+    });
+
+    test('renders the auth-error prompt (not run-mirrord-ui) when authFailed', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[]}
+                sessionsLoaded={false}
+                authFailed={true}
+                backend="http://127.0.0.1:8080"
+            />
+        );
+        expect(screen.getByText(/token rejected/i)).toBeInTheDocument();
+        expect(screen.getByText('127.0.0.1:8080')).toBeInTheDocument();
+        expect(screen.queryByText(/not configured/i)).not.toBeInTheDocument();
+    });
+
+    test('auth-error prompt falls back to the default mirrord ui port when backend is unknown', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[]}
+                sessionsLoaded={false}
+                authFailed={true}
+                backend={null}
+            />
+        );
+        expect(screen.getByText('127.0.0.1:59281')).toBeInTheDocument();
     });
 
     test('renders empty-state text when sessions are loaded but list is empty', () => {

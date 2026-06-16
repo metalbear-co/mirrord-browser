@@ -7,6 +7,7 @@ import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
 import { StatusDot } from './StatusDot';
 import { NotConfiguredPrompt } from './NotConfiguredPrompt';
+import { MirrordUiAuthError } from './MirrordUiAuthError';
 import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
@@ -15,6 +16,8 @@ import { STRINGS } from '../constants';
 type Props = {
     sessions: OperatorSessionSummary[];
     sessionsLoaded: boolean;
+    authFailed: boolean;
+    backend: string | null;
     namespaces: string[];
     namespace: string;
     setNamespace: (ns: string) => void;
@@ -50,6 +53,8 @@ function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
 export function SessionsView({
     sessions,
     sessionsLoaded,
+    authFailed,
+    backend,
     namespaces,
     namespace,
     setNamespace,
@@ -75,6 +80,10 @@ export function SessionsView({
                 matchesQuery(s, normalizedQuery)
         );
     }, [sessions, namespace, normalizedQuery]);
+
+    if (authFailed) {
+        return <MirrordUiAuthError backend={backend} />;
+    }
 
     if (!sessionsLoaded) {
         return <NotConfiguredPrompt />;

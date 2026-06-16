@@ -150,6 +150,32 @@ test('fetches sessions on mount when backend is configured', async () => {
     expect(Object.keys(result.current.groupedFiltered)).toContain('k1');
 });
 
+test('flags authFailed when the poller rejects the token (401)', async () => {
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+        const u = String(url);
+        if (u.includes('/health')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: () => Promise.resolve('ok'),
+                json: () => Promise.resolve({}),
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: false,
+            status: 401,
+            statusText: 'Unauthorized',
+            text: () => Promise.resolve('bad token'),
+            json: () => Promise.resolve({}),
+        } as unknown as Response);
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useMirrordUi());
+    await waitFor(() => expect(result.current.authFailed).toBe(true));
+    expect(result.current.sessions).toBeNull();
+});
+
 test('namespace filter narrows sessions', async () => {
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() =>
