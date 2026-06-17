@@ -5,37 +5,27 @@
 // (pages/applied.html), which decodes it, installs the rule, and shows the outcome — so the
 // user lands on an extension page instead of staying on the website. A bare visit (no
 // `#config=`) just gets a small in-page note and is otherwise left alone.
-import { CONFIG_HASH_PARAM, CONFIG_STORAGE_PARAM } from '../constants';
+import { CONFIG_HASH_PARAM } from '../constants';
 
 /**
- * Read a named parameter from a URL hash like `#config=PAYLOAD&storage=override`. Expects the
- * raw `window.location.hash`, which is always either empty or `#`-prefixed; anything else
- * returns null. The value is taken verbatim (not via URLSearchParams) so a base64 payload
- * keeps its `+`/`/`/`=` characters intact; it is re-encoded with encodeURIComponent when
- * building the result-page URL.
+ * Extract the config payload from a `#config=PAYLOAD` hash. Expects the raw
+ * `window.location.hash`, which is always either empty or `#`-prefixed; anything else returns
+ * null. The value is taken verbatim (not via URLSearchParams) so a base64 payload keeps its
+ * `+`/`/`/`=` characters intact; it is re-encoded with encodeURIComponent when building the
+ * result-page URL.
  */
-function readHashParam(hash: string, name: string): string | null {
+export function parseConfigPayload(hash: string): string | null {
     if (!hash.startsWith('#')) return null;
     const raw = hash.slice(1);
     if (!raw) return null;
     for (const part of raw.split('&')) {
         const eq = part.indexOf('=');
         if (eq === -1) continue;
-        if (part.slice(0, eq) !== name) continue;
+        if (part.slice(0, eq) !== CONFIG_HASH_PARAM) continue;
         const value = part.slice(eq + 1);
         return value.trim().length > 0 ? value : null;
     }
     return null;
-}
-
-/** Extract the config payload from a `#config=PAYLOAD` hash. */
-export function parseConfigPayload(hash: string): string | null {
-    return readHashParam(hash, CONFIG_HASH_PARAM);
-}
-
-/** Extract the optional `storage` option (e.g. `override`) from the hash. */
-export function parseStorageOption(hash: string): string | null {
-    return readHashParam(hash, CONFIG_STORAGE_PARAM);
 }
 
 const MESSAGE_BOX_ID = 'mirrord-config-message';
@@ -92,9 +82,7 @@ function handleHash(): void {
         return;
     }
 
-    const storage = parseStorageOption(window.location.hash);
     const params = new URLSearchParams({ payload });
-    if (storage) params.set(CONFIG_STORAGE_PARAM, storage);
     const url = `${chrome.runtime.getURL('pages/applied.html')}?${params.toString()}`;
     window.location.replace(url);
 }

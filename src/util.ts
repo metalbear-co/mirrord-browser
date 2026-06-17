@@ -11,7 +11,6 @@ import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
     CONFIG_HASH_PARAM,
-    CONFIG_STORAGE_PARAM,
 } from './constants';
 
 dayjs.extend(relativeTime);
@@ -171,18 +170,12 @@ export function encodeConfig(config: Config): string {
     return btoa(JSON.stringify(config));
 }
 
-export function buildShareUrl(
-    config: Config,
-    options?: { storage?: 'override' }
-): string {
+export function buildShareUrl(config: Config): string {
     const encoded = encodeConfig(config);
-    const storageParam = options?.storage
-        ? `&${CONFIG_STORAGE_PARAM}=${options.storage}`
-        : '';
     // Land on metalbear.com so the link works for recipients who don't have the extension yet;
     // the content script there forwards the payload to the result page. Carried in the hash
     // (not the query) so the base64 payload survives verbatim and never hits the server.
-    return `${METALBEAR_EXTENSION_URL}#${CONFIG_HASH_PARAM}=${encoded}${storageParam}`;
+    return `${METALBEAR_EXTENSION_URL}#${CONFIG_HASH_PARAM}=${encoded}`;
 }
 
 export type InjectionHint = {

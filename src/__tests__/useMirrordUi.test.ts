@@ -190,7 +190,7 @@ test('join writes the DNR rule and stores joined key', async () => {
     );
 });
 
-test('session share builds an override config link without backend or join params', async () => {
+test('session share builds a config link without backend or join params', async () => {
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() =>
         expect(result.current.sessions?.sessions.length).toBe(3)
@@ -200,7 +200,7 @@ test('session share builds an override config link without backend or join param
     const payload = url.match(/#config=([^&]+)/)?.[1];
 
     expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#/);
-    expect(url).toContain('&storage=override');
+    expect(url).not.toContain('storage=');
     expect(url).not.toContain('/pages/configure.html');
     expect(url).not.toContain('backend=');
     expect(url).not.toContain('join=');

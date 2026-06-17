@@ -70,7 +70,7 @@ describe('applied result page run()', () => {
         }
     });
 
-    it('applies a valid payload and reports done', async () => {
+    it('applies a valid payload as a transient override (never defaults)', async () => {
         const payload = btoa(
             JSON.stringify({
                 header_filter: 'X-Test: v',
@@ -88,22 +88,26 @@ describe('applied result page run()', () => {
             scope: '*://example.com/*',
         });
         expect(mockUpdateDynamicRules).toHaveBeenCalled();
-        // default (non-override) links never try to join a session
-        expect(mockJoinMatchingSession).not.toHaveBeenCalled();
-        // default storage: persisted as defaults, no joined-session teardown
+        // every link first tries to join a matching live session
+        expect(mockJoinMatchingSession).toHaveBeenCalledWith('X-Test', 'v');
+        // persisted as a reset-able override, never the saved defaults
         expect(mockStorageSet).toHaveBeenCalledWith(
+            expect.objectContaining({ override: expect.anything() }),
+            expect.any(Function)
+        );
+        expect(mockStorageSet).not.toHaveBeenCalledWith(
             expect.objectContaining({ defaults: expect.anything() }),
             expect.any(Function)
         );
-        expect(mockStorageRemove).not.toHaveBeenCalled();
+        expect(mockStorageRemove).toHaveBeenCalled();
     });
 
-    it('joins a matching live session for an override link instead of a static rule', async () => {
+    it('joins a matching live session instead of writing a static rule', async () => {
         mockJoinMatchingSession.mockResolvedValue('k1');
         const payload = btoa(
             JSON.stringify({ header_filter: 'baggage: mirrord-session=k1' })
         );
-        setSearch(`?payload=${encodeURIComponent(payload)}&storage=override`);
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
 
         const state = await run();
 
@@ -119,12 +123,12 @@ describe('applied result page run()', () => {
         );
     });
 
-    it('falls back to a static override when no live session matches', async () => {
+    it('falls back to a transient override when no live session matches', async () => {
         mockJoinMatchingSession.mockResolvedValue(null);
         const payload = btoa(
             JSON.stringify({ header_filter: 'baggage: mirrord-session=k1' })
         );
-        setSearch(`?payload=${encodeURIComponent(payload)}&storage=override`);
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
 
         const state = await run();
 

@@ -17,7 +17,6 @@ import {
 } from './configCore';
 import { applyHeaderConfig } from './applyConfig';
 import { joinMatchingSession } from './joinSession';
-import { CONFIG_STORAGE_PARAM } from './constants';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 
 initTheme();
@@ -40,10 +39,6 @@ export async function run(): Promise<AppliedState> {
     if (!payload) {
         return { kind: 'error', error: 'No config payload provided.' };
     }
-    const storage =
-        params.get(CONFIG_STORAGE_PARAM) === 'override'
-            ? ('override' as const)
-            : undefined;
 
     let header: string;
     let value: string;
@@ -70,26 +65,24 @@ export async function run(): Promise<AppliedState> {
     }
 
     try {
-        // For an override (session-join) link, prefer joining a matching live operator session
-        // so traffic is actually routed — same precedence as the config.html handler. Only fall
-        // back to a static override rule when mirrord ui isn't up or no live session matches.
-        if (storage === 'override') {
-            const joinedKey = await joinMatchingSession(header, value);
-            if (joinedKey) {
-                capture('extension_config_received', {
-                    has_scope: !!scope,
-                    source: 'web_link',
-                    joined_session: true,
-                });
-                emitUserSucceeded('joined', 'user_action', {
-                    key: joinedKey,
-                    source: 'web_link',
-                });
-                return { kind: 'done', header, value, scope, joinedKey };
-            }
+        // Prefer joining a matching live operator session so traffic is actually routed. When
+        // none matches (mirrord ui not up, session ended), fall back to a transient override
+        // rule. Either way the link never overwrites the user's saved defaults.
+        const joinedKey = await joinMatchingSession(header, value);
+        if (joinedKey) {
+            capture('extension_config_received', {
+                has_scope: !!scope,
+                source: 'web_link',
+                joined_session: true,
+            });
+            emitUserSucceeded('joined', 'user_action', {
+                key: joinedKey,
+                source: 'web_link',
+            });
+            return { kind: 'done', header, value, scope, joinedKey };
         }
 
-        await applyHeaderConfig(header, value, scope, { storage });
+        await applyHeaderConfig(header, value, scope);
         capture('extension_config_received', {
             has_scope: !!scope,
             source: 'web_link',

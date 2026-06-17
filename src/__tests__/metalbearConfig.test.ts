@@ -1,7 +1,4 @@
-import {
-    parseConfigPayload,
-    parseStorageOption,
-} from '../content/metalbearConfig';
+import { parseConfigPayload } from '../content/metalbearConfig';
 
 describe('parseConfigPayload', () => {
     it('extracts the payload from a #config= hash', () => {
@@ -31,17 +28,8 @@ describe('parseConfigPayload', () => {
         expect(parseConfigPayload('#config=')).toBeNull();
         expect(parseConfigPayload('#config=   ')).toBeNull();
     });
-});
 
-describe('parseStorageOption', () => {
-    it('reads the storage option alongside the config payload', () => {
-        expect(parseStorageOption('#config=abc&storage=override')).toBe(
-            'override'
-        );
-    });
-
-    it('returns null when no storage param is present', () => {
-        expect(parseStorageOption('#config=abc')).toBeNull();
-        expect(parseStorageOption('')).toBeNull();
+    it('ignores other hash params (config is the only one read)', () => {
+        expect(parseConfigPayload('#config=xyz&foo=bar')).toBe('xyz');
     });
 });

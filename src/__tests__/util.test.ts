@@ -288,13 +288,13 @@ describe('buildShareUrl', () => {
         expect(decoded).toEqual(config);
     });
 
-    it('can mark a config link as an override', () => {
+    it('carries no extra params (links are applied transiently, never persisted)', () => {
         const config = { header_filter: 'X-Test: value' };
 
-        const url = buildShareUrl(config, { storage: 'override' });
+        const url = buildShareUrl(config);
 
-        expect(url).toContain('#config=');
-        expect(url).toContain('&storage=override');
+        expect(url).not.toContain('&');
+        expect(url).not.toContain('storage=');
     });
 });
 

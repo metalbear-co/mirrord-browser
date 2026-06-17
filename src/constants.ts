@@ -139,11 +139,9 @@ export const METALBEAR_EXTENSION_URL =
     'https://metalbear.com/mirrord/extension';
 
 // The hash parameter on metalbear.com/mirrord/extension that carries the config payload.
+// Links are always applied transiently (joined live session, or a reset-able override) and
+// never overwrite the user's saved defaults, so no separate storage-slot param is needed.
 export const CONFIG_HASH_PARAM = 'config';
-
-// Hash/query parameter selecting the storage slot. 'override' stores a temporary session
-// override (cleared on reset-to-defaults) instead of overwriting the saved defaults.
-export const CONFIG_STORAGE_PARAM = 'storage';
 
 export const CONFIGURE_STATUS = {
     LOADING: 'loading',

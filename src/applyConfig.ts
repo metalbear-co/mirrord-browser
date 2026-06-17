@@ -1,6 +1,8 @@
-// Install a header-injection DNR rule and persist it as the stored default. Used by the
+// Install a header-injection DNR rule and persist it as a transient override. Used by the
 // metalbear.com result page (applied.tsx), which runs as a privileged extension page and so
-// can call declarativeNetRequest directly.
+// can call declarativeNetRequest directly. Incoming config links are never written to the
+// user's saved defaults — they apply as a reset-able override (or, when a live session matches,
+// the caller joins it instead). The user's defaults are only ever set locally in the popup.
 import {
     buildDnrRule,
     getDynamicRules,
@@ -14,8 +16,7 @@ import { STORAGE_KEYS } from './types';
 export async function applyHeaderConfig(
     header: string,
     value: string,
-    scope?: string,
-    options?: { storage?: 'override' }
+    scope?: string
 ): Promise<void> {
     const existing = await getDynamicRules();
     const rules = buildDnrRule(header, value, scope);
@@ -26,21 +27,21 @@ export async function applyHeaderConfig(
         ],
         addRules: rules,
     });
-    const config = { headerName: header, headerValue: value, scope };
-    if (options?.storage === 'override') {
-        // Temporary override (e.g. a shared session-join link): replace any joined-session
-        // state and store under OVERRIDE so the user's saved defaults stay intact and can be
-        // restored with reset-to-defaults — mirrors the config.html `storage=override` path.
-        await storageRemove([
-            STORAGE_KEYS.JOINED_KEY,
-            STORAGE_KEYS.JOINED_SESSION_NAME,
-            STORAGE_KEYS.JOINED_HEADER,
-            STORAGE_KEYS.JOINED_VALUE,
-            STORAGE_KEYS.SCOPE_PATTERNS,
-        ]);
-        await storageSet({ [STORAGE_KEYS.OVERRIDE]: config });
-    } else {
-        await storageSet({ [STORAGE_KEYS.DEFAULTS]: config });
-    }
+    // Replace any joined-session state and store under OVERRIDE so the user's saved defaults
+    // stay intact and can be restored with reset-to-defaults.
+    await storageRemove([
+        STORAGE_KEYS.JOINED_KEY,
+        STORAGE_KEYS.JOINED_SESSION_NAME,
+        STORAGE_KEYS.JOINED_HEADER,
+        STORAGE_KEYS.JOINED_VALUE,
+        STORAGE_KEYS.SCOPE_PATTERNS,
+    ]);
+    await storageSet({
+        [STORAGE_KEYS.OVERRIDE]: {
+            headerName: header,
+            headerValue: value,
+            scope,
+        },
+    });
     refreshIconIndicator(rules.length);
 }
