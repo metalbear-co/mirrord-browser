@@ -190,17 +190,17 @@ test('join writes the DNR rule and stores joined key', async () => {
     );
 });
 
-test('session share builds an override config link without backend or join params', async () => {
+test('session share builds a config link without backend or join params', async () => {
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() =>
         expect(result.current.sessions?.sessions.length).toBe(3)
     );
 
     const url = result.current.buildShareUrl('k1');
-    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+    const payload = url.match(/#config=([^&]+)/)?.[1];
 
-    expect(url).toContain('/pages/config.html');
-    expect(url).toContain('&storage=override');
+    expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#/);
+    expect(url).not.toContain('storage=');
     expect(url).not.toContain('/pages/configure.html');
     expect(url).not.toContain('backend=');
     expect(url).not.toContain('join=');
@@ -250,7 +250,7 @@ test('session share uses the operator HTTP filter when it can derive a header', 
     );
 
     const url = result.current.buildShareUrl('k0');
-    const payload = url.match(/[?&]payload=([^&]+)/)?.[1];
+    const payload = url.match(/#config=([^&]+)/)?.[1];
 
     expect(payload).toBeTruthy();
     expect(decodeConfig(payload!)).toEqual({

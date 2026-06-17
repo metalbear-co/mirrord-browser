@@ -380,7 +380,7 @@ export function useMirrordUi() {
             const config: Config = {
                 header_filter: `${header}: ${value}`,
             };
-            return buildConfigShareUrl(config, { storage: 'override' });
+            return buildConfigShareUrl(config);
         },
         [sessions]
     );

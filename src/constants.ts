@@ -131,6 +131,18 @@ export type RowTag = (typeof ROW_TAG)[keyof typeof ROW_TAG];
 
 export const NAMESPACE_ALL_SENTINEL = '__all__';
 
+// The metalbear.com page whose visits the content script intercepts. Share links point here
+// (with a `#config=` payload) rather than at a `chrome-extension://` URL, so recipients without
+// the extension land on the install page, and once installed the content script applies the
+// payload on a privileged extension page.
+export const METALBEAR_EXTENSION_URL =
+    'https://metalbear.com/mirrord/extension';
+
+// The hash parameter on metalbear.com/mirrord/extension that carries the config payload.
+// Links are always applied transiently (joined live session, or a reset-able override) and
+// never overwrite the user's saved defaults, so no separate storage-slot param is needed.
+export const CONFIG_HASH_PARAM = 'config';
+
 export const CONFIGURE_STATUS = {
     LOADING: 'loading',
     CONNECTED: 'connected',

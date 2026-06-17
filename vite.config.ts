@@ -14,6 +14,7 @@ export default defineConfig({
                 configure: resolve(__dirname, 'pages/configure.html'),
                 popup: resolve(__dirname, 'pages/popup.html'),
                 options: resolve(__dirname, 'pages/options.html'),
+                applied: resolve(__dirname, 'pages/applied.html'),
             },
             output: {
                 assetFileNames: '[name].[ext]',

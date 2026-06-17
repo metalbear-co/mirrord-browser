@@ -605,7 +605,7 @@ describe('useHeaderRules analytics', () => {
             expect(mockClipboardWriteText).toHaveBeenCalledTimes(1);
             const url = mockClipboardWriteText.mock.calls[0][0];
             expect(url).toMatch(
-                /^chrome-extension:\/\/test-extension-id\/pages\/config\.html\?payload=/
+                /^https:\/\/metalbear\.com\/mirrord\/extension#config=/
             );
         });
 
@@ -653,7 +653,7 @@ describe('useHeaderRules analytics', () => {
             });
 
             const url = mockClipboardWriteText.mock.calls[0][0];
-            const payload = url.split('?payload=')[1];
+            const payload = url.split('#config=')[1];
             const decoded = JSON.parse(atob(payload));
             expect(decoded.inject_scope).toBe('*://example.com/*');
         });
