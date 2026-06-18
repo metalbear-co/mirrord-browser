@@ -104,19 +104,24 @@ export function SessionsView({
     const groups = groupBy(filtered, (s) => s.key);
 
     const joinedKey = joinState.joinedKey;
-    const otherKeys = Object.keys(groups)
+    // The joined session is represented by the ConnectedBanner above, so drop its
+    // card from the list to avoid showing the same session twice.
+    const orderedKeys = Object.keys(groups)
         .filter((k) => k !== joinedKey)
         .sort((a, b) => a.localeCompare(b));
-    const orderedKeys =
-        joinedKey && groups[joinedKey] ? [joinedKey, ...otherKeys] : otherKeys;
+    // Source the joined group from the full session list (not `filtered`) so the
+    // banner's meta survives search/namespace filtering.
+    const joinedSessions = joinedKey
+        ? sessions.filter((s) => s.key === joinedKey)
+        : [];
 
     const hasNamespaces = namespaces.filter((ns) => ns !== '').length > 0;
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
-    const totalSessionsBeforeQuery = namespace
-        ? sessions.filter((s) => s.namespace === namespace).length
-        : sessions.length;
+    const totalSessionsBeforeQuery = sessions.filter(
+        (s) => (!namespace || s.namespace === namespace) && s.key !== joinedKey
+    ).length;
     const showSearch = totalSessionsBeforeQuery > 0;
 
     const VISIBLE_CAP = 5;
@@ -131,9 +136,10 @@ export function SessionsView({
             {joinState.joinedKey && (
                 <ConnectedBanner
                     joinedKey={joinState.joinedKey}
-                    session={joinedSession}
+                    sessions={joinedSessions}
                     sessionEnded={effectiveSessionEnded}
                     onLeave={onClear}
+                    onShare={() => onShare(joinState.joinedKey!)}
                     scopePatterns={scopePatterns}
                     onAddScopePattern={onAddScopePattern}
                     onRemoveScopePattern={onRemoveScopePattern}
@@ -201,7 +207,7 @@ export function SessionsView({
                         }}
                     >
                         <span>
-                            {filtered.length} {STRINGS.MSG_LIVE_SESSIONS}
+                            {orderedKeys.length} {STRINGS.MSG_LIVE_SESSIONS}
                         </span>
                         {status && (
                             <span
