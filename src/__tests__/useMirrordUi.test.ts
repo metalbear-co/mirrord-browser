@@ -67,11 +67,17 @@ const sampleResponse: OperatorSessionsResponse = {
     watch_status: { status: 'watching' },
 };
 
+let storage: Record<string, unknown>;
+let storageListeners: ((
+    changes: Record<string, chrome.storage.StorageChange>
+) => void)[];
+
 beforeEach(() => {
-    const storage: Record<string, unknown> = {
+    storage = {
         [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:8082',
         [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'tok',
     };
+    storageListeners = [];
     (global as unknown as { chrome: unknown }).chrome = {
         ...((global as unknown as { chrome?: unknown }).chrome ?? {}),
         storage: {
@@ -93,8 +99,30 @@ beforeEach(() => {
                 }),
             },
             onChanged: {
-                addListener: jest.fn(),
-                removeListener: jest.fn(),
+                addListener: jest.fn(
+                    (
+                        l: (
+                            changes: Record<
+                                string,
+                                chrome.storage.StorageChange
+                            >
+                        ) => void
+                    ) => storageListeners.push(l)
+                ),
+                removeListener: jest.fn(
+                    (
+                        l: (
+                            changes: Record<
+                                string,
+                                chrome.storage.StorageChange
+                            >
+                        ) => void
+                    ) => {
+                        storageListeners = storageListeners.filter(
+                            (x) => x !== l
+                        );
+                    }
+                ),
             },
         },
         declarativeNetRequest: {
@@ -174,6 +202,105 @@ test('flags authFailed when the poller rejects the token (401)', async () => {
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() => expect(result.current.authFailed).toBe(true));
     expect(result.current.sessions).toBeNull();
+});
+
+test('clears authFailed once a freshly stored token is accepted', async () => {
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+        const u = String(url);
+        if (u.includes('/health')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: () => Promise.resolve('ok'),
+                json: () => Promise.resolve({}),
+            } as unknown as Response);
+        }
+        if (u.includes('token=fresh')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: () => Promise.resolve(JSON.stringify(sampleResponse)),
+                json: () => Promise.resolve(sampleResponse),
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: false,
+            status: 401,
+            statusText: 'Unauthorized',
+            text: () => Promise.resolve('bad token'),
+            json: () => Promise.resolve({}),
+        } as unknown as Response);
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useMirrordUi());
+    await waitFor(() => expect(result.current.authFailed).toBe(true));
+
+    await act(async () => {
+        storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'fresh';
+        storageListeners.forEach((l) =>
+            l({
+                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: {
+                    oldValue: 'tok',
+                    newValue: 'fresh',
+                },
+            })
+        );
+    });
+
+    await waitFor(() => expect(result.current.authFailed).toBe(false));
+    await waitFor(() =>
+        expect(result.current.sessions?.sessions.length).toBe(3)
+    );
+});
+
+test('clears authFailed when a later poll fails for a non-auth reason', async () => {
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+        const u = String(url);
+        if (u.includes('/health')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: () => Promise.resolve('ok'),
+                json: () => Promise.resolve({}),
+            } as unknown as Response);
+        }
+        if (u.includes('token=other')) {
+            return Promise.resolve({
+                ok: false,
+                status: 503,
+                statusText: 'Service Unavailable',
+                text: () => Promise.resolve('down'),
+                json: () => Promise.resolve({}),
+            } as unknown as Response);
+        }
+        return Promise.resolve({
+            ok: false,
+            status: 401,
+            statusText: 'Unauthorized',
+            text: () => Promise.resolve('bad token'),
+            json: () => Promise.resolve({}),
+        } as unknown as Response);
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useMirrordUi());
+    await waitFor(() => expect(result.current.authFailed).toBe(true));
+
+    await act(async () => {
+        storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'other';
+        storageListeners.forEach((l) =>
+            l({
+                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: {
+                    oldValue: 'tok',
+                    newValue: 'other',
+                },
+            })
+        );
+    });
+
+    await waitFor(() => expect(result.current.authFailed).toBe(false));
 });
 
 test('namespace filter narrows sessions', async () => {

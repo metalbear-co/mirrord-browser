@@ -6,15 +6,18 @@ import { COLORS } from '../colors';
 import { STORAGE_KEYS } from '../types';
 import { storageSet } from '../util';
 
-// Shown when the mirrord ui poller is reachable but rejects our token (HTTP 401/403) — a
-// stale token, or another process squatting on the port. Offers the two fixes: paste a fresh
-// token (from `mirrord ui`) or re-open the mirrord ui page so it re-sets backend + token.
+// Shown when the mirrord ui poller is reachable but rejects our token (HTTP 401/403): a stale
+// token after a mirrord ui restart, or another process on its port. The extension can't fix the
+// token itself (it only holds the rejected one), so it points the user at the two real recoveries:
+// re-run `mirrord ui` (which re-syncs the extension) or paste the current token from ~/.mirrord/token.
 export function MirrordUiAuthError({ backend }: { backend: string | null }) {
     const [tokenInput, setTokenInput] = useState('');
-    // Use the stored backend's actual port when we have it, otherwise fall back to the
-    // default port `mirrord ui` listens on.
-    const uiPage = backend ?? MIRRORD_UI_DEFAULT_BACKEND;
-    const host = uiPage.replace(/^https?:\/\//, '');
+    // The backend whose token was rejected, for display only; falls back to the default port
+    // `mirrord ui` listens on when we have no stored backend.
+    const host = (backend ?? MIRRORD_UI_DEFAULT_BACKEND).replace(
+        /^https?:\/\//,
+        ''
+    );
 
     const setToken = async () => {
         const value = tokenInput.trim();
@@ -117,15 +120,8 @@ export function MirrordUiAuthError({ backend }: { backend: string | null }) {
                     className="text-muted-foreground"
                     style={{ fontSize: 11, lineHeight: 1.45, margin: 0 }}
                 >
-                    {STRINGS.MSG_REOPEN_UI_PAGE}{' '}
-                    <a
-                        href={uiPage}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-mono underline"
-                    >
-                        {host}
-                    </a>
+                    {STRINGS.MSG_AUTH_FAILED_BACKEND}{' '}
+                    <code className="font-mono">{host}</code>
                 </p>
             </CardContent>
         </Card>
