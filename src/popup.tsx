@@ -194,6 +194,8 @@ function SessionsScreen({
         <SessionsView
             sessions={mirrordUi.sessions?.sessions ?? []}
             sessionsLoaded={mirrordUi.sessions !== null}
+            authFailed={mirrordUi.authFailed}
+            backend={mirrordUi.backend}
             namespaces={mirrordUi.namespaces}
             namespace={mirrordUi.namespace}
             setNamespace={mirrordUi.setNamespace}

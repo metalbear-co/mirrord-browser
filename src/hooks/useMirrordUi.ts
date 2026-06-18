@@ -40,17 +40,21 @@ export async function fetchOperatorSessions(
     return (await resp.json()) as OperatorSessionsResponse;
 }
 
+export type PollResult =
+    | { ok: true; data: OperatorSessionsResponse }
+    | { ok: false; status?: number; error: string };
+
 export async function runPoll(
     backend: string,
     token: string
-): Promise<OperatorSessionsResponse | null> {
+): Promise<PollResult> {
     try {
         const resp = await fetchOperatorSessions(backend, token);
         if (!bridgeHealthy) {
             bridgeHealthy = true;
             emitUserSucceeded('bridge_recovered', 'health');
         }
-        return resp;
+        return { ok: true, data: resp };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         const status = (err as { status?: number })?.status;
@@ -61,8 +65,13 @@ export async function runPoll(
                 ...(status !== undefined && { status }),
             });
         }
-        return null;
+        return { ok: false, status, error };
     }
+}
+
+/** True for HTTP responses that indicate the mirrord ui token is wrong / rejected. */
+export function isAuthFailureStatus(status: number | undefined): boolean {
+    return status === 401 || status === 403;
 }
 
 export function buildWsUrl(backend: string, token: string): string {
@@ -133,6 +142,9 @@ export function useMirrordUi() {
     );
     const [status, setStatus] = useState<OperatorWatchStatus | null>(null);
     const [error, setError] = useState<string | null>(null);
+    // The poller is reachable but rejected our token (401/403) — likely a stale token or
+    // another process on the port. Surfaced separately so the UI can tell the user to re-auth.
+    const [authFailed, setAuthFailed] = useState(false);
     const [namespace, setNamespace] = useState<string>('');
     const [joinState, setJoinState] = useState<JoinState>({
         joinedKey: null,
@@ -213,12 +225,15 @@ export function useMirrordUi() {
         if (!backend || !token || healthy !== true) return;
         let cancelled = false;
         const refresh = () => {
-            runPoll(backend, token).then((resp) => {
+            runPoll(backend, token).then((result) => {
                 if (cancelled) return;
-                if (resp !== null) {
-                    setSessions(resp);
-                    setStatus(resp.watch_status);
+                if (result.ok) {
+                    setSessions(result.data);
+                    setStatus(result.data.watch_status);
                     setError(null);
+                    setAuthFailed(false);
+                } else {
+                    setAuthFailed(isAuthFailureStatus(result.status));
                 }
             });
         };
@@ -391,6 +406,7 @@ export function useMirrordUi() {
         sessions,
         status,
         error,
+        authFailed,
         namespaces,
         namespace,
         setNamespace,

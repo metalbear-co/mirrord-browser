@@ -31,6 +31,13 @@ export const STRINGS = {
     MSG_NOT_CONFIGURED: 'Not configured',
     MSG_NOT_CONFIGURED_HINT: 'Run this in your terminal to connect.',
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
+    MSG_AUTH_FAILED_TITLE: 'mirrord ui token rejected',
+    MSG_AUTH_FAILED_HINT:
+        'mirrord ui restarted with a new token, or another process is using its port. Re-run mirrord ui to reconnect automatically. You can also paste the current token below.',
+    LABEL_MIRRORD_UI_TOKEN: 'mirrord ui token',
+    PLACEHOLDER_MIRRORD_UI_TOKEN: 'Paste token from mirrord ui',
+    BTN_SET_TOKEN: 'Set token',
+    MSG_AUTH_FAILED_BACKEND: 'Rejected by mirrord ui at',
     MSG_NO_ACTIVE_SESSIONS: 'No active sessions yet.',
     MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
     MSG_INSTALL_OPERATOR: 'Install the operator',
@@ -142,6 +149,11 @@ export const METALBEAR_EXTENSION_URL =
 // Links are always applied transiently (joined live session, or a reset-able override) and
 // never overwrite the user's saved defaults, so no separate storage-slot param is needed.
 export const CONFIG_HASH_PARAM = 'config';
+
+// Default port `mirrord ui` listens on (its `--port` default).
+// Source: metalbear-co/mirrord — mirrord/cli/src/config.rs `UI_DEFAULT_PORT`.
+export const MIRRORD_UI_DEFAULT_PORT = 59281;
+export const MIRRORD_UI_DEFAULT_BACKEND = `http://127.0.0.1:${MIRRORD_UI_DEFAULT_PORT}`;
 
 export const CONFIGURE_STATUS = {
     LOADING: 'loading',
