@@ -33,11 +33,11 @@ export const STRINGS = {
     MSG_MIRRORD_UI_COMMAND: 'mirrord ui',
     MSG_AUTH_FAILED_TITLE: 'mirrord ui token rejected',
     MSG_AUTH_FAILED_HINT:
-        'The token seems wrong, or another process is listening on the mirrord ui port. Get a fresh token by running mirrord ui and paste it below, or re-open the mirrord ui page to set it automatically.',
+        'mirrord ui restarted with a new token, or another process is using its port. Re-run mirrord ui to reconnect automatically, or paste the current token (from ~/.mirrord/token) below.',
     LABEL_MIRRORD_UI_TOKEN: 'mirrord ui token',
     PLACEHOLDER_MIRRORD_UI_TOKEN: 'Paste token from mirrord ui',
     BTN_SET_TOKEN: 'Set token',
-    MSG_REOPEN_UI_PAGE: 'Re-open mirrord ui page:',
+    MSG_AUTH_FAILED_BACKEND: 'Rejected by mirrord ui at',
     MSG_NO_ACTIVE_SESSIONS: 'No active sessions yet.',
     MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
     MSG_INSTALL_OPERATOR: 'Install the operator',

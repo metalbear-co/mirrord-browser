@@ -232,8 +232,8 @@ export function useMirrordUi() {
                     setStatus(result.data.watch_status);
                     setError(null);
                     setAuthFailed(false);
-                } else if (isAuthFailureStatus(result.status)) {
-                    setAuthFailed(true);
+                } else {
+                    setAuthFailed(isAuthFailureStatus(result.status));
                 }
             });
         };
