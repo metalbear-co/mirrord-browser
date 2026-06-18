@@ -195,6 +195,7 @@ function SessionsScreen({
             sessions={mirrordUi.sessions?.sessions ?? []}
             sessionsLoaded={mirrordUi.sessions !== null}
             authFailed={mirrordUi.authFailed}
+            uiDetectedNoToken={mirrordUi.uiDetectedNoToken}
             backend={mirrordUi.backend}
             namespaces={mirrordUi.namespaces}
             namespace={mirrordUi.namespace}

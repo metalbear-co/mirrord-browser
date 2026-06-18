@@ -108,6 +108,7 @@ describe('SessionsView', () => {
     const baseProps = {
         sessionsLoaded: true,
         authFailed: false,
+        uiDetectedNoToken: false,
         backend: null as string | null,
         namespaces: ['', 'ns-a', 'ns-b'],
         namespace: '',
@@ -183,6 +184,21 @@ describe('SessionsView', () => {
         );
         expect(screen.getByText(/not configured/i)).toBeInTheDocument();
         expect(screen.getByText('mirrord ui')).toBeInTheDocument();
+    });
+
+    test('renders the ui-detected prompt when mirrord ui is up but we have no token', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[]}
+                sessionsLoaded={false}
+                uiDetectedNoToken={true}
+            />
+        );
+        expect(screen.getByText(/mirrord ui is running/i)).toBeInTheDocument();
+        const link = screen.getByRole('link', { name: /open mirrord ui/i });
+        expect(link).toHaveAttribute('href', 'http://127.0.0.1:59281');
+        expect(screen.queryByText(/not configured/i)).not.toBeInTheDocument();
     });
 
     test('renders the auth-error prompt (not run-mirrord-ui) when authFailed', () => {
