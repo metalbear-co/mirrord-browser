@@ -1,5 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Activity, Check, Copy, Globe, X, Plus } from 'lucide-react';
+import {
+    Activity,
+    Box,
+    Check,
+    Copy,
+    Globe,
+    Share2,
+    X,
+    Plus,
+} from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
 import { STRINGS } from '../constants';
@@ -7,12 +16,18 @@ import { COLORS } from '../colors';
 import { RING_SECONDS } from '../headerObservation';
 import { useHeaderObservation } from '../hooks/useHeaderObservation';
 import { StatusDot } from './StatusDot';
+import {
+    aggregateSessions,
+    formatRelativeTime,
+    targetDisplayName,
+} from '../util';
 
 type Props = {
     joinedKey: string;
-    session: OperatorSessionSummary | undefined;
+    sessions: OperatorSessionSummary[];
     sessionEnded: boolean;
     onLeave: () => void;
+    onShare: () => void;
     scopePatterns: string[];
     onAddScopePattern: (pattern: string) => void | Promise<void>;
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
@@ -20,16 +35,32 @@ type Props = {
     joinedValue: string | null;
 };
 
+const MAX_TARGETS = 4;
+
 export function ConnectedBanner({
     joinedKey,
+    sessions,
     sessionEnded,
     onLeave,
+    onShare,
     scopePatterns,
     onAddScopePattern,
     onRemoveScopePattern,
     joinedHeader,
     joinedValue,
 }: Props) {
+    const agg = aggregateSessions(sessions);
+    const shownTargets = agg.targets.slice(0, MAX_TARGETS);
+    const overflowTargets = agg.targets.length - shownTargets.length;
+    const age = formatRelativeTime(agg.earliestCreatedAt);
+    const ownerLabel = agg.isPreview
+        ? 'preview'
+        : agg.owners.length === 1
+          ? agg.owners[0]
+          : agg.owners.length > 1
+            ? `${agg.owners.length} owners`
+            : '';
+    const metaParts = [ownerLabel, age].filter(Boolean);
     const label = sessionEnded
         ? STRINGS.MSG_SESSION_ENDED
         : STRINGS.MSG_SESSION_LIVE;
@@ -129,16 +160,89 @@ export function ConnectedBanner({
                         {joinedKey}
                     </div>
                 </div>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onLeave}
-                    style={{ height: 28, padding: '0 12px' }}
-                >
-                    {buttonLabel}
-                </Button>
+                <div className="flex items-center" style={{ gap: 6 }}>
+                    {!sessionEnded && (
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={onShare}
+                            aria-label={`Copy override link for ${joinedKey}`}
+                            title="Copy override link"
+                            style={{ height: 28, width: 28 }}
+                        >
+                            <Share2 style={{ height: 14, width: 14 }} />
+                        </Button>
+                    )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={onLeave}
+                        style={{ height: 28, padding: '0 12px' }}
+                    >
+                        {buttonLabel}
+                    </Button>
+                </div>
             </div>
+
+            {(shownTargets.length > 0 || metaParts.length > 0) && (
+                <div
+                    className="flex flex-col"
+                    style={{
+                        gap: 4,
+                        paddingTop: 8,
+                        borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
+                    }}
+                >
+                    {shownTargets.map((t) => (
+                        <div
+                            key={t}
+                            className="flex items-center gap-2 min-w-0"
+                        >
+                            <Box
+                                className="shrink-0 text-muted-foreground"
+                                style={{ height: 13, width: 13 }}
+                            />
+                            <div
+                                className="min-w-0 font-mono font-bold"
+                                style={{
+                                    fontSize: 12,
+                                    lineHeight: 1.45,
+                                    color: COLORS.brand.lilac,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {targetDisplayName(t)}
+                            </div>
+                        </div>
+                    ))}
+                    {overflowTargets > 0 && (
+                        <div
+                            className="text-muted-foreground"
+                            style={{ paddingLeft: 21, fontSize: 11 }}
+                        >
+                            + {overflowTargets} more target
+                            {overflowTargets === 1 ? '' : 's'}
+                        </div>
+                    )}
+                    {metaParts.length > 0 && (
+                        <div
+                            className="text-muted-foreground"
+                            style={{
+                                fontSize: 11,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {metaParts.join(' · ')}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {!sessionEnded && (
                 <div

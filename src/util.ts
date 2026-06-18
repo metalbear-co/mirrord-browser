@@ -166,6 +166,56 @@ export function formatRelativeTime(iso: string | null | undefined): string {
     return parsed.fromNow();
 }
 
+export const PREVIEW_OWNER_USERNAME = 'preview-env';
+
+export type SessionGroupAggregate = {
+    targets: string[];
+    owners: string[];
+    namespaces: string[];
+    earliestCreatedAt: string | null;
+    isPreview: boolean;
+};
+
+export function aggregateSessions(
+    sessions: OperatorSessionSummary[]
+): SessionGroupAggregate {
+    const targets = new Set<string>();
+    const owners = new Set<string>();
+    const namespaces = new Set<string>();
+    let earliest: string | null = null;
+    let isPreview = false;
+
+    for (const s of sessions) {
+        const targetLabel = s.target
+            ? `${s.target.kind}/${s.target.name}`
+            : 'targetless';
+        targets.add(targetLabel);
+        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
+            isPreview = true;
+        } else if (s.owner?.username) {
+            owners.add(s.owner.username);
+        }
+        namespaces.add(s.namespace);
+        if (s.createdAt && (!earliest || s.createdAt < earliest)) {
+            earliest = s.createdAt;
+        }
+    }
+
+    return {
+        targets: Array.from(targets),
+        owners: Array.from(owners),
+        namespaces: Array.from(namespaces),
+        earliestCreatedAt: earliest,
+        isPreview,
+    };
+}
+
+// Targets are stored as `kind/name`; the UI shows just the name.
+export function targetDisplayName(target: string): string {
+    const slashIdx = target.indexOf('/');
+    return slashIdx >= 0 ? target.slice(slashIdx + 1) : target;
+}
+
 export function encodeConfig(config: Config): string {
     return btoa(JSON.stringify(config));
 }

@@ -8,7 +8,12 @@ import {
     Separator,
 } from '@metalbear/ui';
 import type { OperatorSessionSummary } from '../types';
-import { formatRelativeTime } from '../util';
+import {
+    aggregateSessions,
+    formatRelativeTime,
+    targetDisplayName,
+    type SessionGroupAggregate,
+} from '../util';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
@@ -28,48 +33,6 @@ const TRUNCATE_STYLE: React.CSSProperties = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
 };
-
-type GroupAggregate = {
-    targets: string[];
-    owners: string[];
-    namespaces: string[];
-    earliestCreatedAt: string | null;
-    isPreview: boolean;
-};
-
-const PREVIEW_OWNER_USERNAME = 'preview-env';
-
-function aggregate(sessions: OperatorSessionSummary[]): GroupAggregate {
-    const targets = new Set<string>();
-    const owners = new Set<string>();
-    const namespaces = new Set<string>();
-    let earliest: string | null = null;
-    let isPreview = false;
-
-    for (const s of sessions) {
-        const targetLabel = s.target
-            ? `${s.target.kind}/${s.target.name}`
-            : 'targetless';
-        targets.add(targetLabel);
-        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
-            isPreview = true;
-        } else if (s.owner?.username) {
-            owners.add(s.owner.username);
-        }
-        namespaces.add(s.namespace);
-        if (s.createdAt && (!earliest || s.createdAt < earliest)) {
-            earliest = s.createdAt;
-        }
-    }
-
-    return {
-        targets: Array.from(targets),
-        owners: Array.from(owners),
-        namespaces: Array.from(namespaces),
-        earliestCreatedAt: earliest,
-        isPreview,
-    };
-}
 
 function GroupHeader({
     groupKey,
@@ -136,8 +99,7 @@ function GroupHeader({
 }
 
 function TargetRow({ target }: { target: string }) {
-    const slashIdx = target.indexOf('/');
-    const name = slashIdx >= 0 ? target.slice(slashIdx + 1) : target;
+    const name = targetDisplayName(target);
     return (
         <div className="flex items-center gap-2 min-w-0">
             <Box
@@ -163,7 +125,7 @@ function GroupMeta({
     agg,
     sessionCount,
 }: {
-    agg: GroupAggregate;
+    agg: SessionGroupAggregate;
     sessionCount: number;
 }) {
     const age = formatRelativeTime(agg.earliestCreatedAt);
@@ -253,7 +215,7 @@ export function SessionKeyGroup({
     onJoin,
     onShare,
 }: Props) {
-    const agg = aggregate(sessions);
+    const agg = aggregateSessions(sessions);
     const shownTargets = agg.targets.slice(0, MAX_TARGETS);
     const overflow = agg.targets.length - shownTargets.length;
 

@@ -45,6 +45,12 @@ export function Popup() {
     const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
 
+    // Sessions sharing a key are presented as one group, so count distinct keys
+    // (not raw sessions) to match the list below.
+    const sessionKeyCount = new Set(
+        (mirrordUi.sessions?.sessions ?? []).map((s) => s.key)
+    ).size;
+
     const [tab, setTab] = useState<TabId>(TAB.MANUAL);
     const [tabRestored, setTabRestored] = useState(false);
     const [themePref, setThemeState] = useState<ThemePref>('system');
@@ -150,8 +156,7 @@ export function Popup() {
                         <TabsTrigger value={TAB.SESSIONS}>
                             <span className="inline-flex items-center gap-1.5">
                                 {STRINGS.TAB_SESSIONS}
-                                {(mirrordUi.sessions?.sessions.length ?? 0) >
-                                    0 && (
+                                {sessionKeyCount > 0 && (
                                     <span
                                         className="font-mono"
                                         style={{
@@ -164,7 +169,7 @@ export function Popup() {
                                             lineHeight: 1.4,
                                         }}
                                     >
-                                        {mirrordUi.sessions?.sessions.length}
+                                        {sessionKeyCount}
                                     </span>
                                 )}
                             </span>

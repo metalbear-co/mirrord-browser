@@ -138,6 +138,13 @@ describe('SessionsView', () => {
         ).toBeNull();
     });
 
+    test('counts unique keys, not raw sessions', () => {
+        // k3 has two sessions; the count should treat that group as one.
+        const withDup = [...sessions, s('d', 'k3', 'ns-a')];
+        render(<SessionsView {...baseProps} sessions={withDup} />);
+        expect(screen.getByText(/3 live sessions/i)).toBeInTheDocument();
+    });
+
     test('clicking Join on a row calls onJoin with that session key', () => {
         const onJoin = jest.fn();
         render(
@@ -161,6 +168,59 @@ describe('SessionsView', () => {
         );
         expect(screen.getByText(/session live/i)).toBeInTheDocument();
         expect(screen.getAllByText('k1').length).toBeGreaterThan(0);
+    });
+
+    test('drops the joined session card from the list (no duplicate)', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={sessions}
+                joinState={{
+                    joinedKey: 'k1',
+                    joinedSessionName: 'a',
+                    sessionEnded: false,
+                }}
+            />
+        );
+        // k1 only appears in the banner, not as a second list card.
+        expect(screen.getAllByText('k1')).toHaveLength(1);
+        // The remaining keys still render, and the count excludes the joined one.
+        expect(screen.getByText('k2')).toBeInTheDocument();
+        expect(screen.getByText('k3')).toBeInTheDocument();
+        expect(screen.getByText(/2 live sessions/i)).toBeInTheDocument();
+    });
+
+    test('banner carries the joined session target, owner, and share button', () => {
+        const onShare = jest.fn();
+        const joined: OperatorSessionSummary = {
+            id: 'j',
+            key: 'k9',
+            namespace: 'ns',
+            owner: { username: 'bob', k8sUsername: 'bob@ex' },
+            target: { kind: 'Deployment', name: 'inventory', container: 'app' },
+            createdAt: '2026-01-01T00:00:00Z',
+        };
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, joined]}
+                onShare={onShare}
+                joinState={{
+                    joinedKey: 'k9',
+                    joinedSessionName: 'j',
+                    sessionEnded: false,
+                }}
+            />
+        );
+        // Affected service (target name) and user (owner) surface in the banner.
+        expect(screen.getByText('inventory')).toBeInTheDocument();
+        expect(screen.getByText(/bob/)).toBeInTheDocument();
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: /copy override link for k9/i,
+            })
+        );
+        expect(onShare).toHaveBeenCalledWith('k9');
     });
 
     test('shows session-ended banner when joined session was removed', () => {
