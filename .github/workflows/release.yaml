@@ -1,7 +1,6 @@
 name: Publish
 
-permissions:
-    contents: read
+permissions: {}
 
 on:
     pull_request:
@@ -12,6 +11,8 @@ on:
 jobs:
     validate_release_request:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         outputs:
             should_release: ${{ steps.validate.outputs.should_release }}
             version: ${{ steps.validate.outputs.version }}
@@ -72,6 +73,8 @@ jobs:
         needs: [validate_release_request]
         if: needs.validate_release_request.outputs.should_release == 'true'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         steps:
             - name: Checkout code
               uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

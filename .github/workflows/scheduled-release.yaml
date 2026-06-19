@@ -6,9 +6,13 @@ on:
         - cron: '0 10 * * 0-3'
     workflow_dispatch:
 
+permissions: {}
+
 jobs:
     check-conditions:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         outputs:
             should_release: ${{ steps.check.outputs.should_release }}
         steps:
@@ -42,5 +46,7 @@ jobs:
     trigger-release:
         needs: check-conditions
         if: needs.check-conditions.outputs.should_release == 'true'
+        permissions:
+            contents: read
         uses: ./.github/workflows/auto-release-pr.yaml
         secrets: inherit

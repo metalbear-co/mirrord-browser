@@ -13,22 +13,29 @@ concurrency:
     group: ${{ github.head_ref || github.run_id }}
     cancel-in-progress: true
 
-permissions:
-    contents: read
+permissions: {}
 
 jobs:
     check-lint:
+        permissions:
+            contents: read
         uses: ./.github/workflows/check-lint.yaml
 
     check-towncrier:
         # Changelog fragments are only meaningful relative to a PR's base branch.
         if: github.event_name == 'pull_request'
+        permissions:
+            contents: read
         uses: ./.github/workflows/check-towncrier.yaml
 
     test-unit:
+        permissions:
+            contents: read
         uses: ./.github/workflows/test-unit.yaml
 
     test-e2e:
+        permissions:
+            contents: read
         uses: ./.github/workflows/test-e2e.yaml
 
     # ── gate ────────────────────────────────────────────────────────────
@@ -40,6 +47,7 @@ jobs:
         if: always()
         needs: [check-lint, check-towncrier, test-unit, test-e2e]
         runs-on: ubuntu-latest
+        permissions: {}
         steps:
             - name: Check required jobs passed
               # Done in the shell because a job-level `if` treats a skipped

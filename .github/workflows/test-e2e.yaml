@@ -3,14 +3,15 @@ name: E2E Tests
 on:
     workflow_call:
 
-permissions:
-    contents: read
+permissions: {}
 
 jobs:
     test-e2e:
         name: E2E Tests
         runs-on: ubuntu-latest
         timeout-minutes: 20
+        permissions:
+            contents: read
         container:
             image: mcr.microsoft.com/playwright:v1.58.1-jammy
         steps:
