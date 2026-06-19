@@ -1,0 +1,9 @@
+dist
+node_modules
+pnpm-lock.yaml
+playwright-report
+test-results
+
+# Changelog content is generated/managed by towncrier
+CHANGELOG.md
+changelog.d

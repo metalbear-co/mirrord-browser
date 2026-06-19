@@ -38,7 +38,7 @@ mirrord-browser is a Chrome extension (Manifest V3) that injects HTTP headers in
 - **Language:** TypeScript (strict mode, ES6 target, jsx: react-jsx)
 - **UI:** React 19 with @metalbear/ui (Radix-based components) and Tailwind CSS
 - **Build:** Vite 5.4 with @crxjs/vite-plugin for Chrome extension bundling
-- **Published to:** Chrome Web Store (automated on git tag)
+- **Published to:** Chrome Web Store (automated when a `releases/*` PR is merged)
 
 ## Architecture
 
@@ -123,5 +123,19 @@ The `live-real.spec.ts` spec auto-skips when `MIRRORD_UI_TOKEN` is unset, so CI 
 
 ## CI/CD
 
-- **ci.yaml:** lint/format check, Jest unit tests, Playwright E2E (xvfb-run on Ubuntu)
-- **release.yaml:** On git tag, validates version match (package.json + manifest.json), builds, uploads to Chrome Web Store via API, creates GitHub release
+Layout mirrors the operator/mirrord repos: small reusable check/test workflows orchestrated by `ci.yaml`, with a single `ci` gate job for branch protection.
+
+- **ci.yaml:** orchestrator. Calls `check-lint.yaml`, `check-towncrier.yaml`, `test-unit.yaml`, `test-e2e.yaml` (each a reusable `workflow_call`), then a final `ci` gate job (`ci-success`) that fails if any required job failed. Triggers on `pull_request`, `push` to main, and `workflow_dispatch`; concurrency cancels superseded PR runs.
+- **check-lint.yaml:** `pnpm run check` (Prettier + ESLint).
+- **check-towncrier.yaml:** verifies a changelog fragment was added (PR-only).
+- **test-unit.yaml:** Jest unit tests.
+- **test-e2e.yaml:** Playwright E2E in the playwright container (xvfb-run), uploads report on failure.
+
+### Release automation (towncrier-based, like operator/mirrord)
+
+- **Changelog fragments:** add a `changelog.d/+<description>.<type>.md` file per change (types: `security`, `removed`, `deprecated`, `added`, `changed`, `fixed`, `internal`). `internal`/`fixed`-only releases bump the patch version; anything else bumps the minor version. Config in `towncrier.toml`, accumulated history in `CHANGELOG.md`.
+- **scheduled-release.yaml:** daily cron, Sun–Wed (and manual dispatch). If any user-facing (non-`internal`) fragments exist, calls `auto-release-pr.yaml`.
+- **auto-release-pr.yaml:** computes the next version, bumps `package.json` + `src/manifest.json`, builds the changelog with towncrier, and opens/updates a `releases/<version>` PR. Uses the CUBBY GitHub App token so CI runs on the PR.
+- **release.yaml (Publish):** triggers when a `releases/*` PR is **merged** into main. Validates the version (semver, package.json == manifest.json, not already released), runs tests, builds, zips, uploads/publishes to the Chrome Web Store, creates a GitHub release with notes extracted from `CHANGELOG.md`, then records the release in Linear via `metalbear-co/linear-release-action`.
+
+**Required secrets:** `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, `CWS_EXTENSION_ID` (Chrome Web Store); `CUBBY_CLIENT_ID`, `CUBBY_PRIVATE_KEY` (release-PR app token); `LINEAR_ACCESS_KEY` (Linear release).

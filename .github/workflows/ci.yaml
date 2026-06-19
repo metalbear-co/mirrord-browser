@@ -1,92 +1,56 @@
 name: CI
 
 on:
+    workflow_dispatch:
     push:
         branches: [main]
     pull_request:
         branches: [main]
+        types: [opened, synchronize, reopened, ready_for_review]
+
+# Cancel previous runs on the same PR.
+concurrency:
+    group: ${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
 
 permissions:
     contents: read
 
 jobs:
-    lint-and-format:
-        name: Lint and Format Check
+    check-lint:
+        uses: ./.github/workflows/check-lint.yaml
+
+    check-towncrier:
+        # Changelog fragments are only meaningful relative to a PR's base branch.
+        if: github.event_name == 'pull_request'
+        uses: ./.github/workflows/check-towncrier.yaml
+
+    test-unit:
+        uses: ./.github/workflows/test-unit.yaml
+
+    test-e2e:
+        uses: ./.github/workflows/test-e2e.yaml
+
+    # ── gate ────────────────────────────────────────────────────────────
+    # Single required status check for branch protection.
+    # It depends on every other job and only passes if none of them failed.
+    ci-success:
+        name: ci
+        # Run even if some required jobs were skipped.
+        if: always()
+        needs: [check-lint, check-towncrier, test-unit, test-e2e]
         runs-on: ubuntu-latest
-
         steps:
-            - name: Checkout code
-              uses: actions/checkout@v3
-
-            - name: Set up Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: '24'
-
-            - name: Install pnpm
-              run: npm install -g pnpm@10
-
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Run format and lint checks
-              run: pnpm run check
-
-    test:
-        name: Run Tests
-        runs-on: ubuntu-latest
-        needs: lint-and-format
-
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v3
-
-            - name: Set up Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: '24'
-
-            - name: Install pnpm
-              run: npm install -g pnpm@10
-
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Run Tests
-              run: pnpm test
-
-    e2e:
-        name: E2E Tests
-        runs-on: ubuntu-latest
-        needs: lint-and-format
-        timeout-minutes: 20
-        container:
-            image: mcr.microsoft.com/playwright:v1.58.1-jammy
-
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v3
-
-            - name: Set up Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: '24'
-
-            - name: Install pnpm
-              run: npm install -g pnpm@10
-
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Build extension
-              run: pnpm build
-
-            - name: Run E2E tests
-              run: xvfb-run pnpm test:e2e
-
-            - name: Upload Playwright report
-              uses: actions/upload-artifact@v4
-              if: failure()
-              with:
-                  name: playwright-report
-                  path: playwright-report/
+            - name: Check required jobs passed
+              # Done in the shell because a job-level `if` treats a skipped
+              # dependency as success under branch protection rules.
+              env:
+                  NEEDS_JSON: ${{ toJSON(needs) }}
+              run: |
+                  failing=$(echo "$NEEDS_JSON" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"')
+                  if [ -n "$failing" ]; then
+                    echo "The following required jobs did not succeed:"
+                    echo "$failing"
+                    exit 1
+                  fi
+                  echo "All required jobs passed."

@@ -1,0 +1,42 @@
+name: E2E Tests
+
+on:
+    workflow_call:
+
+permissions:
+    contents: read
+
+jobs:
+    test-e2e:
+        name: E2E Tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        container:
+            image: mcr.microsoft.com/playwright:v1.58.1-jammy
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+
+            - name: Install pnpm
+              run: npm install -g pnpm@10
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build extension
+              run: pnpm build
+
+            - name: Run E2E tests
+              run: xvfb-run pnpm test:e2e
+
+            - name: Upload Playwright report
+              uses: actions/upload-artifact@v4
+              if: failure()
+              with:
+                  name: playwright-report
+                  path: playwright-report/

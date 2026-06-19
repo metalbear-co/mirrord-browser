@@ -1,0 +1,46 @@
+name: Scheduled Release
+
+on:
+    schedule:
+        # 10:00 UTC on Sunday, Monday, Tuesday, Wednesday
+        - cron: '0 10 * * 0-3'
+    workflow_dispatch:
+
+jobs:
+    check-conditions:
+        runs-on: ubuntu-latest
+        outputs:
+            should_release: ${{ steps.check.outputs.should_release }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Check release conditions
+              id: check
+              run: |
+                  shopt -s nullglob
+                  # Only release when there's at least one user-facing change.
+                  # Internal-only fragments don't warrant a release on their own.
+                  user_facing=0
+                  for f in changelog.d/*.md; do
+                    [[ "$(basename "$f")" == changelog_template* ]] && continue
+                    # Fragment names follow the pattern: +description.type.md
+                    type=$(basename "$f" | rev | cut -d. -f2 | rev)
+                    if [[ "$type" != "internal" ]]; then
+                      user_facing=$((user_facing + 1))
+                    fi
+                  done
+
+                  if [[ "$user_facing" -eq 0 ]]; then
+                    echo "No user-facing changelog fragments found, skipping release"
+                    echo "should_release=false" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "Found $user_facing user-facing changelog fragment(s), proceeding"
+                    echo "should_release=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+    trigger-release:
+        needs: check-conditions
+        if: needs.check-conditions.outputs.should_release == 'true'
+        uses: ./.github/workflows/auto-release-pr.yaml
+        secrets: inherit
