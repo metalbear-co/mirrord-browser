@@ -1,0 +1,119 @@
+name: Auto Release PR
+
+on:
+    workflow_call:
+    workflow_dispatch:
+
+permissions: {}
+
+jobs:
+    auto-release-pr:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout main
+              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+              with:
+                  ref: main
+                  persist-credentials: false
+                  fetch-depth: 0
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+            - name: Install Python
+              run: uv python install
+
+            - name: Create virtual environment
+              run: uv venv
+
+            - name: Install towncrier
+              run: uv pip install towncrier==25.8.0
+
+            - name: Determine version bump type
+              id: bump-type
+              run: |
+                  shopt -s nullglob
+                  bump=patch
+                  for f in changelog.d/*.md; do
+                    [[ "$(basename "$f")" == changelog_template* ]] && continue
+                    # Fragment names follow the pattern: +description.type.md
+                    type=$(basename "$f" | rev | cut -d. -f2 | rev)
+                    if [[ "$type" != "internal" && "$type" != "fixed" ]]; then
+                      bump=minor
+                      break
+                    fi
+                  done
+                  echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
+            - name: Compute next version
+              id: version
+              run: |
+                  current=$(node -p "require('./package.json').version")
+                  IFS='.' read -r major minor patch <<< "$current"
+                  if [[ "${{ steps.bump-type.outputs.bump }}" == "minor" ]]; then
+                    new_version="${major}.$((minor + 1)).0"
+                  else
+                    new_version="${major}.${minor}.$((patch + 1))"
+                  fi
+                  echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+            - name: Update package.json version
+              run: npm pkg set version="${{ steps.version.outputs.new_version }}"
+
+            - name: Update manifest.json version
+              run: |
+                  version="${{ steps.version.outputs.new_version }}"
+                  tmp=$(mktemp)
+                  jq --arg v "$version" '.version = $v' src/manifest.json > "$tmp"
+                  mv "$tmp" src/manifest.json
+
+            - name: Build release notes draft
+              run: |
+                  uv run -- towncrier build \
+                    --draft \
+                    --version ${{ steps.version.outputs.new_version }} \
+                    > /tmp/release-notes.md
+
+            - name: Build changelog
+              run: |
+                  uv run -- towncrier build \
+                    --yes \
+                    --version ${{ steps.version.outputs.new_version }}
+
+            - name: Create GitHub App token
+              id: app-token
+              uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+              with:
+                  app-id: ${{ secrets.CUBBY_CLIENT_ID }}
+                  private-key: ${{ secrets.CUBBY_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-pull-requests: write
+
+            - name: Push release branch and create or update PR
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  BRANCH: releases/${{ steps.version.outputs.new_version }}
+                  VERSION: ${{ steps.version.outputs.new_version }}
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+                  git checkout -b "$BRANCH"
+                  git add -A
+                  git commit -m "chore(mirrord-browser): release v$VERSION"
+                  git push origin "$BRANCH" --force
+
+                  existing_pr=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+                  if [[ -n "$existing_pr" ]]; then
+                    gh pr edit "$existing_pr" \
+                      --title "chore(mirrord-browser): release v$VERSION" \
+                      --body-file /tmp/release-notes.md
+                  else
+                    gh pr create \
+                      --head "$BRANCH" \
+                      --base main \
+                      --title "chore(mirrord-browser): release v$VERSION" \
+                      --body-file /tmp/release-notes.md
+                  fi
