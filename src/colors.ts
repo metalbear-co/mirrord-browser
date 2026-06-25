@@ -19,6 +19,15 @@ export const COLORS = {
         bg: 'hsl(var(--destructive) / 0.1)',
         glow: 'hsl(var(--destructive) / 0.22)',
     },
+    // Amber, used for the "session might be coming back" grace state before we
+    // commit to declaring it ended. Falls back to a fixed amber when the theme
+    // doesn't define --brand-amber, mirroring how success leans on --brand-green.
+    warning: {
+        solid: 'hsl(var(--brand-amber, 38 92% 50%))',
+        border: 'hsl(var(--brand-amber, 38 92% 50%) / 0.4)',
+        bg: 'hsl(var(--brand-amber, 38 92% 50%) / 0.1)',
+        glow: 'hsl(var(--brand-amber, 38 92% 50%) / 0.22)',
+    },
     success: {
         dot: 'hsl(var(--brand-green, 142 71% 45%))',
         glow: 'hsl(var(--brand-green, 142 71% 45%) / 0.22)',

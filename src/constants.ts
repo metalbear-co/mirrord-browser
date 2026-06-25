@@ -52,6 +52,7 @@ export const STRINGS = {
     MSG_SHOW_LESS: 'Show less',
     MSG_USE_SEARCH_HINT: 'Use search to narrow down',
     MSG_SESSION_LIVE: 'Session live',
+    MSG_SESSION_RECONNECTING: 'Waiting for session',
     MSG_SESSION_ENDED: 'Session ended',
     MSG_ROUTING_TRAFFIC: 'Routing your traffic',
     MSG_AVAILABLE: 'Available',
@@ -158,6 +159,12 @@ export const CONFIG_HASH_PARAM = 'config';
 // Source: metalbear-co/mirrord — mirrord/cli/src/config.rs `UI_DEFAULT_PORT`.
 export const MIRRORD_UI_DEFAULT_PORT = 59281;
 export const MIRRORD_UI_DEFAULT_BACKEND = `http://127.0.0.1:${MIRRORD_UI_DEFAULT_PORT}`;
+
+// How long the joined banner stays in the amber "waiting" state after the session
+// disappears from the operator's list before it gives up and shows "ended". A local
+// `mirrord` stop → start reclaims the key well within this window, so the banner
+// rides through the reconnect instead of prompting the user to dismiss a live session.
+export const JOIN_GRACE_MS = 60_000;
 
 export const CONFIGURE_STATUS = {
     LOADING: 'loading',

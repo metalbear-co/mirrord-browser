@@ -11,8 +11,9 @@ import { MirrordUiDetectedPrompt } from './MirrordUiDetectedPrompt';
 import { MirrordUiAuthError } from './MirrordUiAuthError';
 import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
+import { useJoinLiveness } from '../hooks/useJoinLiveness';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
-import { STRINGS } from '../constants';
+import { JOIN_GRACE_MS, STRINGS } from '../constants';
 
 type Props = {
     sessions: OperatorSessionSummary[];
@@ -84,6 +85,17 @@ export function SessionsView({
         );
     }, [sessions, namespace, normalizedQuery]);
 
+    // Liveness is keyed on the session *key*, not the joined session's id: a local
+    // stop → start swaps the id but keeps the key, so this rides through reconnects.
+    const joinedKey = joinState.joinedKey;
+    const joinedLive =
+        joinedKey !== null && sessions.some((s) => s.key === joinedKey);
+    const liveness = useJoinLiveness(
+        joinedKey !== null,
+        joinedLive,
+        JOIN_GRACE_MS
+    );
+
     if (authFailed) {
         return <MirrordUiAuthError backend={backend} />;
     }
@@ -96,14 +108,8 @@ export function SessionsView({
         );
     }
 
-    const joinedSession = joinState.joinedSessionName
-        ? sessions.find((s) => s.id === joinState.joinedSessionName)
-        : undefined;
-    const joinedVanished = joinState.joinedKey !== null && !joinedSession;
-    const effectiveSessionEnded = joinState.sessionEnded || joinedVanished;
     const groups = groupBy(filtered, (s) => s.key);
 
-    const joinedKey = joinState.joinedKey;
     // The joined session is represented by the ConnectedBanner above, so drop its
     // card from the list to avoid showing the same session twice.
     const orderedKeys = Object.keys(groups)
@@ -137,7 +143,7 @@ export function SessionsView({
                 <ConnectedBanner
                     joinedKey={joinState.joinedKey}
                     sessions={joinedSessions}
-                    sessionEnded={effectiveSessionEnded}
+                    liveness={liveness}
                     onLeave={onClear}
                     onShare={() => onShare(joinState.joinedKey!)}
                     scopePatterns={scopePatterns}

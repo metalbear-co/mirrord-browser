@@ -1,6 +1,6 @@
 import { COLORS } from '../colors';
 
-type Tone = 'active' | 'muted' | 'destructive' | 'inactive';
+type Tone = 'active' | 'muted' | 'destructive' | 'inactive' | 'warning';
 
 type Props = {
     size?: number;
@@ -13,6 +13,7 @@ const TONE_COLOR: Record<Tone, string> = {
     muted: COLORS.muted.dot,
     destructive: COLORS.destructive.solid,
     inactive: COLORS.muted.dotInactive,
+    warning: COLORS.warning.solid,
 };
 
 const TONE_GLOW: Record<Tone, string> = {
@@ -20,6 +21,7 @@ const TONE_GLOW: Record<Tone, string> = {
     muted: COLORS.muted.glow,
     destructive: COLORS.destructive.glow,
     inactive: COLORS.muted.glowInactive,
+    warning: COLORS.warning.glow,
 };
 
 export function StatusDot({ size = 8, tone, glow = false }: Props) {
