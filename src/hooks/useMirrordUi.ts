@@ -134,7 +134,6 @@ function groupByKey(
 export type JoinState = {
     joinedKey: string | null;
     joinedSessionName: string | null;
-    sessionEnded: boolean;
 };
 
 export function useMirrordUi() {
@@ -157,7 +156,6 @@ export function useMirrordUi() {
     const [joinState, setJoinState] = useState<JoinState>({
         joinedKey: null,
         joinedSessionName: null,
-        sessionEnded: false,
     });
     const [scopePatterns, setScopePatternsState] = useState<string[]>([]);
     const [joinedHeader, setJoinedHeader] = useState<string | null>(null);
@@ -189,7 +187,6 @@ export function useMirrordUi() {
                 joinedSessionName:
                     (stored[STORAGE_KEYS.JOINED_SESSION_NAME] as string) ??
                     null,
-                sessionEnded: false,
             });
             const header =
                 (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
@@ -297,15 +294,6 @@ export function useMirrordUi() {
             setSessions((current) =>
                 current ? applyNotification(current, msg) : current
             );
-            if (
-                msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED
-            ) {
-                setJoinState((js) =>
-                    js.joinedSessionName === msg.id
-                        ? { ...js, sessionEnded: true }
-                        : js
-                );
-            }
         };
         ws.onerror = () => setError(STRINGS.ERR_WS_CONNECTION);
         ws.onclose = () => {
@@ -362,7 +350,6 @@ export function useMirrordUi() {
             setJoinState({
                 joinedKey: key,
                 joinedSessionName: target.id,
-                sessionEnded: false,
             });
         },
         [sessions, scopePatterns]
@@ -389,7 +376,6 @@ export function useMirrordUi() {
         setJoinState({
             joinedKey: null,
             joinedSessionName: null,
-            sessionEnded: false,
         });
     }, []);
 

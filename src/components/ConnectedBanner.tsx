@@ -15,6 +15,7 @@ import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { RING_SECONDS } from '../headerObservation';
 import { useHeaderObservation } from '../hooks/useHeaderObservation';
+import type { JoinLiveness } from '../hooks/useJoinLiveness';
 import { StatusDot } from './StatusDot';
 import {
     aggregateSessions,
@@ -25,7 +26,7 @@ import {
 type Props = {
     joinedKey: string;
     sessions: OperatorSessionSummary[];
-    sessionEnded: boolean;
+    liveness: JoinLiveness;
     onLeave: () => void;
     onShare: () => void;
     scopePatterns: string[];
@@ -40,7 +41,7 @@ const MAX_TARGETS = 4;
 export function ConnectedBanner({
     joinedKey,
     sessions,
-    sessionEnded,
+    liveness,
     onLeave,
     onShare,
     scopePatterns,
@@ -61,17 +62,30 @@ export function ConnectedBanner({
             ? `${agg.owners.length} owners`
             : '';
     const metaParts = [ownerLabel, age].filter(Boolean);
-    const label = sessionEnded
+    const ended = liveness === 'ended';
+    const pending = liveness === 'pending';
+    const label = ended
         ? STRINGS.MSG_SESSION_ENDED
-        : STRINGS.MSG_SESSION_LIVE;
-    const buttonLabel = sessionEnded ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE;
-    const border = sessionEnded
+        : pending
+          ? STRINGS.MSG_SESSION_RECONNECTING
+          : STRINGS.MSG_SESSION_LIVE;
+    const buttonLabel = ended ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE;
+    const dotTone = ended ? 'destructive' : pending ? 'warning' : 'active';
+    const border = ended
         ? COLORS.destructive.border
-        : COLORS.primary.borderSoft;
-    const bg = sessionEnded ? COLORS.destructive.bg : COLORS.primary.bg;
-    const titleColor = sessionEnded
+        : pending
+          ? COLORS.warning.border
+          : COLORS.primary.borderSoft;
+    const bg = ended
+        ? COLORS.destructive.bg
+        : pending
+          ? COLORS.warning.bg
+          : COLORS.primary.bg;
+    const titleColor = ended
         ? COLORS.destructive.solid
-        : COLORS.brand.lilac;
+        : pending
+          ? COLORS.warning.solid
+          : COLORS.brand.lilac;
 
     const [draft, setDraft] = useState('');
     const [composing, setComposing] = useState(false);
@@ -93,11 +107,11 @@ export function ConnectedBanner({
     };
 
     useEffect(() => {
-        if (sessionEnded) {
+        if (ended) {
             setDraft('');
             setComposing(false);
         }
-    }, [sessionEnded]);
+    }, [ended]);
 
     useEffect(() => {
         if (composing) inputRef.current?.focus();
@@ -130,10 +144,7 @@ export function ConnectedBanner({
             }}
         >
             <div className="flex items-center" style={{ gap: 10 }}>
-                <StatusDot
-                    tone={sessionEnded ? 'destructive' : 'active'}
-                    glow
-                />
+                <StatusDot tone={dotTone} glow />
                 <div className="min-w-0" style={{ flex: 1 }}>
                     <div
                         className="font-semibold"
@@ -161,7 +172,7 @@ export function ConnectedBanner({
                     </div>
                 </div>
                 <div className="flex items-center" style={{ gap: 6 }}>
-                    {!sessionEnded && (
+                    {!ended && (
                         <Button
                             type="button"
                             size="icon"
@@ -244,7 +255,7 @@ export function ConnectedBanner({
                 </div>
             )}
 
-            {!sessionEnded && (
+            {!ended && (
                 <div
                     className="flex flex-col"
                     style={{

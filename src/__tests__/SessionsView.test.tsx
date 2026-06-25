@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
@@ -116,7 +116,6 @@ describe('SessionsView', () => {
         joinState: {
             joinedKey: null,
             joinedSessionName: null,
-            sessionEnded: false,
         },
         status: { status: 'watching' } as OperatorWatchStatus,
         onJoin: jest.fn(),
@@ -162,7 +161,6 @@ describe('SessionsView', () => {
                 joinState={{
                     joinedKey: 'k1',
                     joinedSessionName: 'a',
-                    sessionEnded: false,
                 }}
             />
         );
@@ -178,7 +176,6 @@ describe('SessionsView', () => {
                 joinState={{
                     joinedKey: 'k1',
                     joinedSessionName: 'a',
-                    sessionEnded: false,
                 }}
             />
         );
@@ -208,7 +205,6 @@ describe('SessionsView', () => {
                 joinState={{
                     joinedKey: 'k9',
                     joinedSessionName: 'j',
-                    sessionEnded: false,
                 }}
             />
         );
@@ -223,19 +219,46 @@ describe('SessionsView', () => {
         expect(onShare).toHaveBeenCalledWith('k9');
     });
 
-    test('shows session-ended banner when joined session was removed', () => {
+    test('stays live while a session still holds the joined key (survives reconnect)', () => {
+        // The joined session id ("old") is gone, but another session reclaimed the
+        // same key ("k1") — a stop → start reconnect. The banner must read live.
         render(
             <SessionsView
                 {...baseProps}
                 sessions={sessions}
-                joinState={{
-                    joinedKey: 'k1',
-                    joinedSessionName: 'a',
-                    sessionEnded: true,
-                }}
+                joinState={{ joinedKey: 'k1', joinedSessionName: 'old' }}
             />
         );
-        expect(screen.getByText(/session ended/i)).toBeInTheDocument();
+        expect(screen.getByText(/session live/i)).toBeInTheDocument();
+        expect(screen.queryByText(/session ended/i)).not.toBeInTheDocument();
+    });
+
+    test('holds an amber waiting state, then ends after the grace period', () => {
+        jest.useFakeTimers();
+        try {
+            render(
+                <SessionsView
+                    {...baseProps}
+                    sessions={sessions}
+                    joinState={{ joinedKey: 'gone', joinedSessionName: 'x' }}
+                />
+            );
+            // No session holds key "gone": don't dismiss yet — wait it out.
+            expect(
+                screen.getByText(/waiting for session/i)
+            ).toBeInTheDocument();
+            expect(
+                screen.queryByText(/session ended/i)
+            ).not.toBeInTheDocument();
+
+            act(() => {
+                jest.advanceTimersByTime(60_000);
+            });
+
+            expect(screen.getByText(/session ended/i)).toBeInTheDocument();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     test('renders the not-configured prompt when sessions have not loaded', () => {
