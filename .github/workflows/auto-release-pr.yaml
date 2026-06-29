@@ -68,7 +68,7 @@ jobs:
                   # Surgical version-string replace only; reformatting the whole
                   # file (e.g. with jq) breaks Prettier's array collapsing and
                   # fails check-lint on the generated release PR.
-                  perl -0pi -e 's/("version"\s*:\s*")[^"]*(")/${1}'"$version"'${2}/' src/manifest.json
+                  sed -i -E "s/(\"version\"[[:space:]]*:[[:space:]]*\")[^\"]*\"/\1${version}\"/" src/manifest.json
 
             - name: Build release notes draft
               run: |
