@@ -1,1 +1,0 @@
-The joined-session banner no longer flips to "Session ended" when the local `mirrord` session reconnects (stop → start). Liveness now tracks the session key rather than a specific session id, and a session that drops out shows an amber "Waiting for session" state for a grace period before it can be dismissed.
