@@ -8,6 +8,17 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.5.1](https://github.com/metalbear-co/mirrord-browser/tree/0.5.1) - 2026-06-29
+
+
+### Fixed
+
+- The joined-session banner no longer flips to "Session ended" when the local
+  `mirrord` session reconnects (stop → start). Liveness now tracks the session
+  key rather than a specific session id, and a session that drops out shows an
+  amber "Waiting for session" state for a grace period before it can be
+  dismissed.
+
 ## [0.5.0](https://github.com/metalbear-co/mirrord-browser/tree/0.5.0) - 2026-06-18
 
 Initial changelog entry. Releases before this point are tracked in the
