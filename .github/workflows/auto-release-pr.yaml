@@ -65,9 +65,10 @@ jobs:
             - name: Update manifest.json version
               run: |
                   version="${{ steps.version.outputs.new_version }}"
-                  tmp=$(mktemp)
-                  jq --indent 4 --arg v "$version" '.version = $v' src/manifest.json > "$tmp"
-                  mv "$tmp" src/manifest.json
+                  # Surgical version-string replace only; reformatting the whole
+                  # file (e.g. with jq) breaks Prettier's array collapsing and
+                  # fails check-lint on the generated release PR.
+                  perl -0pi -e 's/("version"\s*:\s*")[^"]*(")/${1}'"$version"'${2}/' src/manifest.json
 
             - name: Build release notes draft
               run: |
