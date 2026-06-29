@@ -66,7 +66,7 @@ jobs:
               run: |
                   version="${{ steps.version.outputs.new_version }}"
                   tmp=$(mktemp)
-                  jq --arg v "$version" '.version = $v' src/manifest.json > "$tmp"
+                  jq --indent 4 --arg v "$version" '.version = $v' src/manifest.json > "$tmp"
                   mv "$tmp" src/manifest.json
 
             - name: Build release notes draft
