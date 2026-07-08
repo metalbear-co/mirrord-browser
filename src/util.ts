@@ -24,11 +24,6 @@ export function refreshIconIndicator(num: number) {
     }
 }
 
-function getDisplayScope(urlFilter: string | undefined): string {
-    const isWildcard = !urlFilter || urlFilter === '|';
-    return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
-}
-
 export function parseRules(
     rules: chrome.declarativeNetRequest.Rule[]
 ): HeaderRule[] {

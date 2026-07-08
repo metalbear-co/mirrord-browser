@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures.ts';
+import { test, expect } from './fixtures';
 
 const REAL_BACKEND = 'http://localhost:8080';
 const TOKEN = process.env.MIRRORD_UI_TOKEN ?? '';

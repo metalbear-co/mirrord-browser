@@ -134,37 +134,6 @@ export function useHeaderRules() {
         }
     }, [loadRules]);
 
-    const handleRemove = useCallback(
-        async (ruleId: number) => {
-            setError(null);
-
-            try {
-                await updateDynamicRules({ removeRuleIds: [ruleId] });
-                await storageRemove([
-                    STORAGE_KEYS.JOINED_KEY,
-                    STORAGE_KEYS.JOINED_SESSION_NAME,
-                ]);
-                await loadRules();
-                capture('extension_header_rule_removed');
-                emitUserSucceeded('header_rule_removed', 'user_action');
-                cancelCanary();
-            } catch (e) {
-                const msg =
-                    e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
-                setError(msg);
-                console.error(STRINGS.ERR_REMOVE_RULE, e);
-                capture('extension_error', {
-                    action: 'remove',
-                    error: msg,
-                });
-                emitUserBlocked('header_rule_remove_failed', 'user_action', {
-                    error: msg,
-                });
-            }
-        },
-        [loadRules]
-    );
-
     const handleRemoveAll = useCallback(async () => {
         setError(null);
         try {
