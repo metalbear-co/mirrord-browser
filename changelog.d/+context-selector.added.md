@@ -1,0 +1,1 @@
+Added a kube context selector to the popup. When the `mirrord ui` server supports it, you can pick which cluster context's sessions to view (and still filter by namespace); older servers keep working unchanged.

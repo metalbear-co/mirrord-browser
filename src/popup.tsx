@@ -204,6 +204,10 @@ function SessionsScreen({
             namespaces={mirrordUi.namespaces}
             namespace={mirrordUi.namespace}
             setNamespace={mirrordUi.setNamespace}
+            contexts={mirrordUi.contexts}
+            currentContext={mirrordUi.currentContext}
+            selectedContext={mirrordUi.selectedContext}
+            onSelectContext={mirrordUi.setSelectedContext}
             joinState={mirrordUi.joinState}
             status={mirrordUi.status}
             onJoin={mirrordUi.join}

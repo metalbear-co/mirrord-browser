@@ -29,6 +29,7 @@ export const STORAGE_KEYS = {
     SCOPE_PATTERNS: 'scope_patterns',
     ACTIVE_TAB: 'active_tab',
     THEME: 'theme',
+    SELECTED_CONTEXT: 'selected_context',
 } as const;
 
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -77,6 +78,26 @@ export type OperatorSessionsResponse = {
     by_key: Record<string, OperatorSessionSummary[]>;
     sessions: OperatorSessionSummary[];
     watch_status: OperatorWatchStatus;
+};
+
+// A kube context and its default namespace, from `GET /api/v2/kube/contexts`.
+export type KubeContext = {
+    name: string;
+    namespace: string | null;
+};
+
+export type ContextsResponse = {
+    current: string | null;
+    contexts: KubeContext[];
+};
+
+// `GET /api/v2/operator/sessions?context=`. Namespace is filtered client-side, so this doesn't take
+// a namespace param. `OperatorSession` is the same shape the extension already uses for a summary.
+export type OperatorSessionsV2Response = {
+    context: string | null;
+    status: 'available' | 'unavailable';
+    reason?: string;
+    sessions: OperatorSessionSummary[];
 };
 
 export type SessionNotification =

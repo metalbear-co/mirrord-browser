@@ -8,6 +8,7 @@ export const STRINGS = {
     LABEL_HEADER_VALUE: 'Header Value',
     LABEL_URL_SCOPE: 'URL Scope',
     LABEL_NAMESPACE: 'Namespace',
+    LABEL_CONTEXT: 'Context',
 
     PLACEHOLDER_HEADER_NAME: 'X-MIRRORD-USER',
     PLACEHOLDER_HEADER_VALUE: 'testuser',
