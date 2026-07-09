@@ -38,7 +38,6 @@ export function ContextFilter({
                     height: 32,
                     fontSize: 11,
                     minWidth: 120,
-                    maxWidth: 190,
                     flex: 1,
                 }}
                 aria-label={`Filter by ${STRINGS.LABEL_CONTEXT.toLowerCase()}`}
