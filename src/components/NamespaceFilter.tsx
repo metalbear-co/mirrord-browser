@@ -28,11 +28,29 @@ export function NamespaceFilter({ namespaces, value, onChange }: Props) {
         >
             <SelectTrigger
                 id="ns-select"
-                className="font-mono"
-                style={{ height: 32, fontSize: 11, width: 110, flexShrink: 0 }}
+                style={{
+                    height: 32,
+                    fontSize: 11,
+                    minWidth: 120,
+                    flex: 1,
+                }}
                 aria-label={`Filter by ${STRINGS.LABEL_NAMESPACE.toLowerCase()}`}
             >
-                <SelectValue />
+                <span
+                    className="text-muted-foreground"
+                    style={{
+                        fontSize: 9,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        marginRight: 6,
+                        flexShrink: 0,
+                    }}
+                >
+                    {STRINGS.LABEL_NAMESPACE}
+                </span>
+                <span className="font-mono" style={{ minWidth: 0 }}>
+                    <SelectValue />
+                </span>
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value={NAMESPACE_ALL_SENTINEL}>

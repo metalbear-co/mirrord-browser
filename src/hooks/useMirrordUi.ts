@@ -3,8 +3,11 @@ import groupBy from 'lodash.groupby';
 import { STORAGE_KEYS } from '../types';
 import type {
     Config,
+    ContextsResponse,
+    KubeContext,
     OperatorSessionSummary,
     OperatorSessionsResponse,
+    OperatorSessionsV2Response,
     OperatorWatchStatus,
     SessionNotification,
 } from '../types';
@@ -44,16 +47,81 @@ export async function fetchOperatorSessions(
     return (await resp.json()) as OperatorSessionsResponse;
 }
 
+/**
+ * Fetches the kube contexts from the v2 API, which doubles as a probe for whether the `mirrord ui`
+ * server supports `/api/v2` at all. Returns `null` on 404 (an older server without v2), the context
+ * list on success, and throws on other errors (e.g. auth failures).
+ */
+export async function fetchContexts(
+    backend: string,
+    token: string,
+    fetchImpl: typeof fetch = fetch
+): Promise<ContextsResponse | null> {
+    const url = `${backend}/api/v2/kube/contexts?token=${encodeURIComponent(token)}`;
+    const resp = await fetchImpl(url);
+    if (resp.status === 404) return null;
+    if (!resp.ok) {
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
+    }
+    return (await resp.json()) as ContextsResponse;
+}
+
+function mapV2ToInternal(
+    v2: OperatorSessionsV2Response
+): OperatorSessionsResponse {
+    const watch_status: OperatorWatchStatus =
+        v2.status === 'available'
+            ? { status: 'watching' }
+            : { status: 'unavailable', reason: v2.reason ?? '' };
+    return {
+        sessions: v2.sessions,
+        by_key: groupByKey(v2.sessions),
+        watch_status,
+    };
+}
+
+/**
+ * Fetches operator sessions for a specific kube context via the v2 API. Namespace filtering stays
+ * client-side (the response carries every namespace's sessions), so no namespace param is sent.
+ */
+export async function fetchOperatorSessionsV2(
+    backend: string,
+    token: string,
+    context: string | null,
+    fetchImpl: typeof fetch = fetch
+): Promise<OperatorSessionsResponse> {
+    const params = new URLSearchParams({ token });
+    if (context) params.set('context', context);
+    const url = `${backend}/api/v2/operator/sessions?${params.toString()}`;
+    const resp = await fetchImpl(url);
+    if (!resp.ok) {
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
+    }
+    return mapV2ToInternal((await resp.json()) as OperatorSessionsV2Response);
+}
+
 export type PollResult =
     | { ok: true; data: OperatorSessionsResponse }
     | { ok: false; status?: number; error: string };
 
 export async function runPoll(
     backend: string,
-    token: string
+    token: string,
+    v2 = false,
+    context: string | null = null
 ): Promise<PollResult> {
     try {
-        const resp = await fetchOperatorSessions(backend, token);
+        const resp = v2
+            ? await fetchOperatorSessionsV2(backend, token, context)
+            : await fetchOperatorSessions(backend, token);
         if (!bridgeHealthy) {
             bridgeHealthy = true;
             emitUserSucceeded('bridge_recovered', 'health');
@@ -117,6 +185,7 @@ const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.SCOPE_PATTERNS,
     STORAGE_KEYS.MIRRORD_UI_BACKEND,
     STORAGE_KEYS.MIRRORD_UI_TOKEN,
+    STORAGE_KEYS.SELECTED_CONTEXT,
 ];
 
 function hasWatchedChange(
@@ -153,6 +222,14 @@ export function useMirrordUi() {
     // another process on the port. Surfaced separately so the UI can tell the user to re-auth.
     const [authFailed, setAuthFailed] = useState(false);
     const [namespace, setNamespace] = useState<string>('');
+    // `null` while probing; `true`/`false` once we know if the server has `/api/v2`. Determines
+    // whether context selection is available and whether we poll v2 or fall back to v1.
+    const [v2Available, setV2Available] = useState<boolean | null>(null);
+    const [contexts, setContexts] = useState<KubeContext[]>([]);
+    const [currentContext, setCurrentContext] = useState<string | null>(null);
+    const [selectedContext, setSelectedContextState] = useState<string | null>(
+        null
+    );
     const [joinState, setJoinState] = useState<JoinState>({
         joinedKey: null,
         joinedSessionName: null,
@@ -165,6 +242,9 @@ export function useMirrordUi() {
 
     const wsRef = useRef<WebSocket | null>(null);
 
+    // The context whose sessions we show: the user's pick, else the kubeconfig's current context.
+    const effectiveContext = selectedContext ?? currentContext;
+
     useEffect(() => {
         let cancelled = false;
         const loadFromStorage = async () => {
@@ -176,6 +256,7 @@ export function useMirrordUi() {
                 STORAGE_KEYS.JOINED_HEADER,
                 STORAGE_KEYS.JOINED_VALUE,
                 STORAGE_KEYS.SCOPE_PATTERNS,
+                STORAGE_KEYS.SELECTED_CONTEXT,
             ]);
             if (cancelled) return;
             setBackend(
@@ -202,6 +283,9 @@ export function useMirrordUi() {
                           (p) => typeof p === 'string'
                       )
                     : []
+            );
+            setSelectedContextState(
+                (stored[STORAGE_KEYS.SELECTED_CONTEXT] as string) ?? null
             );
             setConfigLoaded(true);
         };
@@ -253,21 +337,56 @@ export function useMirrordUi() {
         };
     }, [configLoaded, token]);
 
+    // Probe for `/api/v2`: its presence enables context selection, its absence falls back to v1.
     useEffect(() => {
-        if (!backend || !token || healthy !== true) return;
+        if (!backend || !token || healthy !== true) {
+            setV2Available(null);
+            return;
+        }
         let cancelled = false;
-        const refresh = () => {
-            runPoll(backend, token).then((result) => {
+        fetchContexts(backend, token)
+            .then((resp) => {
                 if (cancelled) return;
-                if (result.ok) {
-                    setSessions(result.data);
-                    setStatus(result.data.watch_status);
-                    setError(null);
-                    setAuthFailed(false);
-                } else {
-                    setAuthFailed(isAuthFailureStatus(result.status));
+                if (resp === null) {
+                    setV2Available(false);
+                    setContexts([]);
+                    return;
+                }
+                setV2Available(true);
+                setContexts(resp.contexts);
+                setCurrentContext(resp.current);
+            })
+            .catch(() => {
+                // A non-404 failure (e.g. bad token) — fall back to v1, whose poll surfaces the
+                // auth error. Re-probes when backend/token/health change.
+                if (!cancelled) {
+                    setV2Available(false);
+                    setContexts([]);
                 }
             });
+        return () => {
+            cancelled = true;
+        };
+    }, [backend, token, healthy]);
+
+    useEffect(() => {
+        if (!backend || !token || healthy !== true || v2Available === null)
+            return;
+        let cancelled = false;
+        const refresh = () => {
+            runPoll(backend, token, v2Available, effectiveContext).then(
+                (result) => {
+                    if (cancelled) return;
+                    if (result.ok) {
+                        setSessions(result.data);
+                        setStatus(result.data.watch_status);
+                        setError(null);
+                        setAuthFailed(false);
+                    } else {
+                        setAuthFailed(isAuthFailureStatus(result.status));
+                    }
+                }
+            );
         };
         refresh();
         const interval = setInterval(refresh, OPERATOR_SESSIONS_POLL_MS);
@@ -275,10 +394,13 @@ export function useMirrordUi() {
             cancelled = true;
             clearInterval(interval);
         };
-    }, [backend, token, healthy]);
+    }, [backend, token, healthy, v2Available, effectiveContext]);
 
+    // The live-updates WebSocket is a v1-only feature; v2 is poll-only (its `/api/v2/operator/
+    // sessions` is per-context and has no push channel), so only open it on the v1 fallback path.
     useEffect(() => {
-        if (!backend || !token || healthy !== true) return;
+        if (!backend || !token || healthy !== true || v2Available !== false)
+            return;
         const url = buildWsUrl(backend, token);
         const ws = new WebSocket(url);
         wsRef.current = ws;
@@ -304,7 +426,7 @@ export function useMirrordUi() {
             ws.close();
             wsRef.current = null;
         };
-    }, [backend, token, healthy]);
+    }, [backend, token, healthy, v2Available]);
 
     const namespaces = useMemo(() => {
         const set = new Set<string>();
@@ -421,6 +543,11 @@ export function useMirrordUi() {
         [sessions]
     );
 
+    const setSelectedContext = useCallback(async (context: string) => {
+        await storageSet({ [STORAGE_KEYS.SELECTED_CONTEXT]: context });
+        setSelectedContextState(context);
+    }, []);
+
     return {
         backend,
         healthy,
@@ -432,6 +559,11 @@ export function useMirrordUi() {
         namespaces,
         namespace,
         setNamespace,
+        v2Available,
+        contexts,
+        currentContext,
+        selectedContext,
+        setSelectedContext,
         groupedFiltered,
         joinState,
         joinedHeader,

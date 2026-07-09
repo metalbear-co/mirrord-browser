@@ -1,5 +1,9 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useMirrordUi } from '../hooks/useMirrordUi';
+import {
+    useMirrordUi,
+    fetchContexts,
+    fetchOperatorSessionsV2,
+} from '../hooks/useMirrordUi';
 import type { OperatorSessionsResponse } from '../types';
 import { STORAGE_KEYS } from '../types';
 import { decodeConfig } from '../config';
@@ -408,5 +412,102 @@ test('session share uses the operator HTTP filter when it can derive a header', 
     expect(payload).toBeTruthy();
     expect(decodeConfig(payload!)).toEqual({
         header_filter: 'x-tenant: alice',
+    });
+});
+
+describe('v2 API', () => {
+    const makeResp = (body: string, status = 200) =>
+        ({
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: 'OK',
+            text: () => Promise.resolve(body),
+            json: () => Promise.resolve(JSON.parse(body)),
+        }) as unknown as Response;
+
+    const mockFetch = (impl: (url: string) => Response) =>
+        jest.fn((url: RequestInfo | URL) =>
+            Promise.resolve(impl(String(url)))
+        ) as unknown as typeof fetch;
+
+    test('fetchContexts returns null on 404 (server without v2)', async () => {
+        const f = mockFetch(() => makeResp('', 404));
+        await expect(fetchContexts('http://b', 't', f)).resolves.toBeNull();
+    });
+
+    test('fetchContexts parses the context list on success', async () => {
+        const body = JSON.stringify({
+            current: 'ctx-a',
+            contexts: [
+                { name: 'ctx-a', namespace: 'default' },
+                { name: 'ctx-b', namespace: null },
+            ],
+        });
+        const f = mockFetch(() => makeResp(body));
+        const r = await fetchContexts('http://b', 't', f);
+        expect(r?.current).toBe('ctx-a');
+        expect(r?.contexts.map((c) => c.name)).toEqual(['ctx-a', 'ctx-b']);
+    });
+
+    test('fetchOperatorSessionsV2 maps the v2 shape to the internal one', async () => {
+        const v2 = {
+            context: 'ctx-a',
+            status: 'available',
+            sessions: [
+                {
+                    id: 'a',
+                    key: 'k1',
+                    namespace: 'ns-a',
+                    owner,
+                    target: null,
+                    createdAt,
+                },
+                {
+                    id: 'b',
+                    key: 'k1',
+                    namespace: 'ns-b',
+                    owner,
+                    target: null,
+                    createdAt,
+                },
+            ],
+        };
+        const f = mockFetch(() => makeResp(JSON.stringify(v2)));
+        const r = await fetchOperatorSessionsV2('http://b', 't', 'ctx-a', f);
+        expect(r.sessions).toHaveLength(2);
+        expect(Object.keys(r.by_key)).toEqual(['k1']);
+        expect(r.watch_status).toEqual({ status: 'watching' });
+    });
+
+    test('fetchOperatorSessionsV2 maps an unavailable operator with its reason', async () => {
+        const v2 = {
+            context: null,
+            status: 'unavailable',
+            reason: 'operator not available',
+            sessions: [],
+        };
+        const f = mockFetch(() => makeResp(JSON.stringify(v2)));
+        const r = await fetchOperatorSessionsV2('http://b', 't', null, f);
+        expect(r.watch_status).toEqual({
+            status: 'unavailable',
+            reason: 'operator not available',
+        });
+    });
+
+    test('fetchOperatorSessionsV2 sends the selected context as a query param', async () => {
+        const f = mockFetch(() =>
+            makeResp(
+                JSON.stringify({
+                    context: 'ctx-a',
+                    status: 'available',
+                    sessions: [],
+                })
+            )
+        );
+        await fetchOperatorSessionsV2('http://b', 'tok', 'ctx-a', f);
+        const calledUrl = String((f as jest.Mock).mock.calls[0][0]);
+        expect(calledUrl).toContain('/api/v2/operator/sessions');
+        expect(calledUrl).toContain('context=ctx-a');
+        expect(calledUrl).toContain('token=tok');
     });
 });

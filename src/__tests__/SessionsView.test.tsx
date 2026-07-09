@@ -2,7 +2,11 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
-import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
+import type {
+    KubeContext,
+    OperatorSessionSummary,
+    OperatorWatchStatus,
+} from '../types';
 
 jest.mock('@metalbear/ui', () => ({
     Card: ({
@@ -113,6 +117,10 @@ describe('SessionsView', () => {
         namespaces: ['', 'ns-a', 'ns-b'],
         namespace: '',
         setNamespace: jest.fn(),
+        contexts: [] as KubeContext[],
+        currentContext: null as string | null,
+        selectedContext: null as string | null,
+        onSelectContext: jest.fn(),
         joinState: {
             joinedKey: null,
             joinedSessionName: null,

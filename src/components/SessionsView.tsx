@@ -5,6 +5,7 @@ import { Input } from '@metalbear/ui';
 import { SessionKeyGroup } from './SessionKeyGroup';
 import { ConnectedBanner } from './ConnectedBanner';
 import { NamespaceFilter } from './NamespaceFilter';
+import { ContextFilter } from './ContextFilter';
 import { StatusDot } from './StatusDot';
 import { NotConfiguredPrompt } from './NotConfiguredPrompt';
 import { MirrordUiDetectedPrompt } from './MirrordUiDetectedPrompt';
@@ -12,7 +13,11 @@ import { MirrordUiAuthError } from './MirrordUiAuthError';
 import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
 import { useJoinLiveness } from '../hooks/useJoinLiveness';
-import type { OperatorSessionSummary, OperatorWatchStatus } from '../types';
+import type {
+    KubeContext,
+    OperatorSessionSummary,
+    OperatorWatchStatus,
+} from '../types';
 import { JOIN_GRACE_MS, STRINGS } from '../constants';
 
 type Props = {
@@ -24,6 +29,10 @@ type Props = {
     namespaces: string[];
     namespace: string;
     setNamespace: (ns: string) => void;
+    contexts: KubeContext[];
+    currentContext: string | null;
+    selectedContext: string | null;
+    onSelectContext: (context: string) => void;
     joinState: JoinState;
     status: OperatorWatchStatus | null;
     onJoin: (key: string) => void;
@@ -62,6 +71,10 @@ export function SessionsView({
     namespaces,
     namespace,
     setNamespace,
+    contexts,
+    currentContext,
+    selectedContext,
+    onSelectContext,
     joinState,
     status,
     onJoin,
@@ -121,7 +134,6 @@ export function SessionsView({
         ? sessions.filter((s) => s.key === joinedKey)
         : [];
 
-    const hasNamespaces = namespaces.filter((ns) => ns !== '').length > 0;
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
@@ -155,6 +167,23 @@ export function SessionsView({
             )}
 
             {operatorUnavailable && <OperatorUnavailableNote />}
+
+            {(contexts.length > 1 ||
+                namespaces.filter((ns) => ns !== '').length > 1) && (
+                <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
+                    <ContextFilter
+                        contexts={contexts}
+                        currentContext={currentContext}
+                        value={selectedContext}
+                        onChange={onSelectContext}
+                    />
+                    <NamespaceFilter
+                        namespaces={namespaces}
+                        value={namespace}
+                        onChange={setNamespace}
+                    />
+                </div>
+            )}
 
             {showSearch && (
                 <div className="flex items-center" style={{ gap: 8 }}>
@@ -191,13 +220,6 @@ export function SessionsView({
                             }}
                         />
                     </div>
-                    {hasNamespaces && (
-                        <NamespaceFilter
-                            namespaces={namespaces}
-                            value={namespace}
-                            onChange={setNamespace}
-                        />
-                    )}
                 </div>
             )}
 
