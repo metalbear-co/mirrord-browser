@@ -14,7 +14,6 @@ import {
 } from '@metalbear/ui';
 
 initTheme();
-import mirrordIconDark from './assets/mirrord-icon-dark.svg';
 import mirrordIconLight from './assets/mirrord-icon-light.svg';
 import { Moon, Settings, Share2, Sun, Check } from 'lucide-react';
 import { loadTheme, saveTheme, resolveDark } from './theme';
@@ -83,7 +82,7 @@ export function Popup() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
-                            src={isDark ? mirrordIconDark : mirrordIconLight}
+                            src={mirrordIconLight}
                             alt=""
                             className="h-5 w-auto"
                         />
