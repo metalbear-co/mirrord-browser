@@ -8,6 +8,14 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.5.2](https://github.com/metalbear-co/mirrord-browser/tree/0.5.2) - 2026-07-09
+
+
+### Fixed
+
+- The mirrord icon in the popup now uses the light logo in both light and dark
+  mode, so it stays legible instead of fading into a dark popup background.
+
 ## [0.5.1](https://github.com/metalbear-co/mirrord-browser/tree/0.5.1) - 2026-06-29
 
 
