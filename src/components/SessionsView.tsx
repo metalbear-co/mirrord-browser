@@ -134,7 +134,6 @@ export function SessionsView({
         ? sessions.filter((s) => s.key === joinedKey)
         : [];
 
-    const hasNamespaces = namespaces.filter((ns) => ns !== '').length > 0;
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
@@ -169,13 +168,19 @@ export function SessionsView({
 
             {operatorUnavailable && <OperatorUnavailableNote />}
 
-            {contexts.length > 1 && (
-                <div className="flex items-center" style={{ gap: 8 }}>
+            {(contexts.length > 1 ||
+                namespaces.filter((ns) => ns !== '').length > 1) && (
+                <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
                     <ContextFilter
                         contexts={contexts}
                         currentContext={currentContext}
                         value={selectedContext}
                         onChange={onSelectContext}
+                    />
+                    <NamespaceFilter
+                        namespaces={namespaces}
+                        value={namespace}
+                        onChange={setNamespace}
                     />
                 </div>
             )}
@@ -215,13 +220,6 @@ export function SessionsView({
                             }}
                         />
                     </div>
-                    {hasNamespaces && (
-                        <NamespaceFilter
-                            namespaces={namespaces}
-                            value={namespace}
-                            onChange={setNamespace}
-                        />
-                    )}
                 </div>
             )}
 

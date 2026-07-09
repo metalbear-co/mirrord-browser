@@ -34,11 +34,30 @@ export function ContextFilter({
         <Select value={selected} onValueChange={onChange}>
             <SelectTrigger
                 id="ctx-select"
-                className="font-mono"
-                style={{ height: 32, fontSize: 11, width: 130, flexShrink: 0 }}
+                style={{
+                    height: 32,
+                    fontSize: 11,
+                    minWidth: 120,
+                    maxWidth: 190,
+                    flex: 1,
+                }}
                 aria-label={`Filter by ${STRINGS.LABEL_CONTEXT.toLowerCase()}`}
             >
-                <SelectValue />
+                <span
+                    className="text-muted-foreground"
+                    style={{
+                        fontSize: 9,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                        marginRight: 6,
+                        flexShrink: 0,
+                    }}
+                >
+                    {STRINGS.LABEL_CONTEXT}
+                </span>
+                <span className="font-mono" style={{ minWidth: 0 }}>
+                    <SelectValue />
+                </span>
             </SelectTrigger>
             <SelectContent>
                 {contexts.map((ctx) => (
