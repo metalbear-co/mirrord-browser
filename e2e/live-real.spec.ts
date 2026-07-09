@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 
 const REAL_BACKEND = 'http://localhost:8080';
-const TOKEN = process.env.MIRRORD_UI_TOKEN ?? '';
+const TOKEN = process.env['MIRRORD_UI_TOKEN'] ?? '';
 
 test('live e2e against real mirrord ui + han-dev operator', async ({
     context,
@@ -44,7 +44,8 @@ test('live e2e against real mirrord ui + han-dev operator', async ({
 
     expect(dnrRules.length).toBeGreaterThan(0);
     const rule = dnrRules[0];
-    const headerOp = rule.action.requestHeaders?.[0];
+    expect(rule).toBeDefined();
+    const headerOp = rule?.action.requestHeaders?.[0];
     expect(headerOp).toBeDefined();
     expect(headerOp?.header.toLowerCase()).toMatch(
         /baggage|x-mirrord-user|mirrord/i

@@ -108,7 +108,7 @@ describe('parseRules', () => {
         const result = parseRules(rules);
 
         expect(result).toHaveLength(1);
-        expect(result[0].scope).toBe('*://api.example.com/*');
+        expect(result[0]?.scope).toBe('*://api.example.com/*');
     });
 
     it('filters out non-MODIFY_HEADERS rules', () => {
@@ -173,7 +173,7 @@ describe('parseRules', () => {
 
         const result = parseRules(rules);
 
-        expect(result[0].scope).toBe(STRINGS.MSG_ALL_URLS);
+        expect(result[0]?.scope).toBe(STRINGS.MSG_ALL_URLS);
     });
 });
 
@@ -218,19 +218,19 @@ describe('buildDnrRule', () => {
     it('defaults scope to | when not provided', () => {
         const rules = buildDnrRule('X-Test', 'value');
 
-        expect(rules[0].condition.urlFilter).toBe('|');
+        expect(rules[0]?.condition.urlFilter).toBe('|');
     });
 
     it('uses provided scope as urlFilter', () => {
         const rules = buildDnrRule('X-Test', 'value', '*://api.example.com/*');
 
-        expect(rules[0].condition.urlFilter).toBe('*://api.example.com/*');
+        expect(rules[0]?.condition.urlFilter).toBe('*://api.example.com/*');
     });
 
     it('includes ALL_RESOURCE_TYPES', () => {
         const rules = buildDnrRule('X-Test', 'value');
 
-        expect(rules[0].condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
+        expect(rules[0]?.condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
     });
 });
 
@@ -283,6 +283,9 @@ describe('buildShareUrl', () => {
 
         const url = buildShareUrl(config);
         const payload = url.split('#config=')[1];
+        if (payload === undefined) {
+            throw new Error('expected a config payload in the share url');
+        }
         const decoded = decodeConfig(payload);
 
         expect(decoded).toEqual(config);

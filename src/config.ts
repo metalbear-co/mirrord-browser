@@ -62,7 +62,7 @@ function storeHeaderConfig(
         const config: StoredConfig = {
             headerName,
             headerValue,
-            scope,
+            ...(scope !== undefined ? { scope } : {}),
         };
         chrome.storage.local.set({ [storageKey]: config }, () => {
             if (chrome.runtime.lastError) {

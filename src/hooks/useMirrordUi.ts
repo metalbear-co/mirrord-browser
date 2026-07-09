@@ -69,7 +69,7 @@ export async function runPoll(
                 ...(status !== undefined && { status }),
             });
         }
-        return { ok: false, status, error };
+        return { ok: false, error, ...(status !== undefined && { status }) };
     }
 }
 
@@ -411,7 +411,7 @@ export function useMirrordUi() {
             const target = sessions?.sessions.find((s) => s.key === key);
             const { header, value } = sessionInjectionPair({
                 key,
-                httpFilter: target?.httpFilter,
+                httpFilter: target?.httpFilter ?? null,
             });
             const config: Config = {
                 header_filter: `${header}: ${value}`,
