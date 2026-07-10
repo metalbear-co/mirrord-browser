@@ -108,7 +108,7 @@ export function MirrordUiAuthError({ backend }: { backend: string | null }) {
                         style={{ flex: 1, height: 32, fontSize: 11 }}
                     />
                     <Button
-                        onClick={setToken}
+                        onClick={() => void setToken()}
                         disabled={!tokenInput.trim()}
                         style={{ height: 32, fontSize: 11 }}
                     >

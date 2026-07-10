@@ -1,20 +1,20 @@
-export type Config = {
+export interface Config {
     header_filter: string;
     inject_scope?: string;
-};
+}
 
-export type StoredConfig = {
+export interface StoredConfig {
     headerName: string;
     headerValue: string;
     scope?: string;
-};
+}
 
-export type HeaderRule = {
+export interface HeaderRule {
     id: number;
     header: string;
     value: string;
     scope: string;
-};
+}
 
 export const STORAGE_KEYS = {
     DEFAULTS: 'defaults',
@@ -49,16 +49,16 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
     'other' as chrome.declarativeNetRequest.ResourceType,
 ];
 
-export type MirrordUiConfig = {
+export interface MirrordUiConfig {
     backend: string;
     token: string;
-};
+}
 
-export type OperatorSessionHttpFilter = {
+export interface OperatorSessionHttpFilter {
     headerFilter: string | null;
-};
+}
 
-export type OperatorSessionSummary = {
+export interface OperatorSessionSummary {
     id: string;
     key: string;
     namespace: string;
@@ -66,7 +66,7 @@ export type OperatorSessionSummary = {
     target: { kind: string; name: string; container: string } | null;
     createdAt: string;
     httpFilter?: OperatorSessionHttpFilter | null;
-};
+}
 
 export type OperatorWatchStatus =
     | { status: 'not_started' }
@@ -74,31 +74,31 @@ export type OperatorWatchStatus =
     | { status: 'error'; message: string }
     | { status: 'unavailable'; reason: string };
 
-export type OperatorSessionsResponse = {
+export interface OperatorSessionsResponse {
     by_key: Record<string, OperatorSessionSummary[]>;
     sessions: OperatorSessionSummary[];
     watch_status: OperatorWatchStatus;
-};
+}
 
 // A kube context and its default namespace, from `GET /api/v2/kube/contexts`.
-export type KubeContext = {
+export interface KubeContext {
     name: string;
     namespace: string | null;
-};
+}
 
-export type ContextsResponse = {
+export interface ContextsResponse {
     current: string | null;
     contexts: KubeContext[];
-};
+}
 
 // `GET /api/v2/operator/sessions?context=`. Namespace is filtered client-side, so this doesn't take
 // a namespace param. `OperatorSession` is the same shape the extension already uses for a summary.
-export type OperatorSessionsV2Response = {
+export interface OperatorSessionsV2Response {
     context: string | null;
     status: 'available' | 'unavailable';
     reason?: string;
     sessions: OperatorSessionSummary[];
-};
+}
 
 export type SessionNotification =
     | { type: 'session_added'; session: unknown }

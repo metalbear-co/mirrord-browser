@@ -24,10 +24,11 @@ const mockLocalStorage = {
         store[key] = value;
     }),
     removeItem: jest.fn((key: string) => {
-        delete store[key];
+        Reflect.deleteProperty(store, key);
     }),
     clear: jest.fn(() => {
-        for (const key of Object.keys(store)) delete store[key];
+        for (const key of Object.keys(store))
+            Reflect.deleteProperty(store, key);
     }),
     length: 0,
     key: jest.fn(),
@@ -54,7 +55,7 @@ const mockChromeStorage = {
     }),
     remove: jest.fn((keys: string | string[]) => {
         const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) delete chromeStore[k];
+        for (const k of keyList) Reflect.deleteProperty(chromeStore, k);
         return Promise.resolve();
     }),
 };
@@ -76,11 +77,34 @@ import {
     optOutReady,
 } from '../analytics';
 
+interface CaptureBody {
+    api_key: string;
+    event: string;
+    distinct_id: string;
+    properties: Record<string, unknown>;
+    timestamp: string;
+}
+
+function readCaptureBody(raw: unknown): CaptureBody {
+    return JSON.parse(raw as string) as CaptureBody;
+}
+
+function fetchBody(call: number): CaptureBody {
+    const [, init] = mockFetch.mock.calls[call] as [string, RequestInit];
+    return readCaptureBody(init.body);
+}
+
+function beaconBody(call: number): CaptureBody {
+    const [, payload] = mockSendBeacon.mock.calls[call] as [string, string];
+    return readCaptureBody(payload);
+}
+
 describe('analytics', () => {
     beforeEach(async () => {
         jest.clearAllMocks();
         mockLocalStorage.clear();
-        for (const key of Object.keys(chromeStore)) delete chromeStore[key];
+        for (const key of Object.keys(chromeStore))
+            Reflect.deleteProperty(chromeStore, key);
         // Wait for module-level optOutReady to settle, then reset
         await optOutReady;
         await setOptOut(false);
@@ -98,7 +122,7 @@ describe('analytics', () => {
                 })
             );
 
-            const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+            const body = fetchBody(0);
             expect(body.api_key).toBe(
                 'phc_wIZh92nyk4vu6HidiLFUzjW6piZlZszuWZZFBS7yHHe'
             );
@@ -111,7 +135,7 @@ describe('analytics', () => {
         it('includes custom properties', () => {
             capture('test_event', { action: 'save', count: 5 });
 
-            const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+            const body = fetchBody(0);
             expect(body.properties.action).toBe('save');
             expect(body.properties.count).toBe(5);
             expect(body.properties.$lib).toBe('mirrord-browser-extension');
@@ -132,7 +156,7 @@ describe('analytics', () => {
                 expect.any(String)
             );
 
-            const payload = JSON.parse(mockSendBeacon.mock.calls[0][1]);
+            const payload = beaconBody(0);
             expect(payload.event).toBe('close_event');
             expect(payload.properties.duration_ms).toBe(500);
             expect(payload.properties.$lib).toBe('mirrord-browser-extension');
@@ -149,10 +173,10 @@ describe('analytics', () => {
     describe('distinct ID', () => {
         it('uses consistent distinct ID across events', () => {
             capture('event1');
-            const body1 = JSON.parse(mockFetch.mock.calls[0][1].body);
+            const body1 = fetchBody(0);
 
             capture('event2');
-            const body2 = JSON.parse(mockFetch.mock.calls[1][1].body);
+            const body2 = fetchBody(1);
 
             expect(body1.distinct_id).toBeTruthy();
             expect(body1.distinct_id).toBe(body2.distinct_id);
@@ -180,7 +204,7 @@ describe('analytics', () => {
             await setOptOut(false);
             capture('allowed_event');
             expect(mockFetch).toHaveBeenCalledTimes(1);
-            const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+            const body = fetchBody(0);
             expect(body.event).toBe('allowed_event');
         });
 
@@ -199,7 +223,7 @@ describe('analytics', () => {
         });
 
         it('loadOptOutState reads from chrome.storage.local', async () => {
-            chromeStore['analytics_opt_out'] = true;
+            chromeStore.analytics_opt_out = true;
             await loadOptOutState();
             capture('test_event');
             expect(mockFetch).not.toHaveBeenCalled();

@@ -1,11 +1,7 @@
 import '@metalbear/ui/styles.css';
 import { refreshIconIndicator } from './util';
-import {
-    Config,
-    StoredConfig,
-    STORAGE_KEYS,
-    ALL_RESOURCE_TYPES,
-} from './types';
+import type { Config, StoredConfig } from './types';
+import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     isRegex,
@@ -71,7 +67,7 @@ function storeHeaderConfig(
                     chrome.runtime.lastError.message
                 );
             } else {
-                console.log(`${storageKey} stored successfully.`);
+                console.warn(`${storageKey} stored successfully.`);
             }
             resolve();
         });
@@ -106,8 +102,9 @@ function setHeaderRule(
         try {
             ({ key, value } = parseHeader(header));
         } catch (err) {
-            alert((err as Error).message);
-            reject(err);
+            const error = err instanceof Error ? err : new Error(String(err));
+            alert(error.message);
+            reject(error);
             return;
         }
 
@@ -115,7 +112,7 @@ function setHeaderRule(
         // '|' is a left anchor in Chrome DNR urlFilter syntax meaning "start of URL",
         // so '|' alone matches all URLs.
         // See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-RuleCondition
-        const urlFilter = scope || '|';
+        const urlFilter = scope && scope.length > 0 ? scope : '|';
 
         const rules = [
             {
@@ -163,7 +160,7 @@ function setHeaderRule(
                         });
                         reject(new Error(chrome.runtime.lastError.message));
                     } else {
-                        console.log('Header rule set successfully.');
+                        console.warn('Header rule set successfully.');
                         refreshIconIndicator(rules.length);
 
                         const storeConfig =
@@ -174,7 +171,7 @@ function setHeaderRule(
                             storageKey === STORAGE_KEYS.OVERRIDE
                                 ? clearJoinedSession()
                                 : Promise.resolve();
-                        clearSession
+                        void clearSession
                             .then(() =>
                                 storeConfig(key.trim(), value.trim(), scope)
                             )
@@ -187,7 +184,7 @@ function setHeaderRule(
 }
 
 // Listener for the configuration link page
-document.addEventListener('DOMContentLoaded', async () => {
+async function handleConfigLink(): Promise<void> {
     const params = new URLSearchParams(location.search);
     const encoded = params.get('payload');
     const storageKey =
@@ -256,4 +253,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         emitUserBlocked('configure_failed', 'user_action', { error: errMsg });
         alert('Failed to set header: ' + errMsg);
     }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    void handleConfigLink();
 });

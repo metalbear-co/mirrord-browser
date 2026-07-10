@@ -3,19 +3,21 @@ export const HEADER_OBSERVATION_PORT = 'header-observation';
 export const RING_SECONDS = 60;
 export const RECENT_URL_LIMIT = 3;
 
-export type RecentUrl = {
+const MS_PER_SECOND = 1000;
+
+export interface RecentUrl {
     url: string;
     method: string;
     at: number;
-};
+}
 
-export type HeaderObservation = {
+export interface HeaderObservation {
     headerName: string;
     bucketStartMs: number;
     buckets: number[];
     recent: RecentUrl[];
     totalLast60s: number;
-};
+}
 
 export function emptyObservation(
     headerName: string,
@@ -31,7 +33,7 @@ export function emptyObservation(
 }
 
 export function alignToSecond(ms: number): number {
-    return Math.floor(ms / 1000) * 1000;
+    return Math.floor(ms / MS_PER_SECOND) * MS_PER_SECOND;
 }
 
 export function rotateBuckets(
@@ -39,7 +41,7 @@ export function rotateBuckets(
     nowMs: number
 ): HeaderObservation {
     const nowSec = alignToSecond(nowMs);
-    const elapsedSec = Math.floor((nowSec - obs.bucketStartMs) / 1000);
+    const elapsedSec = Math.floor((nowSec - obs.bucketStartMs) / MS_PER_SECOND);
     if (elapsedSec <= 0) return obs;
     const buckets = obs.buckets.slice();
     if (elapsedSec >= RING_SECONDS) {
@@ -87,10 +89,10 @@ export function setHeaderName(
 
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
 
-type CanaryArm = {
+interface CanaryArm {
     headerName: string;
     flow: 'session_monitor' | 'header_injector';
-};
+}
 
 let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;

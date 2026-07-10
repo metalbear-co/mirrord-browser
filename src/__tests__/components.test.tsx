@@ -50,7 +50,7 @@ jest.mock('@metalbear/ui', () => ({
 import { RuleItem } from '../components/RuleItem';
 import { RulesList } from '../components/RulesList';
 import { HeaderForm } from '../components/HeaderForm';
-import { HeaderRule } from '../types';
+import type { HeaderRule } from '../types';
 
 describe('RuleItem', () => {
     const mockRule: HeaderRule = {

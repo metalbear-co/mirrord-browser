@@ -30,6 +30,10 @@ import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
 let bridgeHealthy = true;
 
+const HTTP_NOT_FOUND = 404;
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
+
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
@@ -59,7 +63,7 @@ export async function fetchContexts(
 ): Promise<ContextsResponse | null> {
     const url = `${backend}/api/v2/kube/contexts?token=${encodeURIComponent(token)}`;
     const resp = await fetchImpl(url);
-    if (resp.status === 404) return null;
+    if (resp.status === HTTP_NOT_FOUND) return null;
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}`
@@ -129,7 +133,7 @@ export async function runPoll(
         return { ok: true, data: resp };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        const status = (err as { status?: number })?.status;
+        const status = (err as { status?: number }).status;
         if (bridgeHealthy) {
             bridgeHealthy = false;
             emitUserBlocked('bridge_unhealthy', 'health', {
@@ -143,7 +147,7 @@ export async function runPoll(
 
 /** True for HTTP responses that indicate the mirrord ui token is wrong / rejected. */
 export function isAuthFailureStatus(status: number | undefined): boolean {
-    return status === 401 || status === 403;
+    return status === HTTP_UNAUTHORIZED || status === HTTP_FORBIDDEN;
 }
 
 export function buildWsUrl(backend: string, token: string): string {
@@ -200,10 +204,10 @@ function groupByKey(
     return groupBy(sessions, (s) => s.key);
 }
 
-export type JoinState = {
+export interface JoinState {
     joinedKey: string | null;
     joinedSessionName: string | null;
-};
+}
 
 export function useMirrordUi() {
     const [backend, setBackend] = useState<string | null>(null);
@@ -260,18 +264,29 @@ export function useMirrordUi() {
             ]);
             if (cancelled) return;
             setBackend(
-                (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as string) ?? null
+                (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
+                    | string
+                    | undefined) ?? null
             );
-            setToken((stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string) ?? null);
+            setToken(
+                (stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined) ??
+                    null
+            );
             setJoinState({
-                joinedKey: (stored[STORAGE_KEYS.JOINED_KEY] as string) ?? null,
-                joinedSessionName:
-                    (stored[STORAGE_KEYS.JOINED_SESSION_NAME] as string) ??
+                joinedKey:
+                    (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ??
                     null,
+                joinedSessionName:
+                    (stored[STORAGE_KEYS.JOINED_SESSION_NAME] as
+                        | string
+                        | undefined) ?? null,
             });
             const header =
-                (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
-            const value = (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+                (stored[STORAGE_KEYS.JOINED_HEADER] as string | undefined) ??
+                null;
+            const value =
+                (stored[STORAGE_KEYS.JOINED_VALUE] as string | undefined) ??
+                null;
             joinedHeaderRef.current = header;
             joinedValueRef.current = value;
             setJoinedHeader(header);
@@ -285,17 +300,18 @@ export function useMirrordUi() {
                     : []
             );
             setSelectedContextState(
-                (stored[STORAGE_KEYS.SELECTED_CONTEXT] as string) ?? null
+                (stored[STORAGE_KEYS.SELECTED_CONTEXT] as string | undefined) ??
+                    null
             );
             setConfigLoaded(true);
         };
 
-        loadFromStorage();
+        void loadFromStorage();
 
         const listener = (
             changes: Record<string, chrome.storage.StorageChange>
         ) => {
-            if (hasWatchedChange(changes)) loadFromStorage();
+            if (hasWatchedChange(changes)) void loadFromStorage();
         };
         chrome.storage.onChanged.addListener(listener);
         return () => {
@@ -374,7 +390,7 @@ export function useMirrordUi() {
             return;
         let cancelled = false;
         const refresh = () => {
-            runPoll(backend, token, v2Available, effectiveContext).then(
+            void runPoll(backend, token, v2Available, effectiveContext).then(
                 (result) => {
                     if (cancelled) return;
                     if (result.ok) {
@@ -406,9 +422,14 @@ export function useMirrordUi() {
         wsRef.current = ws;
 
         ws.onmessage = (ev) => {
+            const data: unknown = ev.data;
+            if (typeof data !== 'string') {
+                setError(STRINGS.ERR_WS_PARSE);
+                return;
+            }
             let msg: SessionNotification;
             try {
-                msg = JSON.parse(ev.data) as SessionNotification;
+                msg = JSON.parse(data) as SessionNotification;
             } catch {
                 setError(STRINGS.ERR_WS_PARSE);
                 return;

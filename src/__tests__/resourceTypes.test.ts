@@ -1,13 +1,28 @@
 import { renderHook, act } from '@testing-library/react';
 import { ALL_RESOURCE_TYPES } from '../types';
 
-const mockGetDynamicRules = jest.fn();
-const mockUpdateDynamicRules = jest.fn();
+const mockGetDynamicRules = jest.fn() as jest.Mock<
+    void,
+    [cb: (rules: chrome.declarativeNetRequest.Rule[]) => void]
+>;
+const mockUpdateDynamicRules = jest.fn() as jest.Mock<
+    void,
+    [opts: chrome.declarativeNetRequest.UpdateRuleOptions, cb: () => void]
+>;
 const mockSetBadgeText = jest.fn();
 const mockSetBadgeTextColor = jest.fn();
-const mockStorageGet = jest.fn();
-const mockStorageSet = jest.fn();
-const mockStorageRemove = jest.fn();
+const mockStorageGet = jest.fn() as jest.Mock<
+    void,
+    [keys: unknown, cb: (items: Record<string, unknown>) => void]
+>;
+const mockStorageSet = jest.fn() as jest.Mock<
+    void,
+    [data: unknown, cb: () => void]
+>;
+const mockStorageRemove = jest.fn() as jest.Mock<
+    void,
+    [keys: unknown, cb: () => void]
+>;
 
 globalThis.chrome = {
     declarativeNetRequest: {
@@ -85,7 +100,7 @@ describe('useHeaderRules resource types', () => {
                     },
                     condition: { urlFilter: '|' },
                 },
-            ])
+            ] as chrome.declarativeNetRequest.Rule[])
         );
         mockUpdateDynamicRules.mockImplementation((_opts, cb) => cb());
         mockStorageSet.mockImplementation((_data, cb) => cb());
@@ -102,10 +117,12 @@ describe('useHeaderRules resource types', () => {
         });
 
         await act(async () => {
-            result.current.handleSave();
+            void result.current.handleSave();
+            await Promise.resolve();
         });
 
-        const addedRules = mockUpdateDynamicRules.mock.calls[0][0].addRules;
+        const addedRules =
+            mockUpdateDynamicRules.mock.calls[0][0].addRules ?? [];
         expect(addedRules).toHaveLength(1);
         expect(addedRules[0].condition.resourceTypes).toEqual(
             ALL_RESOURCE_TYPES
@@ -126,10 +143,12 @@ describe('useHeaderRules resource types', () => {
         const { result } = renderHook(() => useHeaderRules());
 
         await act(async () => {
-            result.current.handleReset();
+            void result.current.handleReset();
+            await Promise.resolve();
         });
 
-        const addedRules = mockUpdateDynamicRules.mock.calls[0][0].addRules;
+        const addedRules =
+            mockUpdateDynamicRules.mock.calls[0][0].addRules ?? [];
         expect(addedRules).toHaveLength(1);
         expect(addedRules[0].condition.resourceTypes).toEqual(
             ALL_RESOURCE_TYPES

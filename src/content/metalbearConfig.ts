@@ -32,8 +32,8 @@ const MESSAGE_BOX_ID = 'mirrord-config-message';
 
 /** Render a small fixed note in the page (used only for the "no config" case). */
 function showMessage(title: string, detail: string): void {
-    const parent = document.body ?? document.documentElement;
-    if (!parent || document.getElementById(MESSAGE_BOX_ID)) return;
+    const parent = document.body;
+    if (document.getElementById(MESSAGE_BOX_ID)) return;
 
     const box = document.createElement('div');
     box.id = MESSAGE_BOX_ID;

@@ -14,9 +14,9 @@ import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import type { useHeaderRules } from '../hooks';
 
-type Props = {
+interface Props {
     headerRules: ReturnType<typeof useHeaderRules>;
-};
+}
 
 export function ManualSetup({ headerRules }: Props) {
     const {
@@ -40,7 +40,7 @@ export function ManualSetup({ headerRules }: Props) {
         getResetButtonText,
     } = headerRules;
 
-    const activeRule = rules[0];
+    const activeRule = rules.length > 0 ? rules[0] : undefined;
     const isActive = !!activeRule;
     const canToggle = isActive || hasStoredConfig;
 
@@ -113,7 +113,7 @@ export function ManualSetup({ headerRules }: Props) {
                 <Separator />
                 <CardContent className="px-3 py-2 flex gap-2">
                     <Button
-                        onClick={handleSave}
+                        onClick={() => void handleSave()}
                         disabled={saveState !== 'idle'}
                         className="flex-1 h-9 text-xs"
                     >
@@ -122,7 +122,7 @@ export function ManualSetup({ headerRules }: Props) {
                     {hasDefaults && (
                         <Button
                             variant="outline"
-                            onClick={handleReset}
+                            onClick={() => void handleReset()}
                             disabled={resetState !== 'idle'}
                             className="flex-1 h-9 text-xs"
                         >

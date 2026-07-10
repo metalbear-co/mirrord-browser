@@ -8,6 +8,8 @@ jest.mock('@metalbear/ui', () => ({
 }));
 
 describe('configure.tsx (entry)', () => {
+    let mockStorageSet: jest.Mock<void, [items: unknown, cb: () => void]>;
+
     beforeEach(() => {
         document.body.innerHTML = '<div id="root"></div>';
         window.history.replaceState(
@@ -15,11 +17,12 @@ describe('configure.tsx (entry)', () => {
             '',
             '/pages/configure.html?backend=http://127.0.0.1:8082&token=abc'
         );
-        (global as any).chrome = {
+        mockStorageSet = jest.fn((_items: unknown, cb: () => void) => cb());
+        globalThis.chrome = {
             runtime: { lastError: null, id: 'test-extension-id' },
             storage: {
                 local: {
-                    set: jest.fn((_items: unknown, cb: () => void) => cb()),
+                    set: mockStorageSet,
                     get: jest.fn((_k: unknown, cb: (items: unknown) => void) =>
                         cb({})
                     ),
@@ -35,32 +38,30 @@ describe('configure.tsx (entry)', () => {
                 RuleActionType: { MODIFY_HEADERS: 'modifyHeaders' },
                 HeaderOperation: { SET: 'set' },
             },
-        };
-        global.fetch = jest.fn(() =>
-            Promise.resolve({
-                ok: true,
-                status: 200,
-                statusText: 'OK',
-                text: () => Promise.resolve(''),
-                json: () => Promise.resolve({ sessions: [] }),
-            } as any)
-        ) as any;
+        } as unknown as typeof chrome;
+        global.fetch = jest.fn(
+            (): Promise<Response> =>
+                Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    statusText: 'OK',
+                    text: () => Promise.resolve(''),
+                    json: () => Promise.resolve({ sessions: [] }),
+                } as unknown as Response)
+        );
     });
 
     test('stores backend+token when query params are present', async () => {
         await jest.isolateModulesAsync(async () => {
             await import('../configure');
             for (let i = 0; i < 20; i++) {
-                if (
-                    (global as any).chrome.storage.local.set.mock.calls.length >
-                    0
-                ) {
+                if (mockStorageSet.mock.calls.length > 0) {
                     break;
                 }
                 await new Promise((r) => setTimeout(r, 25));
             }
         });
-        expect((global as any).chrome.storage.local.set).toHaveBeenCalledWith(
+        expect(mockStorageSet).toHaveBeenCalledWith(
             expect.objectContaining({
                 [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:8082',
                 [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'abc',

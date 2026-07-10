@@ -1,12 +1,8 @@
 import RandExp from 'randexp';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import {
-    Config,
-    HeaderRule,
-    OperatorSessionSummary,
-    ALL_RESOURCE_TYPES,
-} from './types';
+import type { Config, HeaderRule, OperatorSessionSummary } from './types';
+import { ALL_RESOURCE_TYPES } from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -16,17 +12,12 @@ import {
 dayjs.extend(relativeTime);
 
 export function refreshIconIndicator(num: number) {
-    chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
+    void chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
     if (num > 0) {
-        chrome.action.setBadgeText({ text: '✓' });
+        void chrome.action.setBadgeText({ text: '✓' });
     } else {
-        chrome.action.setBadgeText({ text: '' });
+        void chrome.action.setBadgeText({ text: '' });
     }
-}
-
-function getDisplayScope(urlFilter: string | undefined): string {
-    const isWildcard = !urlFilter || urlFilter === '|';
-    return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
 }
 
 export function parseRules(
@@ -45,21 +36,21 @@ export function parseRules(
             continue;
         }
         const requestHeader = rule.action.requestHeaders[0];
-        const header = requestHeader?.header || '';
-        const value = requestHeader?.value || '';
-        const urlFilter = rule.condition?.urlFilter;
+        const header = requestHeader.header;
+        const value = requestHeader.value ?? '';
+        const urlFilter = rule.condition.urlFilter;
         const isWildcard = !urlFilter || urlFilter === '|';
         const key = `${header}\n${value}`;
         const group = groups.get(key);
         if (group) {
-            if (!isWildcard) group.scopes.push(urlFilter as string);
+            if (!isWildcard) group.scopes.push(urlFilter);
             if (rule.id < group.id) group.id = rule.id;
         } else {
             groups.set(key, {
                 id: rule.id,
                 header,
                 value,
-                scopes: isWildcard ? [] : [urlFilter as string],
+                scopes: isWildcard ? [] : [urlFilter],
             });
         }
     }
@@ -168,13 +159,13 @@ export function formatRelativeTime(iso: string | null | undefined): string {
 
 export const PREVIEW_OWNER_USERNAME = 'preview-env';
 
-export type SessionGroupAggregate = {
+export interface SessionGroupAggregate {
     targets: string[];
     owners: string[];
     namespaces: string[];
     earliestCreatedAt: string | null;
     isPreview: boolean;
-};
+}
 
 export function aggregateSessions(
     sessions: OperatorSessionSummary[]
@@ -190,9 +181,9 @@ export function aggregateSessions(
             ? `${s.target.kind}/${s.target.name}`
             : 'targetless';
         targets.add(targetLabel);
-        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
+        if (s.owner.username === PREVIEW_OWNER_USERNAME) {
             isPreview = true;
-        } else if (s.owner?.username) {
+        } else if (s.owner.username) {
             owners.add(s.owner.username);
         }
         namespaces.add(s.namespace);
@@ -228,10 +219,10 @@ export function buildShareUrl(config: Config): string {
     return `${METALBEAR_EXTENSION_URL}#${CONFIG_HASH_PARAM}=${encoded}`;
 }
 
-export type InjectionHint = {
+export interface InjectionHint {
     header: string;
     value: string;
-};
+}
 
 const HEADER_LINE_PATTERN = /^([A-Za-z0-9_-]+):\s?(.+)$/;
 
@@ -247,7 +238,7 @@ function generateLowestMatch(pattern: string): string | null {
 }
 
 function parseHeaderLine(line: string): InjectionHint | null {
-    const m = line.match(HEADER_LINE_PATTERN);
+    const m = HEADER_LINE_PATTERN.exec(line);
     if (!m) return null;
     return { header: m[1], value: m[2] };
 }

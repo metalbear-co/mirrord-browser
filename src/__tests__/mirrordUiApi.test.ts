@@ -1,13 +1,16 @@
 /** @jest-environment node */
 import { fetchOperatorSessions, buildWsUrl } from '../hooks/useMirrordUi';
 
+const urlToString = (url: RequestInfo | URL): string =>
+    typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+
 describe('mirrordUiClient', () => {
     const backend = 'http://127.0.0.1:8082';
     const token = 'secret123';
 
     test('fetchOperatorSessions hits /api/operator-sessions with token query', async () => {
         const fakeFetch = jest.fn((url: RequestInfo | URL) => {
-            expect(url.toString()).toBe(
+            expect(urlToString(url)).toBe(
                 `${backend}/api/operator-sessions?token=${token}`
             );
             return Promise.resolve(
@@ -48,7 +51,7 @@ describe('mirrordUiClient', () => {
         const resp = await fetchOperatorSessions(backend, token, fakeFetch);
         expect(resp.watch_status).toEqual({ status: 'watching' });
         expect(resp.sessions).toHaveLength(1);
-        expect(resp.by_key['foo']).toHaveLength(1);
+        expect(resp.by_key.foo).toHaveLength(1);
     });
 
     test('fetchOperatorSessions throws on non-2xx with status info', async () => {

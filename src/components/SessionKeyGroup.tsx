@@ -18,13 +18,13 @@ import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
 
-type Props = {
+interface Props {
     groupKey: string;
     sessions: OperatorSessionSummary[];
     joined: boolean;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
-};
+}
 
 const MAX_TARGETS = 4;
 

@@ -2,6 +2,20 @@ import { test, expect } from './fixtures';
 import { addHeader } from './helpers';
 import type { BrowserContext, Page } from '@playwright/test';
 
+interface CapturedEvent {
+    event: string;
+    properties: Record<string, unknown>;
+}
+
+interface AnalyticsPayload {
+    event: string;
+    properties?: Record<string, unknown>;
+}
+
+interface CapturedAnalyticsWindow extends Window {
+    __captured_analytics__?: CapturedEvent[];
+}
+
 /**
  * Instrument a page to capture analytics events by wrapping fetch().
  *
@@ -11,22 +25,35 @@ import type { BrowserContext, Page } from '@playwright/test';
  */
 async function setupAnalyticsSpy(page: Page): Promise<void> {
     await page.addInitScript(() => {
-        (window as any).__captured_analytics__ = [];
-        const captured: Array<{ event: string; properties: any }> = (
-            window as any
-        ).__captured_analytics__;
+        const analyticsWindow = window as CapturedAnalyticsWindow;
+        const captured: CapturedEvent[] = [];
+        analyticsWindow.__captured_analytics__ = captured;
+
+        const recordPayload = (raw: string): void => {
+            const payload = JSON.parse(raw) as AnalyticsPayload;
+            captured.push({
+                event: payload.event,
+                properties: payload.properties ?? {},
+            });
+        };
 
         const origFetch = window.fetch.bind(window);
-        window.fetch = async (input: any, init?: any) => {
+        window.fetch = async (
+            input: RequestInfo | URL,
+            init?: RequestInit
+        ): Promise<Response> => {
             try {
-                const url =
-                    typeof input === 'string' ? input : input?.url || '';
-                if (url.includes('/capture/') && init?.body) {
-                    const body = JSON.parse(init.body as string);
-                    captured.push({
-                        event: body.event,
-                        properties: body.properties || {},
-                    });
+                let url: string;
+                if (typeof input === 'string') {
+                    url = input;
+                } else if (input instanceof URL) {
+                    url = input.href;
+                } else {
+                    url = input.url;
+                }
+                const body = init?.body;
+                if (url.includes('/capture/') && typeof body === 'string') {
+                    recordPayload(body);
                 }
             } catch {
                 // Don't break anything
@@ -35,14 +62,14 @@ async function setupAnalyticsSpy(page: Page): Promise<void> {
         };
 
         const origBeacon = navigator.sendBeacon.bind(navigator);
-        navigator.sendBeacon = (url: string, data?: any) => {
+        navigator.sendBeacon = (
+            url: string | URL,
+            data?: BodyInit | null
+        ): boolean => {
             try {
-                if (url.includes('/capture/') && data) {
-                    const body = JSON.parse(data as string);
-                    captured.push({
-                        event: body.event,
-                        properties: body.properties || {},
-                    });
+                const urlStr = typeof url === 'string' ? url : url.href;
+                if (urlStr.includes('/capture/') && typeof data === 'string') {
+                    recordPayload(data);
                 }
             } catch {
                 // Don't break anything
@@ -54,8 +81,8 @@ async function setupAnalyticsSpy(page: Page): Promise<void> {
 
 async function getCapturedEvents(page: Page): Promise<string[]> {
     return page.evaluate(() => {
-        const events: Array<{ event: string }> =
-            (window as any).__captured_analytics__ || [];
+        const analyticsWindow = window as CapturedAnalyticsWindow;
+        const events = analyticsWindow.__captured_analytics__ ?? [];
         return events.map((e) => e.event);
     });
 }

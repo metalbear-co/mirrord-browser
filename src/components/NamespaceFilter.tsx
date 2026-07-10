@@ -7,11 +7,11 @@ import {
 } from '@metalbear/ui';
 import { NAMESPACE_ALL_SENTINEL, STRINGS } from '../constants';
 
-type Props = {
+interface Props {
     namespaces: string[];
     value: string;
     onChange: (ns: string) => void;
-};
+}
 
 export function NamespaceFilter({ namespaces, value, onChange }: Props) {
     const distinct = namespaces.filter((ns) => ns !== '');

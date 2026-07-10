@@ -1,15 +1,20 @@
 import { renderHook, act } from '@testing-library/react';
+import type { Config } from '../types';
 
 // Mock analytics module
 const mockCapture = jest.fn();
 jest.mock('../analytics', () => ({
-    capture: (...args: unknown[]) => mockCapture(...args),
+    capture: (...args: unknown[]) => {
+        mockCapture(...args);
+    },
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
 }));
 
 jest.mock('../headerObservation', () => {
-    const actual = jest.requireActual('../headerObservation');
+    const actual = jest.requireActual<Record<string, unknown>>(
+        '../headerObservation'
+    );
     return {
         ...actual,
         armCanary: jest.fn(),
@@ -27,7 +32,9 @@ const mockStorageGet = jest.fn();
 const mockStorageSet = jest.fn();
 const mockStorageRemove = jest.fn();
 
-const mockClipboardWriteText = jest.fn().mockResolvedValue(undefined);
+const mockClipboardWriteText = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
 Object.assign(navigator, {
     clipboard: { writeText: mockClipboardWriteText },
 });
@@ -115,7 +122,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleToggle();
+                void result.current.handleToggle();
+                await Promise.resolve();
             });
 
             expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
@@ -155,7 +163,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleToggle();
+                void result.current.handleToggle();
+                await Promise.resolve();
             });
 
             expect(mockCapture).toHaveBeenCalledWith(
@@ -180,7 +189,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(mockCapture).toHaveBeenCalledWith(
@@ -205,7 +215,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(mockCapture).toHaveBeenCalledWith(
@@ -231,7 +242,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
@@ -284,7 +296,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(mockUpdateDynamicRules).toHaveBeenCalled();
@@ -343,7 +356,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toContain('update failed');
@@ -381,7 +395,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toContain('storage failed');
@@ -400,7 +415,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toBe(
@@ -433,7 +449,8 @@ describe('useHeaderRules analytics', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             await act(async () => {
-                result.current.handleReset();
+                void result.current.handleReset();
+                await Promise.resolve();
             });
 
             expect(mockCapture).toHaveBeenCalledWith(
@@ -473,7 +490,8 @@ describe('useHeaderRules analytics', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             await act(async () => {
-                result.current.handleReset();
+                void result.current.handleReset();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toContain('remove failed');
@@ -519,7 +537,8 @@ describe('useHeaderRules analytics', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             await act(async () => {
-                result.current.handleReset();
+                void result.current.handleReset();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toContain('update failed');
@@ -534,7 +553,8 @@ describe('useHeaderRules analytics', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             await act(async () => {
-                result.current.handleReset();
+                void result.current.handleReset();
+                await Promise.resolve();
             });
 
             expect(result.current.error).toBe('No defaults available');
@@ -552,7 +572,7 @@ describe('useHeaderRules analytics', () => {
             expect(result.current.canShare).toBe(false);
         });
 
-        it('is true when header name and value are set', async () => {
+        it('is true when header name and value are set', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             act(() => {
@@ -563,7 +583,7 @@ describe('useHeaderRules analytics', () => {
             expect(result.current.canShare).toBe(true);
         });
 
-        it('is false when only header name is set', async () => {
+        it('is false when only header name is set', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             act(() => {
@@ -573,7 +593,7 @@ describe('useHeaderRules analytics', () => {
             expect(result.current.canShare).toBe(false);
         });
 
-        it('is false when values are whitespace only', async () => {
+        it('is false when values are whitespace only', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             act(() => {
@@ -599,7 +619,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleShare();
+                void result.current.handleShare();
+                await Promise.resolve();
             });
 
             expect(mockClipboardWriteText).toHaveBeenCalledTimes(1);
@@ -618,7 +639,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleShare();
+                void result.current.handleShare();
+                await Promise.resolve();
             });
 
             expect(result.current.shareState).toBe('copied');
@@ -633,7 +655,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleShare();
+                void result.current.handleShare();
+                await Promise.resolve();
             });
 
             expect(mockCapture).toHaveBeenCalledWith('extension_config_shared');
@@ -649,12 +672,13 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleShare();
+                void result.current.handleShare();
+                await Promise.resolve();
             });
 
             const url = mockClipboardWriteText.mock.calls[0][0];
             const payload = url.split('#config=')[1];
-            const decoded = JSON.parse(atob(payload));
+            const decoded = JSON.parse(atob(payload)) as Config;
             expect(decoded.inject_scope).toBe('*://example.com/*');
         });
 
@@ -662,7 +686,8 @@ describe('useHeaderRules analytics', () => {
             const { result } = renderHook(() => useHeaderRules());
 
             await act(async () => {
-                result.current.handleShare();
+                void result.current.handleShare();
+                await Promise.resolve();
             });
 
             expect(mockClipboardWriteText).not.toHaveBeenCalled();
@@ -725,7 +750,8 @@ describe('useHeaderRules analytics', () => {
             });
 
             await act(async () => {
-                result.current.handleSave();
+                void result.current.handleSave();
+                await Promise.resolve();
             });
 
             expect(result.current.hasStoredConfig).toBe(true);

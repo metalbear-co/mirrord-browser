@@ -40,7 +40,7 @@ jest.mock('@metalbear/ui', () => ({
         <div className={className}>{children}</div>
     ),
     Separator: () => <hr />,
-    cn: (...args: Array<string | false | null | undefined>) =>
+    cn: (...args: (string | false | null | undefined)[]) =>
         args.filter(Boolean).join(' '),
     Badge: ({
         children,

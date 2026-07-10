@@ -23,7 +23,7 @@ import {
     targetDisplayName,
 } from '../util';
 
-type Props = {
+interface Props {
     joinedKey: string;
     sessions: OperatorSessionSummary[];
     liveness: JoinLiveness;
@@ -34,9 +34,11 @@ type Props = {
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
     joinedHeader: string | null;
     joinedValue: string | null;
-};
+}
 
 const MAX_TARGETS = 4;
+const COPIED_RESET_MS = 1200;
+const DIMMED_OPACITY = 0.6;
 
 export function ConnectedBanner({
     joinedKey,
@@ -102,7 +104,7 @@ export function ConnectedBanner({
                 `${joinedHeader}: ${joinedValue}`
             );
             setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
+            setTimeout(() => setCopied(false), COPIED_RESET_MS);
         } catch {}
     };
 
@@ -306,7 +308,7 @@ export function ConnectedBanner({
                                     type="button"
                                     aria-label={STRINGS.LABEL_REMOVE_PATTERN}
                                     onClick={() =>
-                                        onRemoveScopePattern(pattern)
+                                        void onRemoveScopePattern(pattern)
                                     }
                                     className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
                                     style={{
@@ -327,7 +329,7 @@ export function ConnectedBanner({
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        submit();
+                                        void submit();
                                     } else if (
                                         e.key === 'Escape' &&
                                         scopePatterns.length > 0
@@ -336,7 +338,7 @@ export function ConnectedBanner({
                                         setComposing(false);
                                     }
                                 }}
-                                onBlur={submit}
+                                onBlur={() => void submit()}
                                 placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
                                 spellCheck={false}
                                 autoComplete="off"
@@ -410,7 +412,7 @@ export function ConnectedBanner({
                     {joinedHeader && joinedValue && (
                         <button
                             type="button"
-                            onClick={copyHeader}
+                            onClick={() => void copyHeader()}
                             title={
                                 copied
                                     ? STRINGS.BTN_COPIED
@@ -492,7 +494,7 @@ export function ConnectedBanner({
                                     color: copied
                                         ? COLORS.success.dot
                                         : 'inherit',
-                                    opacity: copied ? 1 : 0.6,
+                                    opacity: copied ? 1 : DIMMED_OPACITY,
                                     flexShrink: 0,
                                     display: 'grid',
                                     placeItems: 'center',

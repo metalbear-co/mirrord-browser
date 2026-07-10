@@ -17,7 +17,7 @@ describe('refreshIconIndicator', () => {
                 setBadgeTextColor: jest.fn(),
                 setBadgeText: jest.fn(),
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('sets badge color and ✓ when num > 0', () => {
@@ -47,7 +47,7 @@ describe('parseRules', () => {
                     MODIFY_HEADERS: 'modifyHeaders',
                 },
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('parses a valid MODIFY_HEADERS rule', () => {
@@ -188,7 +188,7 @@ describe('buildDnrRule', () => {
                     SET: 'set',
                 },
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('builds a rule with correct structure', () => {

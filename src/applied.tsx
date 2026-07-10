@@ -47,7 +47,7 @@ export async function run(): Promise<AppliedState> {
             ? promptForValidHeader(config.header_filter)
             : config.header_filter;
         ({ key: header, value } = parseHeader(headerLine));
-        scope = config.inject_scope || undefined;
+        scope = config.inject_scope;
     } catch (err) {
         return {
             kind: 'error',
@@ -98,7 +98,7 @@ function AppliedPage() {
     const [state, setState] = useState<AppliedState>({ kind: 'loading' });
 
     useEffect(() => {
-        run().then(setState);
+        void run().then(setState);
     }, []);
 
     return (

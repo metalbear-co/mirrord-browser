@@ -1,15 +1,20 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
+import { Component } from 'react';
 import { emitUserBlocked } from '../analytics';
 
 type Flow = 'session_monitor' | 'header_injector' | 'configure';
 
-type Props = {
+interface Props {
     flow: Flow;
     component: string;
     children: ReactNode;
-};
+}
 
-type State = { crashed: boolean };
+interface State {
+    crashed: boolean;
+}
+
+const MAX_STACK_LENGTH = 500;
 
 export class ErrorBoundary extends Component<Props, State> {
     state: State = { crashed: false };
@@ -23,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
             error: error.message,
             component: this.props.component,
             flow: this.props.flow,
-            stack: info.componentStack?.slice(0, 500),
+            stack: info.componentStack?.slice(0, MAX_STACK_LENGTH),
         });
     }
 
