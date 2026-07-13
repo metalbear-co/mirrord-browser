@@ -1,0 +1,32 @@
+{
+    "protocolVersion": 1,
+    "trustedOriginPattern": "^http://(127\\.0\\.0\\.1|localhost)(:\\d+)?$",
+    "inbound": {
+        "ping": { "type": "ping" },
+        "join": { "type": "join", "key": "65b94" },
+        "leave": { "type": "leave" },
+        "configure": {
+            "type": "mirrord-ui-configure",
+            "backend": "http://localhost:59281",
+            "token": "fixture-token"
+        }
+    },
+    "outbound": {
+        "pong": {
+            "type": "pong",
+            "version": "<extension version string>",
+            "joinedKey": null,
+            "hasBackend": true,
+            "watching": true
+        },
+        "join_result_ok": {
+            "type": "join_result",
+            "ok": true,
+            "joinedKey": "65b94"
+        },
+        "leave_result_ok": { "type": "leave_result", "ok": true },
+        "configure_ack": { "ok": true },
+        "untrusted": { "ok": false, "error": "untrusted sender" },
+        "unknown": { "ok": false, "error": "unknown message" }
+    }
+}
