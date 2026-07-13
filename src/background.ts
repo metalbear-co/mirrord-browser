@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from './types';
+import type { OperatorSessionSummary } from './types';
 import {
     buildDnrRule,
     getDynamicRules,
@@ -242,17 +243,16 @@ export async function handleJoin(key: string) {
                 error,
             };
         }
-        const sessionsResp = await fetchOperatorSessions(backend, token);
-        const target = sessionsResp.sessions.find((s) => s.key === key);
-        if (!target) {
-            const error = `key ${key} not visible from extension`;
-            emitUserBlocked('join_key_not_visible', 'user_action', {
-                error,
-                key,
-            });
-            return { type: JOIN_RESULT_TYPE, ok: false, error };
+        let target: OperatorSessionSummary | undefined;
+        try {
+            const sessionsResp = await fetchOperatorSessions(backend, token);
+            target = sessionsResp.sessions.find((s) => s.key === key);
+        } catch {
+            target = undefined;
         }
-        const { header, value } = sessionInjectionPair(target);
+        const { header, value } = sessionInjectionPair(
+            target ?? { key, httpFilter: null }
+        );
         const scope =
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
@@ -262,12 +262,15 @@ export async function handleJoin(key: string) {
         });
         await storageSet({
             [STORAGE_KEYS.JOINED_KEY]: key,
-            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: target?.id ?? key,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
         armCanary({ headerName: header, flow: 'session_monitor' });
-        emitUserSucceeded('joined', 'user_action', { key });
+        emitUserSucceeded('joined', 'user_action', {
+            key,
+            resolved: target ? 'operator' : 'key_convention',
+        });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
