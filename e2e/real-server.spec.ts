@@ -81,8 +81,7 @@ test('the monitor auto-configures the extension', async ({
                     return {
                         hasBackend:
                             typeof stored.mirrord_ui_backend === 'string',
-                        hasToken:
-                            typeof stored.mirrord_ui_token === 'string',
+                        hasToken: typeof stored.mirrord_ui_token === 'string',
                     };
                 }),
             { timeout: 15_000 }
