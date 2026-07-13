@@ -39,8 +39,14 @@ export async function fetchOperatorSessions(
     token: string,
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
-    const url = `${backend}/api/operator-sessions?token=${encodeURIComponent(token)}`;
-    const resp = await fetchImpl(url);
+    const url = `${backend}/api/operator-sessions`;
+    let resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
+    // Older mirrord UI servers only accepted the token in the query string.
+    if (isAuthFailureStatus(resp.status)) {
+        resp = await fetchImpl(`${url}?token=${encodeURIComponent(token)}`);
+    }
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
@@ -61,8 +67,10 @@ export async function fetchContexts(
     token: string,
     fetchImpl: typeof fetch = fetch
 ): Promise<ContextsResponse | null> {
-    const url = `${backend}/api/v2/kube/contexts?token=${encodeURIComponent(token)}`;
-    const resp = await fetchImpl(url);
+    const url = `${backend}/api/v2/kube/contexts`;
+    const resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
     if (resp.status === HTTP_NOT_FOUND) return null;
     if (!resp.ok) {
         const e = new Error(
@@ -98,10 +106,12 @@ export async function fetchOperatorSessionsV2(
     context: string | null,
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
-    const params = new URLSearchParams({ token });
+    const params = new URLSearchParams();
     if (context) params.set('context', context);
     const url = `${backend}/api/v2/operator/sessions?${params.toString()}`;
-    const resp = await fetchImpl(url);
+    const resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`

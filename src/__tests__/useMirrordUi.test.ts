@@ -452,6 +452,9 @@ describe('v2 API', () => {
         const r = await fetchContexts('http://b', 't', f);
         expect(r?.current).toBe('ctx-a');
         expect(r?.contexts.map((c) => c.name)).toEqual(['ctx-a', 'ctx-b']);
+        expect(
+            new Headers(f.mock.calls[0]?.[1]?.headers).get('x-auth-token')
+        ).toBe('t');
     });
 
     test('fetchOperatorSessionsV2 maps the v2 shape to the internal one', async () => {
@@ -513,6 +516,9 @@ describe('v2 API', () => {
         const calledUrl = urlToString(f.mock.calls[0][0]);
         expect(calledUrl).toContain('/api/v2/operator/sessions');
         expect(calledUrl).toContain('context=ctx-a');
-        expect(calledUrl).toContain('token=tok');
+        expect(calledUrl).not.toContain('token=tok');
+        expect(
+            new Headers(f.mock.calls[0]?.[1]?.headers).get('x-auth-token')
+        ).toBe('tok');
     });
 });

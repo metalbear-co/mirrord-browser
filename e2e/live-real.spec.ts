@@ -1,13 +1,71 @@
 import { test, expect } from './fixtures.ts';
 
-const REAL_BACKEND = 'http://localhost:8080';
+const REAL_BACKEND =
+    process.env.MIRRORD_UI_BACKEND ?? 'http://localhost:59281';
 const TOKEN = process.env.MIRRORD_UI_TOKEN ?? '';
 
-test('live e2e against real mirrord ui + han-dev operator', async ({
+interface LiveOperatorSessions {
+    status: string;
+    sessions: unknown[];
+}
+
+test('session monitor authenticates and auto-configures the extension', async ({
     context,
     extensionId,
 }) => {
     test.skip(!TOKEN, 'MIRRORD_UI_TOKEN env var required');
+
+    const monitor = await context.newPage();
+    const authUrl = `${REAL_BACKEND}/auth?token=${encodeURIComponent(TOKEN)}`;
+    await monitor.goto(authUrl);
+    await expect(monitor).toHaveURL(`${REAL_BACKEND}/`);
+
+    const extension = await context.newPage();
+    await extension.goto(`chrome-extension://${extensionId}/pages/popup.html`);
+    await expect
+        .poll(async () =>
+            extension.evaluate(async () => {
+                const stored = await chrome.storage.local.get([
+                    'mirrord_ui_backend',
+                    'mirrord_ui_token',
+                ]);
+                const backend: unknown = stored.mirrord_ui_backend;
+                const token: unknown = stored.mirrord_ui_token;
+                return {
+                    backend: typeof backend === 'string' ? backend : null,
+                    hasToken: typeof token === 'string',
+                };
+            })
+        )
+        .toEqual({ backend: REAL_BACKEND, hasToken: true });
+
+    await extension.getByRole('tab', { name: /sessions/i }).click();
+    await expect(
+        extension.getByText('Showing local sessions only.')
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+        extension.getByText('mirrord ui token rejected')
+    ).not.toBeVisible();
+});
+
+test('live join against a visible operator session', async ({
+    context,
+    extensionId,
+}) => {
+    test.skip(!TOKEN, 'MIRRORD_UI_TOKEN env var required');
+
+    const operatorResponse = await fetch(
+        `${REAL_BACKEND}/api/v2/operator/sessions`,
+        { headers: { 'x-auth-token': TOKEN } }
+    );
+    const operatorData = operatorResponse.ok
+        ? ((await operatorResponse.json()) as LiveOperatorSessions)
+        : null;
+    test.skip(
+        operatorData?.status !== 'available' ||
+            operatorData.sessions.length === 0,
+        'a visible operator session is required for live join'
+    );
 
     const configurePage = await context.newPage();
     const configureUrl = `chrome-extension://${extensionId}/pages/configure.html?backend=${encodeURIComponent(REAL_BACKEND)}&token=${TOKEN}`;
