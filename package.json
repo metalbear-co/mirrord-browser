@@ -21,6 +21,10 @@
     ],
     "author": "metalbear.co",
     "license": "MIT",
+    "packageManager": "pnpm@10.33.0",
+    "engines": {
+        "node": ">=20.11"
+    },
     "devDependencies": {
         "@crxjs/vite-plugin": "^2.0.0",
         "@playwright/test": "^1.58.1",
