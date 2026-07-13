@@ -64,6 +64,12 @@ describe('mirrordUiClient', () => {
             .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
             .mockResolvedValueOnce(new Response('', { status: 401 }))
             .mockResolvedValueOnce(
+                new Response('<!doctype html><html></html>', {
+                    status: 200,
+                    headers: { 'content-type': 'text/html' },
+                })
+            )
+            .mockResolvedValueOnce(
                 new Response(
                     JSON.stringify({
                         by_key: {},
@@ -77,8 +83,30 @@ describe('mirrordUiClient', () => {
         await fetchOperatorSessions(backend, token, fakeFetch);
 
         expect(urlToString(fakeFetch.mock.calls[1]?.[0] ?? '')).toBe(
+            `${backend}/api/v2/kube/contexts`
+        );
+        expect(urlToString(fakeFetch.mock.calls[2]?.[0] ?? '')).toBe(
             `${backend}/api/operator-sessions?token=${token}`
         );
+    });
+
+    test('fetchOperatorSessions never leaks the token into the query string on current servers', async () => {
+        const fakeFetch: jest.MockedFunction<typeof fetch> = jest
+            .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+            .mockResolvedValue(
+                new Response('', {
+                    status: 401,
+                    statusText: 'Unauthorized',
+                })
+            );
+
+        await expect(
+            fetchOperatorSessions(backend, token, fakeFetch)
+        ).rejects.toThrow(/401/);
+
+        for (const call of fakeFetch.mock.calls) {
+            expect(urlToString(call[0])).not.toContain('token=');
+        }
     });
 
     test('fetchOperatorSessions throws on non-2xx with status info', async () => {

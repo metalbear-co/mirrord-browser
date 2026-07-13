@@ -34,6 +34,20 @@ const HTTP_NOT_FOUND = 404;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 
+async function isLegacyServer(
+    backend: string,
+    token: string,
+    fetchImpl: typeof fetch
+): Promise<boolean> {
+    const probe = await fetchImpl(`${backend}/api/v2/kube/contexts`, {
+        headers: { 'x-auth-token': token },
+    });
+    if (isAuthFailureStatus(probe.status)) return false;
+    if (probe.status === HTTP_NOT_FOUND) return true;
+    const contentType = probe.headers.get('content-type') ?? '';
+    return contentType.includes('text/html');
+}
+
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
@@ -43,8 +57,10 @@ export async function fetchOperatorSessions(
     let resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
     });
-    // Older mirrord UI servers only accepted the token in the query string.
-    if (isAuthFailureStatus(resp.status)) {
+    if (
+        isAuthFailureStatus(resp.status) &&
+        (await isLegacyServer(backend, token, fetchImpl))
+    ) {
         resp = await fetchImpl(`${url}?token=${encodeURIComponent(token)}`);
     }
     if (!resp.ok) {

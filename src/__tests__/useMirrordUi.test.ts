@@ -212,8 +212,11 @@ test('flags authFailed when the poller rejects the token (401)', async () => {
 });
 
 test('clears authFailed once a freshly stored token is accepted', async () => {
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
         const u = urlToString(url);
+        const authToken = (
+            init?.headers as Record<string, string> | undefined
+        )?.['x-auth-token'];
         if (u.includes('/health')) {
             return Promise.resolve({
                 ok: true,
@@ -223,7 +226,7 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
                 json: () => Promise.resolve({}),
             } as unknown as Response);
         }
-        if (u.includes('token=fresh')) {
+        if (authToken === 'fresh' && u.includes('/api/operator-sessions')) {
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -263,8 +266,11 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
 });
 
 test('clears authFailed when a later poll fails for a non-auth reason', async () => {
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
         const u = urlToString(url);
+        const authToken = (
+            init?.headers as Record<string, string> | undefined
+        )?.['x-auth-token'];
         if (u.includes('/health')) {
             return Promise.resolve({
                 ok: true,
@@ -274,7 +280,7 @@ test('clears authFailed when a later poll fails for a non-auth reason', async ()
                 json: () => Promise.resolve({}),
             } as unknown as Response);
         }
-        if (u.includes('token=other')) {
+        if (authToken === 'other' && u.includes('/api/operator-sessions')) {
             return Promise.resolve({
                 ok: false,
                 status: 503,
