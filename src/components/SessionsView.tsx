@@ -50,8 +50,8 @@ function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
     const haystack = [
         s.key,
         s.namespace,
-        s.owner.username,
-        s.owner.k8sUsername,
+        s.owner?.username,
+        s.owner?.k8sUsername,
         s.target ? `${s.target.kind}/${s.target.name}` : '',
         s.target?.name,
         s.target?.container,

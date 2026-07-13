@@ -133,7 +133,11 @@ export async function runPoll(
         return { ok: true, data: resp };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        const status = (err as { status?: number }).status;
+        const status =
+            err instanceof Error &&
+            typeof (err as Error & { status?: unknown }).status === 'number'
+                ? (err as Error & { status: number }).status
+                : undefined;
         if (bridgeHealthy) {
             bridgeHealthy = false;
             emitUserBlocked('bridge_unhealthy', 'health', {

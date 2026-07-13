@@ -181,9 +181,9 @@ export function aggregateSessions(
             ? `${s.target.kind}/${s.target.name}`
             : 'targetless';
         targets.add(targetLabel);
-        if (s.owner.username === PREVIEW_OWNER_USERNAME) {
+        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
             isPreview = true;
-        } else if (s.owner.username) {
+        } else if (s.owner?.username) {
             owners.add(s.owner.username);
         }
         namespaces.add(s.namespace);

@@ -62,9 +62,9 @@ export interface OperatorSessionSummary {
     id: string;
     key: string;
     namespace: string;
-    owner: { username: string; k8sUsername: string };
+    owner: { username: string; k8sUsername: string } | null;
     target: { kind: string; name: string; container: string } | null;
-    createdAt: string;
+    createdAt: string | null;
     httpFilter?: OperatorSessionHttpFilter | null;
 }
 

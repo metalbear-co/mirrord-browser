@@ -5,7 +5,9 @@ import {
     encodeConfig,
     buildShareUrl,
     sessionInjectionPair,
+    aggregateSessions,
 } from '../util';
+import type { OperatorSessionSummary } from '../types';
 import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
 import { ALL_RESOURCE_TYPES } from '../types';
@@ -322,5 +324,42 @@ describe('sessionInjectionPair', () => {
                 httpFilter: { headerFilter: null },
             })
         ).toEqual({ header: 'baggage', value: 'mirrord-session=k1' });
+    });
+});
+
+describe('aggregateSessions', () => {
+    const session = (
+        over: Partial<OperatorSessionSummary>
+    ): OperatorSessionSummary => ({
+        id: 'id-1',
+        key: 'k',
+        namespace: 'ns',
+        owner: { username: 'alice', k8sUsername: 'alice@k8s' },
+        target: { kind: 'deployment', name: 'web', container: 'app' },
+        createdAt: '2026-07-13T00:00:00Z',
+        ...over,
+    });
+
+    it('aggregates owners, targets, and namespaces', () => {
+        const agg = aggregateSessions([
+            session({}),
+            session({
+                id: 'id-2',
+                owner: { username: 'bob', k8sUsername: 'b' },
+            }),
+        ]);
+        expect(agg.owners.sort()).toEqual(['alice', 'bob']);
+        expect(agg.targets).toEqual(['deployment/web']);
+        expect(agg.isPreview).toBe(false);
+    });
+
+    it('tolerates sessions with null owner, target, and createdAt', () => {
+        const agg = aggregateSessions([
+            session({ owner: null, target: null, createdAt: null }),
+            session({ id: 'id-2' }),
+        ]);
+        expect(agg.owners).toEqual(['alice']);
+        expect(agg.targets.sort()).toEqual(['deployment/web', 'targetless']);
+        expect(agg.earliestCreatedAt).toBe('2026-07-13T00:00:00Z');
     });
 });
