@@ -325,9 +325,9 @@ function isConfigureMessage(value: unknown): value is ConfigureMessage {
     if (typeof value !== 'object' || value === null) return false;
     const m = value as Record<string, unknown>;
     return (
-        m.type === MIRRORD_UI_CONFIGURE_TYPE &&
-        typeof m.backend === 'string' &&
-        typeof m.token === 'string'
+        m['type'] === MIRRORD_UI_CONFIGURE_TYPE &&
+        typeof m['backend'] === 'string' &&
+        typeof m['token'] === 'string'
     );
 }
 

@@ -46,6 +46,11 @@ export const test = base.extend<ExtensionFixtures>({
         serviceWorker ??= await context.waitForEvent('serviceworker');
 
         const extensionId = serviceWorker.url().split('/')[2];
+        if (extensionId === undefined) {
+            throw new Error(
+                'could not derive extension id from service worker url'
+            );
+        }
         await use(extensionId);
     },
 

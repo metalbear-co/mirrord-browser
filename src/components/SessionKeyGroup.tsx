@@ -131,8 +131,9 @@ function GroupMeta({
     const age = formatRelativeTime(agg.earliestCreatedAt);
     const parts: string[] = [];
 
-    if (agg.owners.length === 1) {
-        parts.push(agg.owners[0]);
+    const singleOwner = agg.owners[0];
+    if (agg.owners.length === 1 && singleOwner !== undefined) {
+        parts.push(singleOwner);
     } else if (agg.owners.length > 1) {
         parts.push(`${agg.owners.length} owners`);
     }

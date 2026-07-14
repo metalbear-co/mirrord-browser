@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const PORT = parseInt(process.env.TEST_SERVER_PORT ?? '3456', 10);
+const PORT = parseInt(process.env['TEST_SERVER_PORT'] ?? '3456', 10);
 
 // Store headers received on asset requests so tests can verify injection
 const assetHeaders: Record<string, http.IncomingHttpHeaders> = {};
