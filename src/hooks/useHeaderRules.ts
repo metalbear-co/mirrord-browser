@@ -366,7 +366,7 @@ export function useHeaderRules() {
                 return STRINGS.BTN_SAVING;
             case 'saved':
                 return STRINGS.BTN_SAVED;
-            default:
+            case 'idle':
                 return STRINGS.BTN_SAVE;
         }
     };
@@ -377,7 +377,7 @@ export function useHeaderRules() {
                 return STRINGS.BTN_RESETTING;
             case 'reset':
                 return STRINGS.BTN_RESET_DONE;
-            default:
+            case 'idle':
                 return STRINGS.BTN_RESET;
         }
     };
