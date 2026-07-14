@@ -59,16 +59,10 @@ describe('mirrordUiClient', () => {
         expect(resp.by_key['foo']).toHaveLength(1);
     });
 
-    test('fetchOperatorSessions falls back to a query token for older servers', async () => {
+    test('fetchOperatorSessions falls back to a query token for pre-3.222 servers', async () => {
         const fakeFetch: jest.MockedFunction<typeof fetch> = jest
             .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
             .mockResolvedValueOnce(new Response('', { status: 401 }))
-            .mockResolvedValueOnce(
-                new Response('<!doctype html><html></html>', {
-                    status: 200,
-                    headers: { 'content-type': 'text/html' },
-                })
-            )
             .mockResolvedValueOnce(
                 new Response(
                     JSON.stringify({
@@ -80,37 +74,16 @@ describe('mirrordUiClient', () => {
                 )
             );
 
-        await fetchOperatorSessions(backend, token, fakeFetch);
+        const resp = await fetchOperatorSessions(backend, token, fakeFetch);
 
+        expect(resp.watch_status).toEqual({ status: 'watching' });
+        expect(fakeFetch.mock.calls).toHaveLength(2);
         expect(urlToString(fakeFetch.mock.calls[1]?.[0] ?? '')).toBe(
-            `${backend}/api/v2/kube/contexts`
-        );
-        expect(urlToString(fakeFetch.mock.calls[2]?.[0] ?? '')).toBe(
             `${backend}/api/operator-sessions?token=${token}`
         );
     });
 
-    test('an HTML error page from a proxy does not trigger the query fallback', async () => {
-        const fakeFetch: jest.MockedFunction<typeof fetch> = jest
-            .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
-            .mockResolvedValueOnce(new Response('', { status: 401 }))
-            .mockResolvedValueOnce(
-                new Response('<html>502 Bad Gateway</html>', {
-                    status: 502,
-                    headers: { 'content-type': 'text/html' },
-                })
-            );
-
-        await expect(
-            fetchOperatorSessions(backend, token, fakeFetch)
-        ).rejects.toThrow(/401/);
-
-        for (const call of fakeFetch.mock.calls) {
-            expect(urlToString(call[0])).not.toContain('token=');
-        }
-    });
-
-    test('fetchOperatorSessions never leaks the token into the query string on current servers', async () => {
+    test('a rejected token surfaces the original auth failure after one retry', async () => {
         const fakeFetch: jest.MockedFunction<typeof fetch> = jest
             .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
             .mockResolvedValue(
@@ -124,9 +97,42 @@ describe('mirrordUiClient', () => {
             fetchOperatorSessions(backend, token, fakeFetch)
         ).rejects.toThrow(/401/);
 
-        for (const call of fakeFetch.mock.calls) {
-            expect(urlToString(call[0])).not.toContain('token=');
-        }
+        expect(fakeFetch.mock.calls).toHaveLength(2);
+        expect(urlToString(fakeFetch.mock.calls[0]?.[0] ?? '')).not.toContain(
+            'token='
+        );
+    });
+
+    test('an HTML page on the retry does not count as a legacy server', async () => {
+        const fakeFetch: jest.MockedFunction<typeof fetch> = jest
+            .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+            .mockResolvedValueOnce(new Response('', { status: 401 }))
+            .mockResolvedValueOnce(
+                new Response('<!doctype html><html></html>', {
+                    status: 200,
+                    headers: { 'content-type': 'text/html' },
+                })
+            );
+
+        await expect(
+            fetchOperatorSessions(backend, token, fakeFetch)
+        ).rejects.toThrow(/401/);
+    });
+
+    test('an HTML error page from a proxy surfaces the auth failure', async () => {
+        const fakeFetch: jest.MockedFunction<typeof fetch> = jest
+            .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+            .mockResolvedValueOnce(new Response('', { status: 401 }))
+            .mockResolvedValueOnce(
+                new Response('<html>502 Bad Gateway</html>', {
+                    status: 502,
+                    headers: { 'content-type': 'text/html' },
+                })
+            );
+
+        await expect(
+            fetchOperatorSessions(backend, token, fakeFetch)
+        ).rejects.toThrow(/401/);
     });
 
     test('fetchOperatorSessions throws on non-2xx with status info', async () => {

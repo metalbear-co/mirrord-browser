@@ -34,34 +34,29 @@ const HTTP_NOT_FOUND = 404;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 
-async function isLegacyServer(
-    backend: string,
-    token: string,
-    fetchImpl: typeof fetch
-): Promise<boolean> {
-    const probe = await fetchImpl(`${backend}/api/v2/kube/contexts`, {
-        headers: { 'x-auth-token': token },
-    });
-    if (isAuthFailureStatus(probe.status)) return false;
-    if (probe.status === HTTP_NOT_FOUND) return true;
-    const contentType = probe.headers.get('content-type') ?? '';
-    return probe.ok && contentType.includes('text/html');
-}
-
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
     const url = `${backend}/api/operator-sessions`;
-    let resp = await fetchImpl(url, {
+    const resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
     });
-    if (
-        isAuthFailureStatus(resp.status) &&
-        (await isLegacyServer(backend, token, fetchImpl))
-    ) {
-        resp = await fetchImpl(`${url}?token=${encodeURIComponent(token)}`);
+    if (isAuthFailureStatus(resp.status)) {
+        const retry = await fetchImpl(
+            `${url}?token=${encodeURIComponent(token)}`
+        );
+        if (retry.ok) {
+            try {
+                return (await retry.json()) as OperatorSessionsResponse;
+            } catch {}
+        }
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
     }
     if (!resp.ok) {
         const e = new Error(
