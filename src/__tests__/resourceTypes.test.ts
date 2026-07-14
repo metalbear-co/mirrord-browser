@@ -122,9 +122,9 @@ describe('useHeaderRules resource types', () => {
         });
 
         const addedRules =
-            mockUpdateDynamicRules.mock.calls[0][0].addRules ?? [];
+            mockUpdateDynamicRules.mock.calls[0]?.[0]?.addRules ?? [];
         expect(addedRules).toHaveLength(1);
-        expect(addedRules[0].condition.resourceTypes).toEqual(
+        expect(addedRules[0]?.condition.resourceTypes).toEqual(
             ALL_RESOURCE_TYPES
         );
     });
@@ -148,9 +148,9 @@ describe('useHeaderRules resource types', () => {
         });
 
         const addedRules =
-            mockUpdateDynamicRules.mock.calls[0][0].addRules ?? [];
+            mockUpdateDynamicRules.mock.calls[0]?.[0]?.addRules ?? [];
         expect(addedRules).toHaveLength(1);
-        expect(addedRules[0].condition.resourceTypes).toEqual(
+        expect(addedRules[0]?.condition.resourceTypes).toEqual(
             ALL_RESOURCE_TYPES
         );
     });

@@ -65,7 +65,7 @@ export function ManualSetup({ headerRules }: Props) {
                 </div>
                 <Switch
                     checked={isActive}
-                    onCheckedChange={handleToggle}
+                    onCheckedChange={() => void handleToggle()}
                     disabled={!canToggle || isToggling}
                     aria-label={STRINGS.LABEL_TOGGLE_INJECTION}
                 />

@@ -624,7 +624,7 @@ describe('useHeaderRules analytics', () => {
             });
 
             expect(mockClipboardWriteText).toHaveBeenCalledTimes(1);
-            const url = mockClipboardWriteText.mock.calls[0][0];
+            const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? '';
             expect(url).toMatch(
                 /^https:\/\/metalbear\.com\/mirrord\/extension#config=/
             );
@@ -676,8 +676,8 @@ describe('useHeaderRules analytics', () => {
                 await Promise.resolve();
             });
 
-            const url = mockClipboardWriteText.mock.calls[0][0];
-            const payload = url.split('#config=')[1];
+            const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? '';
+            const payload = url.split('#config=')[1] ?? '';
             const decoded = JSON.parse(atob(payload)) as Config;
             expect(decoded.inject_scope).toBe('*://example.com/*');
         });

@@ -36,6 +36,9 @@ export function parseRules(
             continue;
         }
         const requestHeader = rule.action.requestHeaders[0];
+        if (!requestHeader) {
+            continue;
+        }
         const header = requestHeader.header;
         const value = requestHeader.value ?? '';
         const urlFilter = rule.condition.urlFilter;

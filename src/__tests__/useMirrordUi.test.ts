@@ -324,8 +324,8 @@ test('namespace filter narrows sessions', async () => {
     act(() => result.current.setNamespace('ns-a'));
     await waitFor(() => {
         const grouped = result.current.groupedFiltered;
-        expect(grouped.k1.length).toBe(1);
-        expect(grouped.k1[0].id).toBe('a');
+        expect(grouped['k1']?.length).toBe(1);
+        expect(grouped['k1']?.[0]?.id).toBe('a');
     });
 });
 
@@ -519,7 +519,7 @@ describe('v2 API', () => {
             )
         );
         await fetchOperatorSessionsV2('http://b', 'tok', 'ctx-a', f);
-        const calledUrl = urlToString(f.mock.calls[0][0]);
+        const calledUrl = urlToString(f.mock.calls[0]?.[0] ?? '');
         expect(calledUrl).toContain('/api/v2/operator/sessions');
         expect(calledUrl).toContain('context=ctx-a');
         expect(calledUrl).not.toContain('token=tok');

@@ -50,7 +50,7 @@ describe('Options page', () => {
     });
 
     it('renders toggle in "off" state when opted out', async () => {
-        chromeStore.analytics_opt_out = true;
+        chromeStore['analytics_opt_out'] = true;
 
         render(<Options />);
 
@@ -72,7 +72,7 @@ describe('Options page', () => {
     });
 
     it('toggling back on removes the flag from storage', async () => {
-        chromeStore.analytics_opt_out = true;
+        chromeStore['analytics_opt_out'] = true;
 
         render(<Options />);
 

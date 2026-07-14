@@ -65,8 +65,8 @@ export function initTheme(): () => void {
     ) => {
         if (area !== 'local') return;
         if (!(STORAGE_KEYS.THEME in changes)) return;
-        const change = changes[STORAGE_KEYS.THEME];
-        const next = isThemePref(change.newValue) ? change.newValue : 'system';
+        const newValue: unknown = changes[STORAGE_KEYS.THEME]?.newValue;
+        const next = isThemePref(newValue) ? newValue : 'system';
         currentPref = next;
         applyDark(resolveDark(next));
     };

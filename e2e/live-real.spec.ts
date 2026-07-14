@@ -29,8 +29,8 @@ test('session monitor authenticates and auto-configures the extension', async ({
                     'mirrord_ui_backend',
                     'mirrord_ui_token',
                 ]);
-                const backend: unknown = stored.mirrord_ui_backend;
-                const token: unknown = stored.mirrord_ui_token;
+                const backend: unknown = stored['mirrord_ui_backend'];
+                const token: unknown = stored['mirrord_ui_token'];
                 return {
                     backend: typeof backend === 'string' ? backend : null,
                     hasToken: typeof token === 'string',

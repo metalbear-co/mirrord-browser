@@ -56,7 +56,7 @@ describe('mirrordUiClient', () => {
         const resp = await fetchOperatorSessions(backend, token, fakeFetch);
         expect(resp.watch_status).toEqual({ status: 'watching' });
         expect(resp.sessions).toHaveLength(1);
-        expect(resp.by_key.foo).toHaveLength(1);
+        expect(resp.by_key['foo']).toHaveLength(1);
     });
 
     test('fetchOperatorSessions falls back to a query token for older servers', async () => {
