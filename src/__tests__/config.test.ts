@@ -333,7 +333,7 @@ describe('storeDefaults', () => {
         consoleSpy.mockRestore();
     });
 
-    it('logs success message when storage succeeds', async () => {
+    it('resolves quietly when storage succeeds', async () => {
         mockStorageSet.mockImplementation(
             (_data: unknown, callback: () => void) => callback()
         );
@@ -343,9 +343,7 @@ describe('storeDefaults', () => {
 
         await storeDefaults('X-Test-Header', 'test-value');
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-            'defaults stored successfully.'
-        );
+        expect(consoleSpy).not.toHaveBeenCalled();
         consoleSpy.mockRestore();
     });
 });

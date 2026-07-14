@@ -90,6 +90,26 @@ describe('mirrordUiClient', () => {
         );
     });
 
+    test('an HTML error page from a proxy does not trigger the query fallback', async () => {
+        const fakeFetch: jest.MockedFunction<typeof fetch> = jest
+            .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+            .mockResolvedValueOnce(new Response('', { status: 401 }))
+            .mockResolvedValueOnce(
+                new Response('<html>502 Bad Gateway</html>', {
+                    status: 502,
+                    headers: { 'content-type': 'text/html' },
+                })
+            );
+
+        await expect(
+            fetchOperatorSessions(backend, token, fakeFetch)
+        ).rejects.toThrow(/401/);
+
+        for (const call of fakeFetch.mock.calls) {
+            expect(urlToString(call[0])).not.toContain('token=');
+        }
+    });
+
     test('fetchOperatorSessions never leaks the token into the query string on current servers', async () => {
         const fakeFetch: jest.MockedFunction<typeof fetch> = jest
             .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()

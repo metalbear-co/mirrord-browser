@@ -10,7 +10,10 @@ import {
     storageSet,
     updateDynamicRules,
 } from './util';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import {
+    fetchOperatorSessions,
+    isAuthFailureStatus,
+} from './hooks/useMirrordUi';
 import {
     HEADER_OBSERVATION_PORT,
     armCanary,
@@ -247,7 +250,20 @@ export async function handleJoin(key: string) {
         try {
             const sessionsResp = await fetchOperatorSessions(backend, token);
             target = sessionsResp.sessions.find((s) => s.key === key);
-        } catch {
+        } catch (err) {
+            const status =
+                err instanceof Error &&
+                typeof (err as Error & { status?: unknown }).status === 'number'
+                    ? (err as Error & { status: number }).status
+                    : undefined;
+            if (isAuthFailureStatus(status)) {
+                const error = 'mirrord ui token rejected';
+                emitUserBlocked('join_auth_failed', 'user_action', {
+                    error,
+                    key,
+                });
+                return { type: JOIN_RESULT_TYPE, ok: false, error };
+            }
             target = undefined;
         }
         const { header, value } = sessionInjectionPair(

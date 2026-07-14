@@ -45,7 +45,7 @@ async function isLegacyServer(
     if (isAuthFailureStatus(probe.status)) return false;
     if (probe.status === HTTP_NOT_FOUND) return true;
     const contentType = probe.headers.get('content-type') ?? '';
-    return contentType.includes('text/html');
+    return probe.ok && contentType.includes('text/html');
 }
 
 export async function fetchOperatorSessions(

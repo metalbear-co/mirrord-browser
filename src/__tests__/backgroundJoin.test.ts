@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../types';
 import type { handleJoin as HandleJoinFn } from '../background';
 
 jest.mock('../hooks/useMirrordUi', () => ({
+    ...jest.requireActual<object>('../hooks/useMirrordUi'),
     fetchOperatorSessions: jest.fn(),
 }));
 
@@ -126,6 +127,17 @@ describe('handleJoin', () => {
         expect(header?.header).toBe('baggage');
         expect(header?.value).toBe('mirrord-session=65b94');
         expect(store[STORAGE_KEYS.JOINED_KEY]).toBe('65b94');
+    });
+
+    it('fails the join when the token is rejected', async () => {
+        const authError = new Error('mirrord ui responded 401 Unauthorized');
+        (authError as Error & { status?: number }).status = 401;
+        mockedFetchSessions.mockRejectedValue(authError);
+
+        const result = await handleJoin('65b94');
+
+        expect(result.ok).toBe(false);
+        expect(dynamicRules).toHaveLength(0);
     });
 
     it('falls back to the key convention when the sessions fetch fails', async () => {

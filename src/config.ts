@@ -66,8 +66,6 @@ function storeHeaderConfig(
                     `Failed to store ${storageKey}:`,
                     chrome.runtime.lastError.message
                 );
-            } else {
-                console.warn(`${storageKey} stored successfully.`);
             }
             resolve();
         });
