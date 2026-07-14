@@ -198,10 +198,11 @@ export function useHeaderRules() {
 
         setSaveState('saving');
 
+        const trimmedScope = scope.trim();
         const override: StoredConfig = {
             headerName: headerName.trim(),
             headerValue: headerValue.trim(),
-            scope: scope.trim() || undefined,
+            ...(trimmedScope ? { scope: trimmedScope } : {}),
         };
 
         // Save is non-destructive: only refresh the active DNR rule
@@ -347,9 +348,10 @@ export function useHeaderRules() {
 
     const handleShare = useCallback(async () => {
         if (!canShare) return;
+        const trimmedScope = scope.trim();
         const config: Config = {
             header_filter: `${headerName.trim()}: ${headerValue.trim()}`,
-            inject_scope: scope.trim() || undefined,
+            ...(trimmedScope ? { inject_scope: trimmedScope } : {}),
         };
         const url = buildShareUrl(config);
         await navigator.clipboard.writeText(url);

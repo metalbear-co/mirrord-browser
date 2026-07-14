@@ -1,7 +1,8 @@
-import { test, expect } from './fixtures.ts';
+import { test, expect } from './fixtures';
 
-const REAL_BACKEND = process.env.MIRRORD_UI_BACKEND ?? 'http://localhost:59281';
-const TOKEN = process.env.MIRRORD_UI_TOKEN ?? '';
+const REAL_BACKEND =
+    process.env['MIRRORD_UI_BACKEND'] ?? 'http://localhost:59281';
+const TOKEN = process.env['MIRRORD_UI_TOKEN'] ?? '';
 
 interface LiveOperatorSessions {
     status: string;
@@ -28,8 +29,8 @@ test('session monitor authenticates and auto-configures the extension', async ({
                     'mirrord_ui_backend',
                     'mirrord_ui_token',
                 ]);
-                const backend: unknown = stored.mirrord_ui_backend;
-                const token: unknown = stored.mirrord_ui_token;
+                const backend: unknown = stored['mirrord_ui_backend'];
+                const token: unknown = stored['mirrord_ui_token'];
                 return {
                     backend: typeof backend === 'string' ? backend : null,
                     hasToken: typeof token === 'string',
@@ -164,7 +165,8 @@ test('live join against a visible operator session', async ({
 
     expect(dnrRules.length).toBeGreaterThan(0);
     const rule = dnrRules[0];
-    const headerOp = rule.action.requestHeaders?.[0];
+    expect(rule).toBeDefined();
+    const headerOp = rule?.action.requestHeaders?.[0];
     expect(headerOp).toBeDefined();
     expect(headerOp?.header.toLowerCase()).toMatch(
         /baggage|x-mirrord-user|mirrord/i

@@ -36,6 +36,9 @@ export function parseRules(
             continue;
         }
         const requestHeader = rule.action.requestHeaders[0];
+        if (!requestHeader) {
+            continue;
+        }
         const header = requestHeader.header;
         const value = requestHeader.value ?? '';
         const urlFilter = rule.condition.urlFilter;
@@ -240,7 +243,10 @@ function generateLowestMatch(pattern: string): string | null {
 function parseHeaderLine(line: string): InjectionHint | null {
     const m = HEADER_LINE_PATTERN.exec(line);
     if (!m) return null;
-    return { header: m[1], value: m[2] };
+    const header = m[1];
+    const value = m[2];
+    if (header === undefined || value === undefined) return null;
+    return { header, value };
 }
 
 export function deriveInjectionHint(

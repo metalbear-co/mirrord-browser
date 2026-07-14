@@ -128,7 +128,7 @@ describe('analytics', () => {
             );
             expect(body.event).toBe('test_event');
             expect(body.distinct_id).toBeTruthy();
-            expect(body.properties.$lib).toBe('mirrord-browser-extension');
+            expect(body.properties['$lib']).toBe('mirrord-browser-extension');
             expect(body.timestamp).toBeTruthy();
         });
 
@@ -136,9 +136,9 @@ describe('analytics', () => {
             capture('test_event', { action: 'save', count: 5 });
 
             const body = fetchBody(0);
-            expect(body.properties.action).toBe('save');
-            expect(body.properties.count).toBe(5);
-            expect(body.properties.$lib).toBe('mirrord-browser-extension');
+            expect(body.properties['action']).toBe('save');
+            expect(body.properties['count']).toBe(5);
+            expect(body.properties['$lib']).toBe('mirrord-browser-extension');
         });
 
         it('does not throw when fetch fails', () => {
@@ -158,8 +158,10 @@ describe('analytics', () => {
 
             const payload = beaconBody(0);
             expect(payload.event).toBe('close_event');
-            expect(payload.properties.duration_ms).toBe(500);
-            expect(payload.properties.$lib).toBe('mirrord-browser-extension');
+            expect(payload.properties['duration_ms']).toBe(500);
+            expect(payload.properties['$lib']).toBe(
+                'mirrord-browser-extension'
+            );
         });
 
         it('does not throw when sendBeacon fails', () => {
@@ -223,7 +225,7 @@ describe('analytics', () => {
         });
 
         it('loadOptOutState reads from chrome.storage.local', async () => {
-            chromeStore.analytics_opt_out = true;
+            chromeStore['analytics_opt_out'] = true;
             await loadOptOutState();
             capture('test_event');
             expect(mockFetch).not.toHaveBeenCalled();
