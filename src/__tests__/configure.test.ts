@@ -3,6 +3,7 @@ import { STORAGE_KEYS } from '../types';
 
 jest.mock('@metalbear/ui/styles.css', () => ({}), { virtual: true });
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Card: ({ children }: { children?: React.ReactNode }) => children,
     CardContent: ({ children }: { children?: React.ReactNode }) => children,
 }));

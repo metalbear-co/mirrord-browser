@@ -4,6 +4,7 @@ import React from 'react';
 
 // Mock @metalbear/ui components
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Button: ({
         children,
         onClick,

@@ -9,6 +9,7 @@ import type {
 } from '../types';
 
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Card: ({
         children,
         className,

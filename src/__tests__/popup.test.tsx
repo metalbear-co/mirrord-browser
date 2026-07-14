@@ -25,6 +25,7 @@ jest.mock('../headerObservation', () => {
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Button: ({
         children,
         onClick,
