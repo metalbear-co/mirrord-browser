@@ -42,7 +42,9 @@ describe('deriveInjectionHint', () => {
     test('disjunction at header name picks one branch (still matches filter)', () => {
         const hint = deriveInjectionHint('^(x-a|x-b): alice$');
         expect(hint).not.toBeNull();
-        if (hint === null) return;
+        if (hint === null) {
+            return;
+        }
         expect(['x-a', 'x-b']).toContain(hint.header);
         expect(hint.value).toBe('alice');
     });
@@ -60,7 +62,9 @@ describe('deriveInjectionHint', () => {
     test('filter with alternation at the top level picks one branch', () => {
         const hint = deriveInjectionHint('^a: 1$|^b: 2$');
         expect(hint).not.toBeNull();
-        if (hint === null) return;
+        if (hint === null) {
+            return;
+        }
         expect(['a', 'b']).toContain(hint.header);
         expect(['1', '2']).toContain(hint.value);
     });

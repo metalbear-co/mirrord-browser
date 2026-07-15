@@ -59,7 +59,9 @@ describe('configure.tsx (entry)', () => {
                 if (mockStorageSet.mock.calls.length > 0) {
                     break;
                 }
-                await new Promise((r) => setTimeout(r, 25));
+                await new Promise((r) => {
+                    setTimeout(r, 25);
+                });
             }
         });
         expect(mockStorageSet).toHaveBeenCalledWith(

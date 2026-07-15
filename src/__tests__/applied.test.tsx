@@ -126,7 +126,9 @@ describe('applied result page run()', () => {
 
         expect(mockJoinMatchingSession).toHaveBeenCalled();
         expect(state).toMatchObject({ kind: 'done' });
-        if (state.kind === 'done') expect(state.joinedKey).toBeUndefined();
+        if (state.kind === 'done') {
+            expect(state.joinedKey).toBeUndefined();
+        }
         expect(mockStorageSet).toHaveBeenCalledWith(
             expect.objectContaining({ override: expect.anything() as unknown }),
             expect.any(Function)

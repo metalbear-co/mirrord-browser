@@ -84,7 +84,9 @@ jest.mock('@metalbear/ui', () => ({
     Input: React.forwardRef<
         HTMLInputElement,
         React.InputHTMLAttributes<HTMLInputElement>
-    >((props, ref) => <input ref={ref} {...props} />),
+    >(function Input(props, ref) {
+        return <input ref={ref} {...props} />;
+    }),
 }));
 
 import { SessionsView } from '../components/SessionsView';

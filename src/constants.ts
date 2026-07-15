@@ -112,6 +112,27 @@ export const STRINGS = {
     SETTINGS_ANALYTICS_LABEL: 'Usage analytics',
     SETTINGS_ANALYTICS_DESCRIPTION:
         'Help improve mirrord by sending anonymous usage data.',
+
+    MSG_APPLYING_CONFIG: 'Applying mirrord config…',
+    MSG_JOINED_LIVE_SESSION: 'Joined live session',
+    MSG_ROUTING_TO_SESSION: 'Routing your traffic to session',
+    MSG_BY_INJECTING: 'by injecting',
+    MSG_CONFIGURED_TAG: 'Configured',
+    MSG_HEADER_CONFIGURED: 'mirrord header configured',
+    MSG_COULDNT_APPLY_TAG: 'Couldn’t apply',
+    MSG_COULDNT_APPLY_CONFIG: 'Couldn’t apply mirrord config',
+    MSG_INVALID_INPUT: 'Invalid input',
+    MSG_ON_ALL_REQUESTS: 'on all requests.',
+    MSG_ERROR_BOUNDARY_TITLE: 'Something went wrong.',
+    MSG_ERROR_BOUNDARY_HINT: 'Please reload the extension.',
+    LABEL_KEY: 'Key',
+    LABEL_MORE_TARGET: 'more target',
+    LABEL_REQ_LAST: 'req · last',
+    LABEL_SECONDS_SUFFIX: 's',
+    LABEL_PREVIEW: 'preview',
+    TERMINAL_PROMPT: '$',
+    PUNCT_PLUS: '+',
+    PUNCT_PERIOD: '.',
 } as const;
 
 export const BADGE = {

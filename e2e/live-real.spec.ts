@@ -42,7 +42,9 @@ test('session monitor authenticates and auto-configures the extension', async ({
     await extension.getByRole('tab', { name: /sessions/i }).click();
     const operatorResponse = await fetch(
         `${REAL_BACKEND}/api/v2/operator/sessions`,
-        { headers: { 'x-auth-token': TOKEN } }
+        {
+            headers: { 'x-auth-token': TOKEN },
+        }
     );
     const operatorAvailable =
         operatorResponse.ok &&
@@ -119,7 +121,9 @@ test('live join against a visible operator session', async ({
 
     const operatorResponse = await fetch(
         `${REAL_BACKEND}/api/v2/operator/sessions`,
-        { headers: { 'x-auth-token': TOKEN } }
+        {
+            headers: { 'x-auth-token': TOKEN },
+        }
     );
     const operatorData = operatorResponse.ok
         ? ((await operatorResponse.json()) as LiveOperatorSessions)

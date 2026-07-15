@@ -29,7 +29,7 @@ export function NotConfiguredPrompt() {
                         }}
                     />
                     <span
-                        className="font-semibold text-foreground"
+                        className="text-foreground font-semibold"
                         style={{
                             fontSize: 10.5,
                             letterSpacing: 'normal',
@@ -40,7 +40,7 @@ export function NotConfiguredPrompt() {
                     </span>
                 </div>
                 <div
-                    className="rounded-md border border-primary/30 bg-primary/10"
+                    className="border-primary/30 bg-primary/10 rounded-md border"
                     style={{
                         padding: '10px 12px',
                         display: 'flex',
@@ -49,10 +49,10 @@ export function NotConfiguredPrompt() {
                     }}
                 >
                     <span
-                        className="font-mono text-muted-foreground"
+                        className="text-muted-foreground font-mono"
                         style={{ fontSize: 12, userSelect: 'none' }}
                     >
-                        $
+                        {STRINGS.TERMINAL_PROMPT}
                     </span>
                     <code
                         className="font-mono"

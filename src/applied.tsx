@@ -15,6 +15,7 @@ import {
 import { applyHeaderConfig } from './applyConfig';
 import { joinMatchingSession } from './joinSession';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
+import { STRINGS } from './constants';
 
 export type AppliedState =
     | { kind: 'loading' }
@@ -115,23 +116,25 @@ function AppliedPage() {
     return (
         <div className="mb-card">
             {state.kind === 'loading' && (
-                <p className="mb-text">Applying mirrord config…</p>
+                <p className="mb-text">{STRINGS.MSG_APPLYING_CONFIG}</p>
             )}
 
             {state.kind === 'done' && state.joinedKey && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--success">
-                        Joined
+                        {STRINGS.MSG_JOINED_TAG}
                     </span>
-                    <h1 className="mb-title">Joined live session</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_JOINED_LIVE_SESSION}
+                    </h1>
                     <p className="mb-text">
-                        Routing your traffic to session{' '}
-                        <code className="mb-code">{state.joinedKey}</code> by
-                        injecting{' '}
+                        {STRINGS.MSG_ROUTING_TO_SESSION}{' '}
+                        <code className="mb-code">{state.joinedKey}</code>{' '}
+                        {STRINGS.MSG_BY_INJECTING}{' '}
                         <code className="mb-code">
                             {state.header}: {state.value}
                         </code>
-                        .
+                        {STRINGS.PUNCT_PERIOD}
                     </p>
                 </>
             )}
@@ -139,11 +142,13 @@ function AppliedPage() {
             {state.kind === 'done' && !state.joinedKey && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--success">
-                        Configured
+                        {STRINGS.MSG_CONFIGURED_TAG}
                     </span>
-                    <h1 className="mb-title">mirrord header configured</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_HEADER_CONFIGURED}
+                    </h1>
                     <p className="mb-text">
-                        Injecting{' '}
+                        {STRINGS.MSG_JOINED_SESSION_HINT}{' '}
                         <code className="mb-code">
                             {state.header}: {state.value}
                         </code>{' '}
@@ -157,13 +162,17 @@ function AppliedPage() {
             {state.kind === 'error' && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--error">
-                        Couldn’t apply
+                        {STRINGS.MSG_COULDNT_APPLY_TAG}
                     </span>
-                    <h1 className="mb-title">Couldn’t apply mirrord config</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_COULDNT_APPLY_CONFIG}
+                    </h1>
                     <p className="mb-text">{state.error}</p>
                     {state.input && (
                         <>
-                            <p className="mb-label">Invalid input</p>
+                            <p className="mb-label">
+                                {STRINGS.MSG_INVALID_INPUT}
+                            </p>
                             <pre className="mb-terminal">{state.input}</pre>
                         </>
                     )}

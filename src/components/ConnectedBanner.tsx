@@ -98,7 +98,9 @@ export function ConnectedBanner({
     const observed = observation.totalLast60s;
 
     const copyHeader = async () => {
-        if (!joinedHeader || !joinedValue) return;
+        if (!joinedHeader || !joinedValue) {
+            return;
+        }
         try {
             await navigator.clipboard.writeText(
                 `${joinedHeader}: ${joinedValue}`
@@ -116,13 +118,17 @@ export function ConnectedBanner({
     }, [ended]);
 
     useEffect(() => {
-        if (composing) inputRef.current?.focus();
+        if (composing) {
+            inputRef.current?.focus();
+        }
     }, [composing]);
 
     const submit = async () => {
         const trimmed = draft.trim();
         if (!trimmed) {
-            if (scopePatterns.length > 0) setComposing(false);
+            if (scopePatterns.length > 0) {
+                setComposing(false);
+            }
             return;
         }
         await onAddScopePattern(trimmed);
@@ -211,10 +217,10 @@ export function ConnectedBanner({
                     {shownTargets.map((t) => (
                         <div
                             key={t}
-                            className="flex items-center gap-2 min-w-0"
+                            className="flex min-w-0 items-center gap-2"
                         >
                             <Box
-                                className="shrink-0 text-muted-foreground"
+                                className="text-muted-foreground shrink-0"
                                 style={{ height: 13, width: 13 }}
                             />
                             <div
@@ -237,7 +243,8 @@ export function ConnectedBanner({
                             className="text-muted-foreground"
                             style={{ paddingLeft: 21, fontSize: 11 }}
                         >
-                            + {overflowTargets} more target
+                            {STRINGS.PUNCT_PLUS} {overflowTargets}{' '}
+                            {STRINGS.LABEL_MORE_TARGET}
                             {overflowTargets === 1 ? '' : 's'}
                         </div>
                     )}
@@ -271,7 +278,7 @@ export function ConnectedBanner({
                         style={{ fontSize: 10.5 }}
                     >
                         <span
-                            className="inline-flex items-center text-muted-foreground font-semibold"
+                            className="text-muted-foreground inline-flex items-center font-semibold"
                             style={{
                                 gap: 6,
                                 letterSpacing: 'normal',
@@ -310,7 +317,7 @@ export function ConnectedBanner({
                                     onClick={() =>
                                         void onRemoveScopePattern(pattern)
                                     }
-                                    className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                                    className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
                                     style={{
                                         height: 16,
                                         width: 16,
@@ -355,7 +362,7 @@ export function ConnectedBanner({
                                 type="button"
                                 aria-label={STRINGS.PLACEHOLDER_URL_PATTERN}
                                 onClick={() => setComposing(true)}
-                                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
                                 style={{
                                     height: 24,
                                     width: 24,
@@ -406,7 +413,8 @@ export function ConnectedBanner({
                                 fontWeight: 600,
                             }}
                         >
-                            {observed} req · last {RING_SECONDS}s
+                            {observed} {STRINGS.LABEL_REQ_LAST} {RING_SECONDS}
+                            {STRINGS.LABEL_SECONDS_SUFFIX}
                         </span>
                     </div>
                     {joinedHeader && joinedValue && (
@@ -419,7 +427,7 @@ export function ConnectedBanner({
                                     : STRINGS.BTN_COPY_HEADER
                             }
                             aria-label={STRINGS.BTN_COPY_HEADER}
-                            className="font-mono group"
+                            className="group font-mono"
                             style={{
                                 marginTop: 4,
                                 display: 'flex',

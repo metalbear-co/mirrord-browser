@@ -46,7 +46,9 @@ interface Props {
 }
 
 function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
-    if (!q) return true;
+    if (!q) {
+        return true;
+    }
     const haystack = [
         s.key,
         s.namespace,
@@ -170,7 +172,7 @@ export function SessionsView({
 
             {(contexts.length > 1 ||
                 namespaces.filter((ns) => ns !== '').length > 1) && (
-                <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: 8 }}>
                     <ContextFilter
                         contexts={contexts}
                         currentContext={currentContext}
@@ -226,7 +228,7 @@ export function SessionsView({
             {hasGroups && (
                 <>
                     <div
-                        className="flex items-center justify-between text-muted-foreground font-semibold"
+                        className="text-muted-foreground flex items-center justify-between font-semibold"
                         style={{
                             padding: '0 2px',
                             fontSize: 10.5,

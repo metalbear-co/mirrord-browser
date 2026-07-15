@@ -34,7 +34,7 @@ export function MirrordUiDetectedPrompt() {
                         }}
                     />
                     <span
-                        className="font-semibold text-foreground"
+                        className="text-foreground font-semibold"
                         style={{
                             fontSize: 10.5,
                             letterSpacing: 'normal',

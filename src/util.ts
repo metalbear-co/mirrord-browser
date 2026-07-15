@@ -46,8 +46,12 @@ export function parseRules(
         const key = `${header}\n${value}`;
         const group = groups.get(key);
         if (group) {
-            if (!isWildcard) group.scopes.push(urlFilter);
-            if (rule.id < group.id) group.id = rule.id;
+            if (!isWildcard) {
+                group.scopes.push(urlFilter);
+            }
+            if (rule.id < group.id) {
+                group.id = rule.id;
+            }
         } else {
             groups.set(key, {
                 id: rule.id,
@@ -154,9 +158,13 @@ export function storageRemove(keys: string[]): Promise<void> {
 }
 
 export function formatRelativeTime(iso: string | null | undefined): string {
-    if (!iso) return '';
+    if (!iso) {
+        return '';
+    }
     const parsed = dayjs(iso);
-    if (!parsed.isValid()) return '';
+    if (!parsed.isValid()) {
+        return '';
+    }
     return parsed.fromNow();
 }
 
@@ -242,21 +250,31 @@ function generateLowestMatch(pattern: string): string | null {
 
 function parseHeaderLine(line: string): InjectionHint | null {
     const m = HEADER_LINE_PATTERN.exec(line);
-    if (!m) return null;
+    if (!m) {
+        return null;
+    }
     const header = m[1];
     const value = m[2];
-    if (header === undefined || value === undefined) return null;
+    if (header === undefined || value === undefined) {
+        return null;
+    }
     return { header, value };
 }
 
 export function deriveInjectionHint(
     headerFilter: string | null | undefined
 ): InjectionHint | null {
-    if (!headerFilter) return null;
+    if (!headerFilter) {
+        return null;
+    }
     const trimmed = headerFilter.trim();
-    if (!trimmed) return null;
+    if (!trimmed) {
+        return null;
+    }
     const generated = generateLowestMatch(trimmed);
-    if (!generated) return null;
+    if (!generated) {
+        return null;
+    }
     return parseHeaderLine(generated);
 }
 

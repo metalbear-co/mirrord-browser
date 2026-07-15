@@ -57,11 +57,11 @@ export function HeaderForm({
                     </Label>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-meta">
-                                ⓘ
+                            <span className="text-muted-foreground text-meta cursor-help">
+                                {STRINGS.LABEL_INFO}
                             </span>
                         </TooltipTrigger>
-                        <TooltipContent className="text-xs max-w-[200px]">
+                        <TooltipContent className="max-w-[200px] text-xs">
                             {STRINGS.TOOLTIP_SCOPE}
                         </TooltipContent>
                     </Tooltip>

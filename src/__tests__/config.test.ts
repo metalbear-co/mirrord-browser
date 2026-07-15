@@ -316,7 +316,9 @@ describe('storeDefaults', () => {
     it('resolves even when storage fails', async () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
-        ).lastError = { message: 'Storage error' };
+        ).lastError = {
+            message: 'Storage error',
+        };
         mockStorageSet.mockImplementation(
             (_data: unknown, callback: () => void) => callback()
         );

@@ -7,7 +7,9 @@ let distinctId: string | null = null;
 let optedOut = false;
 
 function getDistinctId(): string {
-    if (distinctId) return distinctId;
+    if (distinctId) {
+        return distinctId;
+    }
     const stored = localStorage.getItem('posthog_distinct_id');
     if (stored) {
         distinctId = stored;
@@ -58,7 +60,9 @@ export function capture(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) return;
+    if (optedOut) {
+        return;
+    }
     try {
         fetch(`${POSTHOG_HOST}/capture/`, {
             method: 'POST',
@@ -86,7 +90,9 @@ export function captureBeacon(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) return;
+    if (optedOut) {
+        return;
+    }
     try {
         const payload = JSON.stringify({
             api_key: POSTHOG_KEY,

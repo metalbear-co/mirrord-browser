@@ -33,7 +33,9 @@ const surface: 'side_panel' | 'popup_fallback' =
 void optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden') return;
+    if (document.visibilityState !== 'hidden') {
+        return;
+    }
     captureBeacon('extension_popup_closed', {
         duration_ms: Date.now() - popupOpenedAt,
         surface,
@@ -72,7 +74,9 @@ export function Popup() {
     }, []);
 
     useEffect(() => {
-        if (!tabRestored) return;
+        if (!tabRestored) {
+            return;
+        }
         chrome.storage.local.set(
             { [STORAGE_KEYS.ACTIVE_TAB]: tab },
             () => undefined
@@ -81,7 +85,7 @@ export function Popup() {
 
     return (
         <TooltipProvider>
-            <div className="w-[420px] p-3 flex flex-col gap-2">
+            <div className="flex w-[420px] flex-col gap-2 p-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
@@ -90,7 +94,7 @@ export function Popup() {
                             className="h-5 w-auto"
                         />
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold tracking-tight leading-none">
+                            <span className="text-sm leading-none font-semibold tracking-tight">
                                 {STRINGS.LABEL_MIRRORD}
                             </span>
                             <span className="text-meta text-muted-foreground leading-tight">
@@ -156,7 +160,7 @@ export function Popup() {
                     onValueChange={(v: string) => setTab(v as TabId)}
                     className="flex flex-col gap-2"
                 >
-                    <TabsList className="grid grid-cols-2 w-full">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value={TAB.SESSIONS}>
                             <span className="inline-flex items-center gap-1.5">
                                 {STRINGS.TAB_SESSIONS}

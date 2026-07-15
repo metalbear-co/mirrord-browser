@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ErrorBoundary as KitErrorBoundary } from '@metalbear/ui';
 import { emitUserBlocked } from '../analytics';
+import { STRINGS } from '../constants';
 
 type Flow = 'session_monitor' | 'header_injector' | 'configure';
 
@@ -17,8 +18,8 @@ export function ErrorBoundary({ flow, component, children }: Props) {
         <KitErrorBoundary
             fallback={
                 <div style={{ padding: 16, fontFamily: 'system-ui' }}>
-                    <h3>Something went wrong.</h3>
-                    <p>Please reload the extension.</p>
+                    <h3>{STRINGS.MSG_ERROR_BOUNDARY_TITLE}</h3>
+                    <p>{STRINGS.MSG_ERROR_BOUNDARY_HINT}</p>
                 </div>
             }
             onError={(error, info) => {

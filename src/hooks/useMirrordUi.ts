@@ -82,7 +82,9 @@ export async function fetchContexts(
     const resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
     });
-    if (resp.status === HTTP_NOT_FOUND) return null;
+    if (resp.status === HTTP_NOT_FOUND) {
+        return null;
+    }
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}`
@@ -118,7 +120,9 @@ export async function fetchOperatorSessionsV2(
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
     const params = new URLSearchParams();
-    if (context) params.set('context', context);
+    if (context) {
+        params.set('context', context);
+    }
     const url = `${backend}/api/v2/operator/sessions?${params.toString()}`;
     const resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
@@ -177,12 +181,15 @@ export function isAuthFailureStatus(status: number | undefined): boolean {
 
 export function buildWsUrl(backend: string, token: string): string {
     let scheme: string;
-    if (backend.startsWith('https://')) scheme = 'wss';
-    else if (backend.startsWith('http://')) scheme = 'ws';
-    else
+    if (backend.startsWith('https://')) {
+        scheme = 'wss';
+    } else if (backend.startsWith('http://')) {
+        scheme = 'ws';
+    } else {
         throw new Error(
             `mirrord ui backend must be http:// or https://, got ${backend}`
         );
+    }
     const hostAndRest = backend.replace(/^https?:\/\//, '');
     return `${scheme}://${hostAndRest}/ws?token=${encodeURIComponent(token)}`;
 }
@@ -287,7 +294,9 @@ export function useMirrordUi() {
                 STORAGE_KEYS.SCOPE_PATTERNS,
                 STORAGE_KEYS.SELECTED_CONTEXT,
             ]);
-            if (cancelled) return;
+            if (cancelled) {
+                return;
+            }
             setBackend(
                 (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
                     | string
@@ -336,7 +345,9 @@ export function useMirrordUi() {
         const listener = (
             changes: Record<string, chrome.storage.StorageChange>
         ) => {
-            if (hasWatchedChange(changes)) void loadFromStorage();
+            if (hasWatchedChange(changes)) {
+                void loadFromStorage();
+            }
         };
         chrome.storage.onChanged.addListener(listener);
         return () => {
@@ -346,7 +357,9 @@ export function useMirrordUi() {
     }, []);
 
     useEffect(() => {
-        if (!backend) return;
+        if (!backend) {
+            return;
+        }
         pingHealth(backend)
             .then(setHealthy)
             .catch(() => setHealthy(false));
@@ -364,10 +377,14 @@ export function useMirrordUi() {
         const probe = () => {
             pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
                 .then((ok) => {
-                    if (!cancelled) setUiDetectedNoToken(ok);
+                    if (!cancelled) {
+                        setUiDetectedNoToken(ok);
+                    }
                 })
                 .catch(() => {
-                    if (!cancelled) setUiDetectedNoToken(false);
+                    if (!cancelled) {
+                        setUiDetectedNoToken(false);
+                    }
                 });
         };
         probe();
@@ -387,7 +404,9 @@ export function useMirrordUi() {
         let cancelled = false;
         fetchContexts(backend, token)
             .then((resp) => {
-                if (cancelled) return;
+                if (cancelled) {
+                    return;
+                }
                 if (resp === null) {
                     setV2Available(false);
                     setContexts([]);
@@ -411,13 +430,16 @@ export function useMirrordUi() {
     }, [backend, token, healthy]);
 
     useEffect(() => {
-        if (!backend || !token || healthy !== true || v2Available === null)
+        if (!backend || !token || healthy !== true || v2Available === null) {
             return;
+        }
         let cancelled = false;
         const refresh = () => {
             void runPoll(backend, token, v2Available, effectiveContext).then(
                 (result) => {
-                    if (cancelled) return;
+                    if (cancelled) {
+                        return;
+                    }
                     if (result.ok) {
                         setSessions(result.data);
                         setStatus(result.data.watch_status);
@@ -440,8 +462,9 @@ export function useMirrordUi() {
     // The live-updates WebSocket is a v1-only feature; v2 is poll-only (its `/api/v2/operator/
     // sessions` is per-context and has no push channel), so only open it on the v1 fallback path.
     useEffect(() => {
-        if (!backend || !token || healthy !== true || v2Available !== false)
+        if (!backend || !token || healthy !== true || v2Available !== false) {
             return;
+        }
         const url = buildWsUrl(backend, token);
         const ws = new WebSocket(url);
         wsRef.current = ws;
@@ -477,7 +500,9 @@ export function useMirrordUi() {
     const namespaces = useMemo(() => {
         const set = new Set<string>();
         sessions?.sessions.forEach((s) => {
-            if (s.namespace) set.add(s.namespace);
+            if (s.namespace) {
+                set.add(s.namespace);
+            }
         });
         return ['', ...Array.from(set).sort()];
     }, [sessions]);
@@ -485,7 +510,9 @@ export function useMirrordUi() {
     const groupedFiltered = useMemo<
         Record<string, OperatorSessionSummary[]>
     >(() => {
-        if (!sessions) return {};
+        if (!sessions) {
+            return {};
+        }
         const filtered = namespace
             ? sessions.sessions.filter((s) => s.namespace === namespace)
             : sessions.sessions;

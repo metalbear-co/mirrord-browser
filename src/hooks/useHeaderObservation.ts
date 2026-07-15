@@ -11,17 +11,23 @@ export function useHeaderObservation(): HeaderObservation {
     );
 
     useEffect(() => {
-        if (typeof chrome === 'undefined') return undefined;
+        if (typeof chrome === 'undefined') {
+            return undefined;
+        }
         const connect = (
             chrome as unknown as {
                 runtime?: { connect?: typeof chrome.runtime.connect };
             }
         ).runtime?.connect;
-        if (!connect) return undefined;
+        if (!connect) {
+            return undefined;
+        }
         let cancelled = false;
         const port = chrome.runtime.connect({ name: HEADER_OBSERVATION_PORT });
         port.onMessage.addListener((msg: HeaderObservation) => {
-            if (cancelled) return;
+            if (cancelled) {
+                return;
+            }
             setObs(msg);
         });
         return () => {

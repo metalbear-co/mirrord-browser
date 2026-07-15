@@ -100,7 +100,9 @@ export function useHeaderRules() {
             (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
             (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined);
 
-        if (!config) return;
+        if (!config) {
+            return;
+        }
 
         const newRules = buildDnrRule(
             config.headerName,
@@ -174,7 +176,9 @@ export function useHeaderRules() {
     }, [loadRules]);
 
     const handleToggle = useCallback(async () => {
-        if (isToggling) return;
+        if (isToggling) {
+            return;
+        }
         setIsToggling(true);
 
         try {
@@ -347,7 +351,9 @@ export function useHeaderRules() {
     }, [loadRules]);
 
     const handleShare = useCallback(async () => {
-        if (!canShare) return;
+        if (!canShare) {
+            return;
+        }
         const trimmedScope = scope.trim();
         const config: Config = {
             header_filter: `${headerName.trim()}: ${headerValue.trim()}`,

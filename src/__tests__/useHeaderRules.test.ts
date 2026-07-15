@@ -195,7 +195,10 @@ describe('useHeaderRules analytics', () => {
 
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: false, was_active: false }
+                {
+                    has_scope: false,
+                    was_active: false,
+                }
             );
         });
 
@@ -221,7 +224,10 @@ describe('useHeaderRules analytics', () => {
 
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: true, was_active: false }
+                {
+                    has_scope: true,
+                    was_active: false,
+                }
             );
         });
 
@@ -250,7 +256,10 @@ describe('useHeaderRules analytics', () => {
             expect(mockStorageSet).toHaveBeenCalledTimes(1);
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: false, was_active: false }
+                {
+                    has_scope: false,
+                    was_active: false,
+                }
             );
         });
 
@@ -304,7 +313,10 @@ describe('useHeaderRules analytics', () => {
             expect(mockStorageSet).toHaveBeenCalledTimes(1);
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
-                { has_scope: false, was_active: true }
+                {
+                    has_scope: false,
+                    was_active: true,
+                }
             );
         });
 

@@ -7,9 +7,9 @@ interface RuleItemProps {
 
 export function RuleItem({ rule }: RuleItemProps) {
     return (
-        <div className="p-2 rounded-md bg-muted/30 overflow-hidden">
+        <div className="bg-muted/30 overflow-hidden rounded-md p-2">
             <code
-                className="text-xs font-mono block"
+                className="block font-mono text-xs"
                 style={{
                     color: COLORS.brand.yellow,
                     overflowWrap: 'anywhere',
@@ -18,7 +18,7 @@ export function RuleItem({ rule }: RuleItemProps) {
                 {rule.header}: {rule.value}
             </code>
             <span
-                className="text-meta text-muted-foreground block mt-1"
+                className="text-meta text-muted-foreground mt-1 block"
                 style={{ overflowWrap: 'anywhere' }}
             >
                 {rule.scope}

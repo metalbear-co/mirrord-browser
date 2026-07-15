@@ -27,8 +27,9 @@ const mockLocalStorage = {
         Reflect.deleteProperty(store, key);
     }),
     clear: jest.fn(() => {
-        for (const key of Object.keys(store))
+        for (const key of Object.keys(store)) {
             Reflect.deleteProperty(store, key);
+        }
     }),
     length: 0,
     key: jest.fn(),
@@ -45,7 +46,9 @@ const mockChromeStorage = {
         const result: Record<string, unknown> = {};
         const keyList = Array.isArray(keys) ? keys : [keys];
         for (const k of keyList) {
-            if (k in chromeStore) result[k] = chromeStore[k];
+            if (k in chromeStore) {
+                result[k] = chromeStore[k];
+            }
         }
         return Promise.resolve(result);
     }),
@@ -55,7 +58,9 @@ const mockChromeStorage = {
     }),
     remove: jest.fn((keys: string | string[]) => {
         const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) Reflect.deleteProperty(chromeStore, k);
+        for (const k of keyList) {
+            Reflect.deleteProperty(chromeStore, k);
+        }
         return Promise.resolve();
     }),
 };
@@ -103,8 +108,9 @@ describe('analytics', () => {
     beforeEach(async () => {
         jest.clearAllMocks();
         mockLocalStorage.clear();
-        for (const key of Object.keys(chromeStore))
+        for (const key of Object.keys(chromeStore)) {
             Reflect.deleteProperty(chromeStore, key);
+        }
         // Wait for module-level optOutReady to settle, then reset
         await optOutReady;
         await setOptOut(false);

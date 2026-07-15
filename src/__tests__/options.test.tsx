@@ -8,7 +8,9 @@ const mockChromeStorage = {
         const result: Record<string, unknown> = {};
         const keyList = Array.isArray(keys) ? keys : [keys];
         for (const k of keyList) {
-            if (k in chromeStore) result[k] = chromeStore[k];
+            if (k in chromeStore) {
+                result[k] = chromeStore[k];
+            }
         }
         return Promise.resolve(result);
     }),
@@ -18,7 +20,9 @@ const mockChromeStorage = {
     }),
     remove: jest.fn((keys: string | string[]) => {
         const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) Reflect.deleteProperty(chromeStore, k);
+        for (const k of keyList) {
+            Reflect.deleteProperty(chromeStore, k);
+        }
         return Promise.resolve();
     }),
 };
@@ -37,8 +41,9 @@ import { Options } from '../options';
 describe('Options page', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        for (const key of Object.keys(chromeStore))
+        for (const key of Object.keys(chromeStore)) {
             Reflect.deleteProperty(chromeStore, key);
+        }
     });
 
     it('renders toggle in "on" state by default', async () => {

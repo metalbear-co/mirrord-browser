@@ -198,7 +198,9 @@ async function handleConfigLink(): Promise<void> {
     }
 
     const contentDiv = document.getElementById('content');
-    if (!contentDiv) return;
+    if (!contentDiv) {
+        return;
+    }
 
     let config: Config;
     try {

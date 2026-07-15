@@ -249,14 +249,14 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
 
     act(() => {
         storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'fresh';
-        storageListeners.forEach((l) =>
+        storageListeners.forEach((l) => {
             l({
                 [STORAGE_KEYS.MIRRORD_UI_TOKEN]: {
                     oldValue: 'tok',
                     newValue: 'fresh',
                 },
-            })
-        );
+            });
+        });
     });
 
     await waitFor(() => expect(result.current.authFailed).toBe(false));
@@ -303,14 +303,14 @@ test('clears authFailed when a later poll fails for a non-auth reason', async ()
 
     act(() => {
         storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'other';
-        storageListeners.forEach((l) =>
+        storageListeners.forEach((l) => {
             l({
                 [STORAGE_KEYS.MIRRORD_UI_TOKEN]: {
                     oldValue: 'tok',
                     newValue: 'other',
                 },
-            })
-        );
+            });
+        });
     });
 
     await waitFor(() => expect(result.current.authFailed).toBe(false));
@@ -371,7 +371,9 @@ test('session share builds a config link without backend or join params', async 
     expect(url).not.toContain('backend=');
     expect(url).not.toContain('join=');
     expect(payload).toBeTruthy();
-    if (payload === undefined) throw new Error('missing config payload');
+    if (payload === undefined) {
+        throw new Error('missing config payload');
+    }
     expect(decodeConfig(payload)).toEqual({
         header_filter: 'baggage: mirrord-session=k1',
     });
@@ -420,7 +422,9 @@ test('session share uses the operator HTTP filter when it can derive a header', 
     const payload = /#config=([^&]+)/.exec(url)?.[1];
 
     expect(payload).toBeTruthy();
-    if (payload === undefined) throw new Error('missing config payload');
+    if (payload === undefined) {
+        throw new Error('missing config payload');
+    }
     expect(decodeConfig(payload)).toEqual({
         header_filter: 'x-tenant: alice',
     });

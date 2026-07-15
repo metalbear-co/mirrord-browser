@@ -5,13 +5,18 @@ function isThemePref(v: unknown): v is ThemePref {
 }
 
 export function resolveDark(pref: ThemePref): boolean {
-    if (pref === 'dark') return true;
-    if (pref === 'light') return false;
+    if (pref === 'dark') {
+        return true;
+    }
+    if (pref === 'light') {
+        return false;
+    }
     if (
         typeof window === 'undefined' ||
         typeof window.matchMedia !== 'function'
-    )
+    ) {
         return false;
+    }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
@@ -23,7 +28,9 @@ export async function loadTheme(): Promise<ThemePref> {
     try {
         const stored = await chrome.storage.local.get(STORAGE_KEYS.THEME);
         const v: unknown = stored[STORAGE_KEYS.THEME];
-        if (isThemePref(v)) return v;
+        if (isThemePref(v)) {
+            return v;
+        }
     } catch {}
     return 'system';
 }
@@ -48,7 +55,9 @@ export function initTheme(): () => void {
             ? window.matchMedia('(prefers-color-scheme: dark)')
             : null;
     const onMedia = () => {
-        if (currentPref === 'system') applyDark(resolveDark('system'));
+        if (currentPref === 'system') {
+            applyDark(resolveDark('system'));
+        }
     };
     media?.addEventListener('change', onMedia);
 
@@ -63,8 +72,12 @@ export function initTheme(): () => void {
         changes: Record<string, chrome.storage.StorageChange>,
         area: chrome.storage.AreaName
     ) => {
-        if (area !== 'local') return;
-        if (!(STORAGE_KEYS.THEME in changes)) return;
+        if (area !== 'local') {
+            return;
+        }
+        if (!(STORAGE_KEYS.THEME in changes)) {
+            return;
+        }
         const newValue: unknown = changes[STORAGE_KEYS.THEME]?.newValue;
         const next = isThemePref(newValue) ? newValue : 'system';
         currentPref = next;

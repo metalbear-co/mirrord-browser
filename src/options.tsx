@@ -33,15 +33,17 @@ export function Options() {
         void setOptOut(!checked);
     };
 
-    if (!loaded) return null;
+    if (!loaded) {
+        return null;
+    }
 
     return (
-        <div className="max-w-md mx-auto p-6 flex flex-col gap-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-border">
-                <span className="text-meta font-medium text-muted-foreground">
-                    mirrord
+        <div className="mx-auto flex max-w-md flex-col gap-6 p-6">
+            <div className="border-border flex items-center gap-2 border-b pb-3">
+                <span className="text-meta text-muted-foreground font-medium">
+                    {STRINGS.LABEL_MIRRORD}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                     {STRINGS.SETTINGS_TITLE}
                 </span>
             </div>

@@ -42,13 +42,17 @@ export function rotateBuckets(
 ): HeaderObservation {
     const nowSec = alignToSecond(nowMs);
     const elapsedSec = Math.floor((nowSec - obs.bucketStartMs) / MS_PER_SECOND);
-    if (elapsedSec <= 0) return obs;
+    if (elapsedSec <= 0) {
+        return obs;
+    }
     const buckets = obs.buckets.slice();
     if (elapsedSec >= RING_SECONDS) {
         buckets.fill(0);
     } else {
         buckets.splice(0, elapsedSec);
-        for (let i = 0; i < elapsedSec; i += 1) buckets.push(0);
+        for (let i = 0; i < elapsedSec; i += 1) {
+            buckets.push(0);
+        }
     }
     return {
         ...obs,
@@ -83,7 +87,9 @@ export function setHeaderName(
     obs: HeaderObservation,
     headerName: string
 ): HeaderObservation {
-    if (obs.headerName.toLowerCase() === headerName.toLowerCase()) return obs;
+    if (obs.headerName.toLowerCase() === headerName.toLowerCase()) {
+        return obs;
+    }
     return emptyObservation(headerName);
 }
 
@@ -117,21 +123,31 @@ export function armCanary(arm: CanaryArm): void {
 }
 
 export function cancelCanary(): void {
-    if (activeTimer) clearTimeout(activeTimer);
+    if (activeTimer) {
+        clearTimeout(activeTimer);
+    }
     activeTimer = null;
     activeArm = null;
     observed = false;
 }
 
 export function notifyHeaderObserved(headerName: string): void {
-    if (!activeArm) return;
-    if (observed) return;
-    if (activeArm.headerName.toLowerCase() !== headerName.toLowerCase()) return;
+    if (!activeArm) {
+        return;
+    }
+    if (observed) {
+        return;
+    }
+    if (activeArm.headerName.toLowerCase() !== headerName.toLowerCase()) {
+        return;
+    }
     observed = true;
     emitUserSucceeded('header_observed', 'health', {
         headerName: activeArm.headerName,
         flow: activeArm.flow,
     });
-    if (activeTimer) clearTimeout(activeTimer);
+    if (activeTimer) {
+        clearTimeout(activeTimer);
+    }
     activeTimer = null;
 }

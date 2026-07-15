@@ -26,7 +26,9 @@ export function ContextFilter({
     value,
     onChange,
 }: Props) {
-    if (contexts.length <= 1) return null;
+    if (contexts.length <= 1) {
+        return null;
+    }
 
     const selected = value ?? currentContext ?? contexts[0]?.name ?? '';
 

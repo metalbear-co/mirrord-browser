@@ -15,13 +15,21 @@ import { CONFIG_HASH_PARAM } from '../constants';
  * result-page URL.
  */
 export function parseConfigPayload(hash: string): string | null {
-    if (!hash.startsWith('#')) return null;
+    if (!hash.startsWith('#')) {
+        return null;
+    }
     const raw = hash.slice(1);
-    if (!raw) return null;
+    if (!raw) {
+        return null;
+    }
     for (const part of raw.split('&')) {
         const eq = part.indexOf('=');
-        if (eq === -1) continue;
-        if (part.slice(0, eq) !== CONFIG_HASH_PARAM) continue;
+        if (eq === -1) {
+            continue;
+        }
+        if (part.slice(0, eq) !== CONFIG_HASH_PARAM) {
+            continue;
+        }
         const value = part.slice(eq + 1);
         return value.trim().length > 0 ? value : null;
     }
@@ -33,7 +41,9 @@ const MESSAGE_BOX_ID = 'mirrord-config-message';
 /** Render a small fixed note in the page (used only for the "no config" case). */
 function showMessage(title: string, detail: string): void {
     const parent = document.body;
-    if (document.getElementById(MESSAGE_BOX_ID)) return;
+    if (document.getElementById(MESSAGE_BOX_ID)) {
+        return;
+    }
 
     const box = document.createElement('div');
     box.id = MESSAGE_BOX_ID;
@@ -71,7 +81,9 @@ let lastPayload: string | null | undefined = undefined;
 
 function handleHash(): void {
     const payload = parseConfigPayload(window.location.hash);
-    if (payload === lastPayload) return;
+    if (payload === lastPayload) {
+        return;
+    }
     lastPayload = payload;
 
     if (!payload) {

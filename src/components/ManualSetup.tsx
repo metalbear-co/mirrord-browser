@@ -54,11 +54,11 @@ export function ManualSetup({ headerRules }: Props) {
                     </span>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-meta">
+                            <span className="text-muted-foreground text-meta cursor-help">
                                 {STRINGS.LABEL_INFO}
                             </span>
                         </TooltipTrigger>
-                        <TooltipContent className="text-xs max-w-[220px]">
+                        <TooltipContent className="max-w-[220px] text-xs">
                             {STRINGS.MSG_INJECTION_TOOLTIP}
                         </TooltipContent>
                     </Tooltip>
@@ -72,9 +72,9 @@ export function ManualSetup({ headerRules }: Props) {
             </div>
 
             {activeRule && (
-                <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/10">
+                <div className="border-primary/30 bg-primary/10 rounded-md border px-3 py-2">
                     <code
-                        className="text-xs font-mono block"
+                        className="block font-mono text-xs"
                         style={{
                             color: COLORS.brand.yellow,
                             overflowWrap: 'anywhere',
@@ -83,7 +83,7 @@ export function ManualSetup({ headerRules }: Props) {
                         {activeRule.header}: {activeRule.value}
                     </code>
                     <span
-                        className="text-meta text-muted-foreground block mt-0.5"
+                        className="text-meta text-muted-foreground mt-0.5 block"
                         style={{ overflowWrap: 'anywhere' }}
                     >
                         {activeRule.scope}
@@ -111,11 +111,11 @@ export function ManualSetup({ headerRules }: Props) {
                     )}
                 </CardContent>
                 <Separator />
-                <CardContent className="px-3 py-2 flex gap-2">
+                <CardContent className="flex gap-2 px-3 py-2">
                     <Button
                         onClick={() => void handleSave()}
                         disabled={saveState !== 'idle'}
-                        className="flex-1 h-9 text-xs"
+                        className="h-9 flex-1 text-xs"
                     >
                         {getSaveButtonText()}
                     </Button>
@@ -124,7 +124,7 @@ export function ManualSetup({ headerRules }: Props) {
                             variant="outline"
                             onClick={() => void handleReset()}
                             disabled={resetState !== 'idle'}
-                            className="flex-1 h-9 text-xs"
+                            className="h-9 flex-1 text-xs"
                         >
                             {getResetButtonText()}
                         </Button>

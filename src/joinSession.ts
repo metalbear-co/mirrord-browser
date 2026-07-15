@@ -35,7 +35,9 @@ export async function joinMatchingSession(
         | string
         | undefined;
     const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined;
-    if (!backend || !token) return null;
+    if (!backend || !token) {
+        return null;
+    }
 
     let sessions: OperatorSessionSummary[];
     try {
@@ -51,7 +53,9 @@ export async function joinMatchingSession(
             pair.value === headerValue
         );
     });
-    if (!target) return null;
+    if (!target) {
+        return null;
+    }
 
     const { header, value } = sessionInjectionPair(target);
     const scope =

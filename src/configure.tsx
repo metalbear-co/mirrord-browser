@@ -48,7 +48,9 @@ async function joinKey(
 ): Promise<Status> {
     const resp = await fetchOperatorSessions(backend, token);
     const target = resp.sessions.find((s) => s.key === key);
-    if (!target) return { kind: CONFIGURE_STATUS.KEY_NOT_VISIBLE, key };
+    if (!target) {
+        return { kind: CONFIGURE_STATUS.KEY_NOT_VISIBLE, key };
+    }
     const header = 'baggage';
     const value = `mirrord-session=${key}`;
     const existing = await getDynamicRules();
@@ -71,7 +73,9 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
     if (backendParam && tokenParam) {
         await storeBackendAndToken(backendParam, tokenParam);
         capture('extension_configured', { hasJoinParam: !!joinParam });
-        if (!joinParam) return { kind: CONFIGURE_STATUS.CONNECTED };
+        if (!joinParam) {
+            return { kind: CONFIGURE_STATUS.CONNECTED };
+        }
         return joinKey(joinParam, backendParam, tokenParam);
     }
 
@@ -86,8 +90,9 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
         const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
             | string
             | undefined;
-        if (!backend || !token)
+        if (!backend || !token) {
             return { kind: CONFIGURE_STATUS.NOT_CONFIGURED };
+        }
         return joinKey(joinParam, backend, token);
     }
 
@@ -145,19 +150,19 @@ function StatusBody({ status }: { status: Status }) {
     return (
         <>
             <h2 className="text-lg font-semibold">{copy.title}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
                 {status.kind === CONFIGURE_STATUS.JOINED ? (
                     <>
                         {copy.hint}{' '}
-                        <code className="font-mono bg-muted px-1 py-0.5 rounded">
+                        <code className="bg-muted rounded px-1 py-0.5 font-mono">
                             {status.header}: {status.value}
                         </code>{' '}
-                        on all requests.
+                        {STRINGS.MSG_ON_ALL_REQUESTS}
                     </>
                 ) : status.kind === CONFIGURE_STATUS.KEY_NOT_VISIBLE ? (
                     <>
-                        Key{' '}
-                        <code className="font-mono bg-muted px-1 py-0.5 rounded">
+                        {STRINGS.LABEL_KEY}{' '}
+                        <code className="bg-muted rounded px-1 py-0.5 font-mono">
                             {status.key}
                         </code>{' '}
                         {copy.hint}

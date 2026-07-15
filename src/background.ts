@@ -109,7 +109,9 @@ const RULE_TRIGGERING_KEYS: readonly string[] = [
 ];
 
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local') return;
+    if (area !== 'local') {
+        return;
+    }
     if (RULE_TRIGGERING_KEYS.some((key) => key in changes)) {
         loadHeaderName();
     }
@@ -117,10 +119,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 chrome.webRequest.onSendHeaders.addListener(
     (details) => {
-        if (!observation.headerName) return;
+        if (!observation.headerName) {
+            return;
+        }
         const target = observation.headerName.toLowerCase();
         const headers = details.requestHeaders ?? [];
-        if (!headers.some((h) => h.name.toLowerCase() === target)) return;
+        if (!headers.some((h) => h.name.toLowerCase() === target)) {
+            return;
+        }
         observation = recordRequest(
             observation,
             details.url,
@@ -130,7 +136,9 @@ chrome.webRequest.onSendHeaders.addListener(
         const matchedHeader = headers.find(
             (h) => h.name.toLowerCase() === target
         );
-        if (matchedHeader) notifyHeaderObserved(matchedHeader.name);
+        if (matchedHeader) {
+            notifyHeaderObserved(matchedHeader.name);
+        }
         persistObservation();
         broadcast();
     },
@@ -139,13 +147,17 @@ chrome.webRequest.onSendHeaders.addListener(
 );
 
 chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== HEADER_OBSERVATION_PORT) return;
+    if (port.name !== HEADER_OBSERVATION_PORT) {
+        return;
+    }
     subscribers.add(port);
     ensureRotation();
     pushTo(port);
     port.onDisconnect.addListener(() => {
         subscribers.delete(port);
-        if (subscribers.size === 0) stopRotation();
+        if (subscribers.size === 0) {
+            stopRotation();
+        }
     });
 });
 
@@ -155,7 +167,9 @@ function restrictStorageAccess() {
             setAccessLevel?: (opts: { accessLevel: string }) => Promise<void>;
         }
     ).setAccessLevel;
-    if (typeof setAccessLevel !== 'function') return;
+    if (typeof setAccessLevel !== 'function') {
+        return;
+    }
     setAccessLevel
         .call(chrome.storage.local, { accessLevel: 'TRUSTED_CONTEXTS' })
         .catch(() => undefined);
@@ -328,7 +342,9 @@ export async function handleLeave() {
 }
 
 function isTrustedSender(sender: chrome.runtime.MessageSender): boolean {
-    if (!sender.url) return false;
+    if (!sender.url) {
+        return false;
+    }
     try {
         const origin = new URL(sender.url).origin;
         return TRUSTED_ORIGIN.test(origin);
@@ -338,7 +354,9 @@ function isTrustedSender(sender: chrome.runtime.MessageSender): boolean {
 }
 
 function isConfigureMessage(value: unknown): value is ConfigureMessage {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
     const m = value as Record<string, unknown>;
     return (
         m['type'] === MIRRORD_UI_CONFIGURE_TYPE &&
@@ -393,12 +411,16 @@ function loadHeaderName() {
 }
 
 async function restoreObservation(): Promise<void> {
-    if (observationLoaded) return;
+    if (observationLoaded) {
+        return;
+    }
     observationLoaded = true;
     const session = (
         chrome.storage as unknown as { session?: chrome.storage.StorageArea }
     ).session;
-    if (!session) return;
+    if (!session) {
+        return;
+    }
     try {
         const stored = await session.get(OBSERVATION_SESSION_KEY);
         const value = stored[OBSERVATION_SESSION_KEY] as
@@ -414,14 +436,18 @@ function persistObservation() {
     const session = (
         chrome.storage as unknown as { session?: chrome.storage.StorageArea }
     ).session;
-    if (!session) return;
+    if (!session) {
+        return;
+    }
     session
         .set({ [OBSERVATION_SESSION_KEY]: observation })
         .catch(() => undefined);
 }
 
 function ensureRotation() {
-    if (rotationTimer !== null) return;
+    if (rotationTimer !== null) {
+        return;
+    }
     rotationTimer = setInterval(() => {
         observation = rotateBuckets(observation, Date.now());
         broadcast();
@@ -429,13 +455,17 @@ function ensureRotation() {
 }
 
 function stopRotation() {
-    if (rotationTimer === null) return;
+    if (rotationTimer === null) {
+        return;
+    }
     clearInterval(rotationTimer);
     rotationTimer = null;
 }
 
 function broadcast() {
-    for (const port of subscribers) pushTo(port);
+    for (const port of subscribers) {
+        pushTo(port);
+    }
 }
 
 function pushTo(port: chrome.runtime.Port) {

@@ -17,7 +17,9 @@ export function NamespaceFilter({ namespaces, value, onChange }: Props) {
     const distinct = namespaces.filter((ns) => ns !== '');
     const selectValue = value === '' ? NAMESPACE_ALL_SENTINEL : value;
 
-    if (distinct.length <= 1) return null;
+    if (distinct.length <= 1) {
+        return null;
+    }
 
     return (
         <Select

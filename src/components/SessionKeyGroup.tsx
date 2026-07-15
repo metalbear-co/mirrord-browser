@@ -45,18 +45,18 @@ function GroupHeader({
 }) {
     return (
         <div
-            className="flex items-center gap-2 border-b border-border"
+            className="border-border flex items-center gap-2 border-b"
             style={{
                 padding: '10px 14px',
                 background: joined ? COLORS.primary.band : COLORS.muted.band,
             }}
         >
             <KeyIcon
-                className="shrink-0 text-muted-foreground"
+                className="text-muted-foreground shrink-0"
                 style={{ height: 13, width: 13 }}
             />
             <span
-                className="min-w-0 font-mono text-foreground"
+                className="text-foreground min-w-0 font-mono"
                 style={{
                     flex: 1,
                     fontSize: 14,
@@ -76,13 +76,13 @@ function GroupHeader({
                         textTransform: 'uppercase',
                     }}
                 >
-                    preview
+                    {STRINGS.LABEL_PREVIEW}
                 </Badge>
             )}
             {joined && (
                 <Badge
                     variant="outline"
-                    className="shrink-0 font-mono text-foreground border-foreground/30 bg-foreground/10"
+                    className="text-foreground border-foreground/30 bg-foreground/10 shrink-0 font-mono"
                     style={{
                         gap: 5,
                         fontSize: 9.5,
@@ -101,9 +101,9 @@ function GroupHeader({
 function TargetRow({ target }: { target: string }) {
     const name = targetDisplayName(target);
     return (
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
             <Box
-                className="shrink-0 text-muted-foreground"
+                className="text-muted-foreground shrink-0"
                 style={{ height: 13, width: 13 }}
             />
             <div
@@ -142,10 +142,16 @@ function GroupMeta({
         parts.push(`${agg.namespaces.length} namespaces`);
     }
 
-    if (sessionCount > 1) parts.push(`${sessionCount} sessions`);
-    if (age) parts.push(age);
+    if (sessionCount > 1) {
+        parts.push(`${sessionCount} sessions`);
+    }
+    if (age) {
+        parts.push(age);
+    }
 
-    if (parts.length === 0) return null;
+    if (parts.length === 0) {
+        return null;
+    }
 
     return (
         <div
@@ -174,7 +180,7 @@ function GroupFooter({
             style={{ padding: '6px 14px' }}
         >
             <div
-                className="inline-flex items-center text-muted-foreground"
+                className="text-muted-foreground inline-flex items-center"
                 style={{ gap: 6, fontSize: 11 }}
             >
                 <StatusDot tone={joined ? 'active' : 'muted'} glow={joined} />
@@ -248,7 +254,8 @@ export function SessionKeyGroup({
                             className="text-muted-foreground"
                             style={{ paddingLeft: 21, fontSize: 11 }}
                         >
-                            + {overflow} more target
+                            {STRINGS.PUNCT_PLUS} {overflow}{' '}
+                            {STRINGS.LABEL_MORE_TARGET}
                             {overflow === 1 ? '' : 's'}
                         </div>
                     )}
