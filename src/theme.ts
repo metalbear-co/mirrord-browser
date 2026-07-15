@@ -1,37 +1,41 @@
-import { STORAGE_KEYS, type ThemePref } from './types';
+import { STORAGE_KEYS, type ThemePref } from './types'
 
 function isThemePref(v: unknown): v is ThemePref {
-    return v === 'system' || v === 'light' || v === 'dark';
+  return v === 'system' || v === 'light' || v === 'dark'
 }
 
 export function resolveDark(pref: ThemePref): boolean {
-    if (pref === 'dark') return true;
-    if (pref === 'light') return false;
-    if (
-        typeof window === 'undefined' ||
-        typeof window.matchMedia !== 'function'
-    )
-        return false;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (pref === 'dark') {
+    return true
+  }
+  if (pref === 'light') {
+    return false
+  }
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
 function applyDark(dark: boolean) {
-    document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.classList.toggle('dark', dark)
 }
 
 export async function loadTheme(): Promise<ThemePref> {
-    try {
-        const stored = await chrome.storage.local.get(STORAGE_KEYS.THEME);
-        const v: unknown = stored[STORAGE_KEYS.THEME];
-        if (isThemePref(v)) return v;
-    } catch {}
-    return 'system';
+  try {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.THEME)
+    const v: unknown = stored[STORAGE_KEYS.THEME]
+    if (isThemePref(v)) {
+      return v
+    }
+  } catch {}
+  return 'system'
 }
 
 export async function saveTheme(pref: ThemePref): Promise<void> {
-    try {
-        await chrome.storage.local.set({ [STORAGE_KEYS.THEME]: pref });
-    } catch {}
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEYS.THEME]: pref })
+  } catch {}
 }
 
 /**
@@ -40,45 +44,51 @@ export async function saveTheme(pref: ThemePref): Promise<void> {
  * follows along while open.
  */
 export function initTheme(): () => void {
-    let currentPref: ThemePref = 'system';
-    applyDark(resolveDark(currentPref));
+  let currentPref: ThemePref = 'system'
+  applyDark(resolveDark(currentPref))
 
-    const media =
-        typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-            ? window.matchMedia('(prefers-color-scheme: dark)')
-            : null;
-    const onMedia = () => {
-        if (currentPref === 'system') applyDark(resolveDark('system'));
-    };
-    media?.addEventListener('change', onMedia);
+  const media =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null
+  const onMedia = () => {
+    if (currentPref === 'system') {
+      applyDark(resolveDark('system'))
+    }
+  }
+  media?.addEventListener('change', onMedia)
 
-    loadTheme()
-        .then((pref) => {
-            currentPref = pref;
-            applyDark(resolveDark(pref));
-        })
-        .catch(() => undefined);
+  loadTheme()
+    .then((pref) => {
+      currentPref = pref
+      applyDark(resolveDark(pref))
+    })
+    .catch(() => undefined)
 
-    const onStorage = (
-        changes: Record<string, chrome.storage.StorageChange>,
-        area: chrome.storage.AreaName
-    ) => {
-        if (area !== 'local') return;
-        if (!(STORAGE_KEYS.THEME in changes)) return;
-        const newValue: unknown = changes[STORAGE_KEYS.THEME]?.newValue;
-        const next = isThemePref(newValue) ? newValue : 'system';
-        currentPref = next;
-        applyDark(resolveDark(next));
-    };
-    const storageListener = (
-        chrome as unknown as {
-            storage?: { onChanged?: typeof chrome.storage.onChanged };
-        }
-    ).storage?.onChanged;
-    storageListener?.addListener(onStorage);
+  const onStorage = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    area: chrome.storage.AreaName,
+  ) => {
+    if (area !== 'local') {
+      return
+    }
+    if (!(STORAGE_KEYS.THEME in changes)) {
+      return
+    }
+    const newValue: unknown = changes[STORAGE_KEYS.THEME]?.newValue
+    const next = isThemePref(newValue) ? newValue : 'system'
+    currentPref = next
+    applyDark(resolveDark(next))
+  }
+  const storageListener = (
+    chrome as unknown as {
+      storage?: { onChanged?: typeof chrome.storage.onChanged }
+    }
+  ).storage?.onChanged
+  storageListener?.addListener(onStorage)
 
-    return () => {
-        media?.removeEventListener('change', onMedia);
-        storageListener?.removeListener(onStorage);
-    };
+  return () => {
+    media?.removeEventListener('change', onMedia)
+    storageListener?.removeListener(onStorage)
+  }
 }

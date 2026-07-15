@@ -1,408 +1,385 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react'
 import {
-    refreshIconIndicator,
-    parseRules,
-    buildDnrRule,
-    getDynamicRules,
-    updateDynamicRules,
-    storageGet,
-    storageSet,
-    storageRemove,
-    buildShareUrl,
-} from '../util';
-import type { Config, StoredConfig } from '../types';
-import { STORAGE_KEYS } from '../types';
-import { STRINGS } from '../constants';
-import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics';
-import { armCanary, cancelCanary } from '../headerObservation';
+  refreshIconIndicator,
+  parseRules,
+  buildDnrRule,
+  getDynamicRules,
+  updateDynamicRules,
+  storageGet,
+  storageSet,
+  storageRemove,
+  buildShareUrl,
+} from '../util'
+import type { Config, StoredConfig } from '../types'
+import { STORAGE_KEYS } from '../types'
+import { STRINGS } from '../constants'
+import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics'
+import { armCanary, cancelCanary } from '../headerObservation'
 
-type SaveState = 'idle' | 'saving' | 'saved';
-type ResetState = 'idle' | 'resetting' | 'reset';
-type ShareState = 'idle' | 'copied';
+type SaveState = 'idle' | 'saving' | 'saved'
+type ResetState = 'idle' | 'resetting' | 'reset'
+type ShareState = 'idle' | 'copied'
 
-const SAVED_FEEDBACK_MS = 1500;
-const RESET_FEEDBACK_MS = 1500;
-const COPIED_FEEDBACK_MS = 2000;
+const SAVED_FEEDBACK_MS = 1500
+const RESET_FEEDBACK_MS = 1500
+const COPIED_FEEDBACK_MS = 2000
 
 export function useHeaderRules() {
-    const [rules, setRules] = useState<ReturnType<typeof parseRules>>([]);
-    const [headerName, setHeaderName] = useState('');
-    const [headerValue, setHeaderValue] = useState('');
-    const [scope, setScope] = useState('');
-    const [saveState, setSaveState] = useState<SaveState>('idle');
-    const [resetState, setResetState] = useState<ResetState>('idle');
-    const [hasDefaults, setHasDefaults] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [hasStoredConfig, setHasStoredConfig] = useState(false);
-    const [isToggling, setIsToggling] = useState(false);
-    const [shareState, setShareState] = useState<ShareState>('idle');
+  const [rules, setRules] = useState<ReturnType<typeof parseRules>>([])
+  const [headerName, setHeaderName] = useState('')
+  const [headerValue, setHeaderValue] = useState('')
+  const [scope, setScope] = useState('')
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [resetState, setResetState] = useState<ResetState>('idle')
+  const [hasDefaults, setHasDefaults] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hasStoredConfig, setHasStoredConfig] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
+  const [shareState, setShareState] = useState<ShareState>('idle')
 
-    const canShare = !!headerName.trim() && !!headerValue.trim();
+  const canShare = !!headerName.trim() && !!headerValue.trim()
 
-    const loadRules = useCallback(async () => {
-        const chromeRules = await getDynamicRules();
-        const parsed = parseRules(chromeRules);
-        setRules(parsed);
-        refreshIconIndicator(parsed.length);
-    }, []);
+  const loadRules = useCallback(async () => {
+    const chromeRules = await getDynamicRules()
+    const parsed = parseRules(chromeRules)
+    setRules(parsed)
+    refreshIconIndicator(parsed.length)
+  }, [])
 
-    const loadFormValues = useCallback(async () => {
-        const result = await storageGet([
-            STORAGE_KEYS.OVERRIDE,
-            STORAGE_KEYS.DEFAULTS,
-        ]);
-        const config: StoredConfig | undefined =
-            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
-            (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined);
+  const loadFormValues = useCallback(async () => {
+    const result = await storageGet([STORAGE_KEYS.OVERRIDE, STORAGE_KEYS.DEFAULTS])
+    const config: StoredConfig | undefined =
+      (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
+      (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined)
 
-        if (config) {
-            setHeaderName(config.headerName || '');
-            setHeaderValue(config.headerValue || '');
-            setScope(config.scope ?? '');
-        }
+    if (config) {
+      setHeaderName(config.headerName || '')
+      setHeaderValue(config.headerValue || '')
+      setScope(config.scope ?? '')
+    }
 
-        setHasStoredConfig(!!config);
-        setHasDefaults(!!result[STORAGE_KEYS.DEFAULTS]);
-    }, []);
+    setHasStoredConfig(!!config)
+    setHasDefaults(!!result[STORAGE_KEYS.DEFAULTS])
+  }, [])
 
-    useEffect(() => {
-        void loadRules();
-        void loadFormValues();
-    }, [loadRules, loadFormValues]);
+  useEffect(() => {
+    void loadRules()
+    void loadFormValues()
+  }, [loadRules, loadFormValues])
 
-    useEffect(() => {
-        const listener = (
-            changes: Record<string, chrome.storage.StorageChange>
-        ) => {
-            if (
-                STORAGE_KEYS.JOINED_KEY in changes ||
-                STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
-                STORAGE_KEYS.OVERRIDE in changes ||
-                STORAGE_KEYS.DEFAULTS in changes ||
-                STORAGE_KEYS.SCOPE_PATTERNS in changes
-            ) {
-                void loadRules();
-                void loadFormValues();
-            }
-        };
-        chrome.storage.onChanged.addListener(listener);
-        return () => chrome.storage.onChanged.removeListener(listener);
-    }, [loadRules, loadFormValues]);
+  useEffect(() => {
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (
+        STORAGE_KEYS.JOINED_KEY in changes ||
+        STORAGE_KEYS.JOINED_SESSION_NAME in changes ||
+        STORAGE_KEYS.OVERRIDE in changes ||
+        STORAGE_KEYS.DEFAULTS in changes ||
+        STORAGE_KEYS.SCOPE_PATTERNS in changes
+      ) {
+        void loadRules()
+        void loadFormValues()
+      }
+    }
+    chrome.storage.onChanged.addListener(listener)
+    return () => chrome.storage.onChanged.removeListener(listener)
+  }, [loadRules, loadFormValues])
 
-    const handleActivate = useCallback(async () => {
-        setError(null);
+  const handleActivate = useCallback(async () => {
+    setError(null)
 
-        const result = await storageGet([
-            STORAGE_KEYS.OVERRIDE,
-            STORAGE_KEYS.DEFAULTS,
-        ]);
-        const config: StoredConfig | undefined =
-            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
-            (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined);
+    const result = await storageGet([STORAGE_KEYS.OVERRIDE, STORAGE_KEYS.DEFAULTS])
+    const config: StoredConfig | undefined =
+      (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
+      (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined)
 
-        if (!config) return;
+    if (!config) {
+      return
+    }
 
-        const newRules = buildDnrRule(
-            config.headerName,
-            config.headerValue,
-            config.scope
-        );
+    const newRules = buildDnrRule(config.headerName, config.headerValue, config.scope)
 
-        try {
-            const existingRules = await getDynamicRules();
-            await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
-                addRules: newRules,
-            });
-            await storageRemove([
-                STORAGE_KEYS.JOINED_KEY,
-                STORAGE_KEYS.JOINED_SESSION_NAME,
-            ]);
-            setHeaderName(config.headerName);
-            setHeaderValue(config.headerValue);
-            setScope(config.scope ?? '');
-            await loadRules();
-            capture('extension_header_rule_activated');
-            emitUserSucceeded('header_rule_activated', 'user_action');
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
-            setError(msg);
-            console.error(STRINGS.ERR_SAVE_FAILED, e);
-            capture('extension_error', {
-                action: 'activate',
-                error: msg,
-            });
-            emitUserBlocked('header_rule_save_failed', 'user_action', {
-                error: msg,
-            });
-        }
-    }, [loadRules]);
+    try {
+      const existingRules = await getDynamicRules()
+      await updateDynamicRules({
+        removeRuleIds: existingRules.map((r) => r.id),
+        addRules: newRules,
+      })
+      await storageRemove([STORAGE_KEYS.JOINED_KEY, STORAGE_KEYS.JOINED_SESSION_NAME])
+      setHeaderName(config.headerName)
+      setHeaderValue(config.headerValue)
+      setScope(config.scope ?? '')
+      await loadRules()
+      capture('extension_header_rule_activated')
+      emitUserSucceeded('header_rule_activated', 'user_action')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED
+      setError(msg)
+      console.error(STRINGS.ERR_SAVE_FAILED, e)
+      capture('extension_error', {
+        action: 'activate',
+        error: msg,
+      })
+      emitUserBlocked('header_rule_save_failed', 'user_action', {
+        error: msg,
+      })
+    }
+  }, [loadRules])
 
-    const handleRemoveAll = useCallback(async () => {
-        setError(null);
-        try {
-            const existingRules = await getDynamicRules();
-            await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
-                addRules: [],
-            });
-            await storageRemove([
-                STORAGE_KEYS.JOINED_KEY,
-                STORAGE_KEYS.JOINED_SESSION_NAME,
-                STORAGE_KEYS.JOINED_HEADER,
-                STORAGE_KEYS.JOINED_VALUE,
-                STORAGE_KEYS.SCOPE_PATTERNS,
-            ]);
-            await loadRules();
-            capture('extension_header_rule_removed');
-            emitUserSucceeded('header_rule_removed', 'user_action');
-            cancelCanary();
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
-            setError(msg);
-            console.error(STRINGS.ERR_REMOVE_RULE, e);
-            capture('extension_error', {
-                action: 'remove',
-                error: msg,
-            });
-            emitUserBlocked('header_rule_remove_failed', 'user_action', {
-                error: msg,
-            });
-        }
-    }, [loadRules]);
+  const handleRemoveAll = useCallback(async () => {
+    setError(null)
+    try {
+      const existingRules = await getDynamicRules()
+      await updateDynamicRules({
+        removeRuleIds: existingRules.map((r) => r.id),
+        addRules: [],
+      })
+      await storageRemove([
+        STORAGE_KEYS.JOINED_KEY,
+        STORAGE_KEYS.JOINED_SESSION_NAME,
+        STORAGE_KEYS.JOINED_HEADER,
+        STORAGE_KEYS.JOINED_VALUE,
+        STORAGE_KEYS.SCOPE_PATTERNS,
+      ])
+      await loadRules()
+      capture('extension_header_rule_removed')
+      emitUserSucceeded('header_rule_removed', 'user_action')
+      cancelCanary()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE
+      setError(msg)
+      console.error(STRINGS.ERR_REMOVE_RULE, e)
+      capture('extension_error', {
+        action: 'remove',
+        error: msg,
+      })
+      emitUserBlocked('header_rule_remove_failed', 'user_action', {
+        error: msg,
+      })
+    }
+  }, [loadRules])
 
-    const handleToggle = useCallback(async () => {
-        if (isToggling) return;
-        setIsToggling(true);
+  const handleToggle = useCallback(async () => {
+    if (isToggling) {
+      return
+    }
+    setIsToggling(true)
 
-        try {
-            if (rules.length > 0) {
-                await handleRemoveAll();
-            } else {
-                await handleActivate();
-            }
-        } finally {
-            setIsToggling(false);
-        }
-    }, [rules, handleRemoveAll, handleActivate, isToggling]);
+    try {
+      if (rules.length > 0) {
+        await handleRemoveAll()
+      } else {
+        await handleActivate()
+      }
+    } finally {
+      setIsToggling(false)
+    }
+  }, [rules, handleRemoveAll, handleActivate, isToggling])
 
-    const handleSave = useCallback(async () => {
-        setError(null);
+  const handleSave = useCallback(async () => {
+    setError(null)
 
-        if (!headerName.trim() || !headerValue.trim()) {
-            setError(STRINGS.ERR_HEADER_REQUIRED);
-            return;
-        }
+    if (!headerName.trim() || !headerValue.trim()) {
+      setError(STRINGS.ERR_HEADER_REQUIRED)
+      return
+    }
 
-        setSaveState('saving');
+    setSaveState('saving')
 
-        const trimmedScope = scope.trim();
-        const override: StoredConfig = {
-            headerName: headerName.trim(),
-            headerValue: headerValue.trim(),
-            ...(trimmedScope ? { scope: trimmedScope } : {}),
-        };
+    const trimmedScope = scope.trim()
+    const override: StoredConfig = {
+      headerName: headerName.trim(),
+      headerValue: headerValue.trim(),
+      ...(trimmedScope ? { scope: trimmedScope } : {}),
+    }
 
-        // Save is non-destructive: only refresh the active DNR rule
-        // if injection is already turned on. If the toggle is off,
-        // saving persists to storage without activating.
-        const wasActive = rules.length > 0;
+    // Save is non-destructive: only refresh the active DNR rule
+    // if injection is already turned on. If the toggle is off,
+    // saving persists to storage without activating.
+    const wasActive = rules.length > 0
 
-        if (wasActive) {
-            const newRules = buildDnrRule(
-                headerName.trim(),
-                headerValue.trim(),
-                scope.trim() || undefined
-            );
+    if (wasActive) {
+      const newRules = buildDnrRule(
+        headerName.trim(),
+        headerValue.trim(),
+        scope.trim() || undefined,
+      )
 
-            try {
-                const existingRules = await getDynamicRules();
-                await updateDynamicRules({
-                    removeRuleIds: existingRules.map((r) => r.id),
-                    addRules: newRules,
-                });
-                await storageRemove([
-                    STORAGE_KEYS.JOINED_KEY,
-                    STORAGE_KEYS.JOINED_SESSION_NAME,
-                ]);
-            } catch (e) {
-                const msg =
-                    e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
-                setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
-                setSaveState('idle');
-                capture('extension_error', {
-                    action: 'save',
-                    step: 'update_rules',
-                    error: msg,
-                });
-                emitUserBlocked('header_rule_save_failed', 'user_action', {
-                    error: msg,
-                });
-                return;
-            }
-        }
+      try {
+        const existingRules = await getDynamicRules()
+        await updateDynamicRules({
+          removeRuleIds: existingRules.map((r) => r.id),
+          addRules: newRules,
+        })
+        await storageRemove([STORAGE_KEYS.JOINED_KEY, STORAGE_KEYS.JOINED_SESSION_NAME])
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED
+        setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`)
+        setSaveState('idle')
+        capture('extension_error', {
+          action: 'save',
+          step: 'update_rules',
+          error: msg,
+        })
+        emitUserBlocked('header_rule_save_failed', 'user_action', {
+          error: msg,
+        })
+        return
+      }
+    }
 
-        try {
-            await storageSet({ [STORAGE_KEYS.OVERRIDE]: override });
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
-            setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
-            setSaveState('idle');
-            capture('extension_error', {
-                action: 'save',
-                step: 'storage_write',
-                error: msg,
-            });
-            emitUserBlocked('header_rule_save_failed', 'user_action', {
-                error: msg,
-            });
-            return;
-        }
+    try {
+      await storageSet({ [STORAGE_KEYS.OVERRIDE]: override })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED
+      setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`)
+      setSaveState('idle')
+      capture('extension_error', {
+        action: 'save',
+        step: 'storage_write',
+        error: msg,
+      })
+      emitUserBlocked('header_rule_save_failed', 'user_action', {
+        error: msg,
+      })
+      return
+    }
 
-        await loadRules();
-        setHasStoredConfig(true);
-        setSaveState('saved');
-        setTimeout(() => setSaveState('idle'), SAVED_FEEDBACK_MS);
-        capture('extension_header_rule_saved', {
-            has_scope: !!scope.trim(),
-            was_active: wasActive,
-        });
-        armCanary({ headerName: headerName.trim(), flow: 'header_injector' });
-        emitUserSucceeded('header_rule_saved', 'user_action');
-    }, [headerName, headerValue, scope, loadRules, rules]);
+    await loadRules()
+    setHasStoredConfig(true)
+    setSaveState('saved')
+    setTimeout(() => setSaveState('idle'), SAVED_FEEDBACK_MS)
+    capture('extension_header_rule_saved', {
+      has_scope: !!scope.trim(),
+      was_active: wasActive,
+    })
+    armCanary({ headerName: headerName.trim(), flow: 'header_injector' })
+    emitUserSucceeded('header_rule_saved', 'user_action')
+  }, [headerName, headerValue, scope, loadRules, rules])
 
-    const handleReset = useCallback(async () => {
-        setError(null);
-        setResetState('resetting');
+  const handleReset = useCallback(async () => {
+    setError(null)
+    setResetState('resetting')
 
-        const result = await storageGet([STORAGE_KEYS.DEFAULTS]);
-        const defaults: StoredConfig | undefined = result[
-            STORAGE_KEYS.DEFAULTS
-        ] as StoredConfig | undefined;
+    const result = await storageGet([STORAGE_KEYS.DEFAULTS])
+    const defaults: StoredConfig | undefined = result[STORAGE_KEYS.DEFAULTS] as
+      StoredConfig | undefined
 
-        if (!defaults) {
-            setError(STRINGS.ERR_NO_DEFAULTS);
-            setResetState('idle');
-            return;
-        }
+    if (!defaults) {
+      setError(STRINGS.ERR_NO_DEFAULTS)
+      setResetState('idle')
+      return
+    }
 
-        try {
-            await storageRemove([STORAGE_KEYS.OVERRIDE]);
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_RESET_FAILED;
-            setError(`${STRINGS.ERR_RESET_FAILED}: ${msg}`);
-            setResetState('idle');
-            capture('extension_error', {
-                action: 'reset',
-                step: 'storage_remove',
-                error: msg,
-            });
-            emitUserBlocked('header_rule_reset_failed', 'user_action', {
-                error: msg,
-            });
-            return;
-        }
+    try {
+      await storageRemove([STORAGE_KEYS.OVERRIDE])
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : STRINGS.ERR_RESET_FAILED
+      setError(`${STRINGS.ERR_RESET_FAILED}: ${msg}`)
+      setResetState('idle')
+      capture('extension_error', {
+        action: 'reset',
+        step: 'storage_remove',
+        error: msg,
+      })
+      emitUserBlocked('header_rule_reset_failed', 'user_action', {
+        error: msg,
+      })
+      return
+    }
 
-        const newRules = buildDnrRule(
-            defaults.headerName,
-            defaults.headerValue,
-            defaults.scope
-        );
+    const newRules = buildDnrRule(defaults.headerName, defaults.headerValue, defaults.scope)
 
-        try {
-            const existingRules = await getDynamicRules();
-            await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
-                addRules: newRules,
-            });
-        } catch (e) {
-            const msg =
-                e instanceof Error ? e.message : STRINGS.ERR_RESET_FAILED;
-            setError(`${STRINGS.ERR_RESET_FAILED}: ${msg}`);
-            setResetState('idle');
-            capture('extension_error', {
-                action: 'reset',
-                step: 'update_rules',
-                error: msg,
-            });
-            emitUserBlocked('header_rule_reset_failed', 'user_action', {
-                error: msg,
-            });
-            return;
-        }
+    try {
+      const existingRules = await getDynamicRules()
+      await updateDynamicRules({
+        removeRuleIds: existingRules.map((r) => r.id),
+        addRules: newRules,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : STRINGS.ERR_RESET_FAILED
+      setError(`${STRINGS.ERR_RESET_FAILED}: ${msg}`)
+      setResetState('idle')
+      capture('extension_error', {
+        action: 'reset',
+        step: 'update_rules',
+        error: msg,
+      })
+      emitUserBlocked('header_rule_reset_failed', 'user_action', {
+        error: msg,
+      })
+      return
+    }
 
-        setHeaderName(defaults.headerName);
-        setHeaderValue(defaults.headerValue);
-        setScope(defaults.scope ?? '');
-        await loadRules();
-        setResetState('reset');
-        setTimeout(() => setResetState('idle'), RESET_FEEDBACK_MS);
-        capture('extension_header_rule_reset');
-        cancelCanary();
-        emitUserSucceeded('header_rule_reset', 'user_action');
-    }, [loadRules]);
+    setHeaderName(defaults.headerName)
+    setHeaderValue(defaults.headerValue)
+    setScope(defaults.scope ?? '')
+    await loadRules()
+    setResetState('reset')
+    setTimeout(() => setResetState('idle'), RESET_FEEDBACK_MS)
+    capture('extension_header_rule_reset')
+    cancelCanary()
+    emitUserSucceeded('header_rule_reset', 'user_action')
+  }, [loadRules])
 
-    const handleShare = useCallback(async () => {
-        if (!canShare) return;
-        const trimmedScope = scope.trim();
-        const config: Config = {
-            header_filter: `${headerName.trim()}: ${headerValue.trim()}`,
-            ...(trimmedScope ? { inject_scope: trimmedScope } : {}),
-        };
-        const url = buildShareUrl(config);
-        await navigator.clipboard.writeText(url);
-        setShareState('copied');
-        capture('extension_config_shared');
-        setTimeout(() => setShareState('idle'), COPIED_FEEDBACK_MS);
-    }, [headerName, headerValue, scope, canShare]);
+  const handleShare = useCallback(async () => {
+    if (!canShare) {
+      return
+    }
+    const trimmedScope = scope.trim()
+    const config: Config = {
+      header_filter: `${headerName.trim()}: ${headerValue.trim()}`,
+      ...(trimmedScope ? { inject_scope: trimmedScope } : {}),
+    }
+    const url = buildShareUrl(config)
+    await navigator.clipboard.writeText(url)
+    setShareState('copied')
+    capture('extension_config_shared')
+    setTimeout(() => setShareState('idle'), COPIED_FEEDBACK_MS)
+  }, [headerName, headerValue, scope, canShare])
 
-    const getSaveButtonText = () => {
-        switch (saveState) {
-            case 'saving':
-                return STRINGS.BTN_SAVING;
-            case 'saved':
-                return STRINGS.BTN_SAVED;
-            case 'idle':
-                return STRINGS.BTN_SAVE;
-        }
-    };
+  const getSaveButtonText = () => {
+    switch (saveState) {
+      case 'saving':
+        return STRINGS.BTN_SAVING
+      case 'saved':
+        return STRINGS.BTN_SAVED
+      case 'idle':
+        return STRINGS.BTN_SAVE
+    }
+  }
 
-    const getResetButtonText = () => {
-        switch (resetState) {
-            case 'resetting':
-                return STRINGS.BTN_RESETTING;
-            case 'reset':
-                return STRINGS.BTN_RESET_DONE;
-            case 'idle':
-                return STRINGS.BTN_RESET;
-        }
-    };
+  const getResetButtonText = () => {
+    switch (resetState) {
+      case 'resetting':
+        return STRINGS.BTN_RESETTING
+      case 'reset':
+        return STRINGS.BTN_RESET_DONE
+      case 'idle':
+        return STRINGS.BTN_RESET
+    }
+  }
 
-    return {
-        rules,
-        headerName,
-        headerValue,
-        scope,
-        saveState,
-        resetState,
-        shareState,
-        hasDefaults,
-        error,
-        hasStoredConfig,
-        isToggling,
-        canShare,
-        setHeaderName,
-        setHeaderValue,
-        setScope,
-        handleToggle,
-        handleSave,
-        handleReset,
-        handleShare,
-        getSaveButtonText,
-        getResetButtonText,
-    };
+  return {
+    rules,
+    headerName,
+    headerValue,
+    scope,
+    saveState,
+    resetState,
+    shareState,
+    hasDefaults,
+    error,
+    hasStoredConfig,
+    isToggling,
+    canShare,
+    setHeaderName,
+    setHeaderValue,
+    setScope,
+    handleToggle,
+    handleSave,
+    handleReset,
+    handleShare,
+    getSaveButtonText,
+    getResetButtonText,
+  }
 }

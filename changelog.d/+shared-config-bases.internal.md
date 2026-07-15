@@ -1,0 +1,1 @@
+Adopted the shared `@metalbear/ui` prettier and eslint base configs (0.3.1) so formatting and linting rules come from one source instead of local copies, and fixed every violation the stricter rules surfaced (hardcoded strings moved into the `STRINGS` module, plus a missing array-callback return and other correctness fixes).

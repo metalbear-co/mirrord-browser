@@ -13,9 +13,9 @@ Before you start, please make sure you have the following tools installed:
 
 - **pnpm** (package manager)  
   Install globally with:
-    ```bash
-    npm install -g pnpm
-    ```
+  ```bash
+  npm install -g pnpm
+  ```
 
 ### Build the extension
 

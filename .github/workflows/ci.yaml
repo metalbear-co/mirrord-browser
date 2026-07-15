@@ -1,64 +1,64 @@
 name: CI
 
 on:
-    workflow_dispatch:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
-        types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 # Cancel previous runs on the same PR.
 concurrency:
-    group: ${{ github.head_ref || github.run_id }}
-    cancel-in-progress: true
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 permissions: {}
 
 jobs:
-    check-lint:
-        permissions:
-            contents: read
-        uses: ./.github/workflows/check-lint.yaml
+  check-lint:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/check-lint.yaml
 
-    check-towncrier:
-        # Changelog fragments are only meaningful relative to a PR's base branch.
-        if: github.event_name == 'pull_request'
-        permissions:
-            contents: read
-        uses: ./.github/workflows/check-towncrier.yaml
+  check-towncrier:
+    # Changelog fragments are only meaningful relative to a PR's base branch.
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/check-towncrier.yaml
 
-    test-unit:
-        permissions:
-            contents: read
-        uses: ./.github/workflows/test-unit.yaml
+  test-unit:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test-unit.yaml
 
-    test-e2e:
-        permissions:
-            contents: read
-        uses: ./.github/workflows/test-e2e.yaml
+  test-e2e:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test-e2e.yaml
 
-    # ── gate ────────────────────────────────────────────────────────────
-    # Single required status check for branch protection.
-    # It depends on every other job and only passes if none of them failed.
-    ci-success:
-        name: ci
-        # Run even if some required jobs were skipped.
-        if: always()
-        needs: [check-lint, check-towncrier, test-unit, test-e2e]
-        runs-on: ubuntu-latest
-        permissions: {}
-        steps:
-            - name: Check required jobs passed
-              # Done in the shell because a job-level `if` treats a skipped
-              # dependency as success under branch protection rules.
-              env:
-                  NEEDS_JSON: ${{ toJSON(needs) }}
-              run: |
-                  failing=$(echo "$NEEDS_JSON" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"')
-                  if [ -n "$failing" ]; then
-                    echo "The following required jobs did not succeed:"
-                    echo "$failing"
-                    exit 1
-                  fi
-                  echo "All required jobs passed."
+  # ── gate ────────────────────────────────────────────────────────────
+  # Single required status check for branch protection.
+  # It depends on every other job and only passes if none of them failed.
+  ci-success:
+    name: ci
+    # Run even if some required jobs were skipped.
+    if: always()
+    needs: [check-lint, check-towncrier, test-unit, test-e2e]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check required jobs passed
+        # Done in the shell because a job-level `if` treats a skipped
+        # dependency as success under branch protection rules.
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          failing=$(echo "$NEEDS_JSON" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"')
+          if [ -n "$failing" ]; then
+            echo "The following required jobs did not succeed:"
+            echo "$failing"
+            exit 1
+          fi
+          echo "All required jobs passed."
