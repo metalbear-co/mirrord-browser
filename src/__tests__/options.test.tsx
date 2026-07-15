@@ -18,7 +18,7 @@ const mockChromeStorage = {
     }),
     remove: jest.fn((keys: string | string[]) => {
         const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) delete chromeStore[k];
+        for (const k of keyList) Reflect.deleteProperty(chromeStore, k);
         return Promise.resolve();
     }),
 };
@@ -37,7 +37,8 @@ import { Options } from '../options';
 describe('Options page', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        for (const key of Object.keys(chromeStore)) delete chromeStore[key];
+        for (const key of Object.keys(chromeStore))
+            Reflect.deleteProperty(chromeStore, key);
     });
 
     it('renders toggle in "on" state by default', async () => {

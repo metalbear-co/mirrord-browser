@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 
 const TEST_SERVER = 'http://localhost:3456';
 
+type HeadersMap = Record<string, string>;
+
 async function addHeader(
     popupPage: Page,
     headerName: string,
@@ -55,7 +57,7 @@ test.describe('mirrord browser extension', () => {
         await page.goto(`${TEST_SERVER}/headers`);
 
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
 
         expect(headers['x-mirrord-test']).toBe('test-value-123');
     });
@@ -76,7 +78,7 @@ test.describe('mirrord browser extension', () => {
         await matchingPage.goto(`${TEST_SERVER}/scoped/headers`);
 
         const matchBody = await matchingPage.locator('body').innerText();
-        const matchHeaders = JSON.parse(matchBody);
+        const matchHeaders = JSON.parse(matchBody) as HeadersMap;
         expect(matchHeaders['x-scoped-header']).toBe('scoped-value');
 
         // Header should NOT be present on non-matching URL
@@ -84,7 +86,7 @@ test.describe('mirrord browser extension', () => {
         await nonMatchingPage.goto(`${TEST_SERVER}/headers`);
 
         const noMatchBody = await nonMatchingPage.locator('body').innerText();
-        const noMatchHeaders = JSON.parse(noMatchBody);
+        const noMatchHeaders = JSON.parse(noMatchBody) as HeadersMap;
         expect(noMatchHeaders['x-scoped-header']).toBeUndefined();
     });
 
@@ -104,7 +106,7 @@ test.describe('mirrord browser extension', () => {
         await page.goto(`${TEST_SERVER}/headers`);
 
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
         expect(headers['x-remove-me']).toBeUndefined();
     });
 
@@ -132,7 +134,10 @@ test.describe('mirrord browser extension', () => {
         const resultsPage = await context.newPage();
         await resultsPage.goto(`${TEST_SERVER}/asset-headers`);
         const body = await resultsPage.locator('body').innerText();
-        const assetHeaders = JSON.parse(body);
+        const assetHeaders = JSON.parse(body) as Record<
+            string,
+            HeadersMap | undefined
+        >;
 
         // Verify header was injected into script requests
         expect(assetHeaders['script.js']?.['x-mirrord-test']).toBe(
@@ -188,7 +193,7 @@ test.describe('mirrord browser extension', () => {
         const overridePage = await context.newPage();
         await overridePage.goto(`${TEST_SERVER}/headers`);
         const overrideBody = await overridePage.locator('body').innerText();
-        const overrideHeaders = JSON.parse(overrideBody);
+        const overrideHeaders = JSON.parse(overrideBody) as HeadersMap;
         expect(overrideHeaders['x-override']).toBe('override-val');
         await overridePage.close();
 
@@ -210,7 +215,7 @@ test.describe('mirrord browser extension', () => {
         const page = await context.newPage();
         await page.goto(`${TEST_SERVER}/headers`);
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
         expect(headers['x-default-header']).toBe('default-val');
     });
 });

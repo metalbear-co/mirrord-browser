@@ -10,7 +10,8 @@ import {
     storageSet,
     updateDynamicRules,
 } from './util';
-import { OperatorSessionSummary, STORAGE_KEYS } from './types';
+import type { OperatorSessionSummary } from './types';
+import { STORAGE_KEYS } from './types';
 import { fetchOperatorSessions } from './hooks/useMirrordUi';
 
 /**

@@ -177,7 +177,7 @@ export function ConfigurePage() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        resolveStatus(params).then(setStatus);
+        void resolveStatus(params).then(setStatus);
     }, []);
 
     return (

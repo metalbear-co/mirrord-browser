@@ -2,7 +2,7 @@
 // metalbear.com content script. Kept free of module-level side effects so it can be imported
 // into a content script without dragging in config.ts's page bootstrap (which would alert on
 // any page that lacks a `?payload=`).
-import { Config } from './types';
+import type { Config } from './types';
 import { emitUserBlocked } from './analytics';
 
 /**

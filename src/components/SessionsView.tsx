@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import { JOIN_GRACE_MS, STRINGS } from '../constants';
 
-type Props = {
+interface Props {
     sessions: OperatorSessionSummary[];
     sessionsLoaded: boolean;
     authFailed: boolean;
@@ -43,7 +43,7 @@ type Props = {
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
     joinedHeader: string | null;
     joinedValue: string | null;
-};
+}
 
 function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
     if (!q) return true;
@@ -151,13 +151,13 @@ export function SessionsView({
 
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
-            {joinState.joinedKey && (
+            {joinedKey && (
                 <ConnectedBanner
-                    joinedKey={joinState.joinedKey}
+                    joinedKey={joinedKey}
                     sessions={joinedSessions}
                     liveness={liveness}
                     onLeave={onClear}
-                    onShare={() => onShare(joinState.joinedKey!)}
+                    onShare={() => onShare(joinedKey)}
                     scopePatterns={scopePatterns}
                     onAddScopePattern={onAddScopePattern}
                     onRemoveScopePattern={onRemoveScopePattern}

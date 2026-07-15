@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from './types';
+import type { OperatorSessionSummary } from './types';
 import {
     buildDnrRule,
     getDynamicRules,
@@ -9,7 +10,10 @@ import {
     storageSet,
     updateDynamicRules,
 } from './util';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import {
+    fetchOperatorSessions,
+    isAuthFailureStatus,
+} from './hooks/useMirrordUi';
 import {
     HEADER_OBSERVATION_PORT,
     armCanary,
@@ -30,16 +34,24 @@ const LEAVE_RESULT_TYPE = 'leave_result';
 const TRUSTED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const OBSERVATION_SESSION_KEY = 'header_observation';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+const ROTATION_INTERVAL_MS = 1000;
 
-type ConfigureMessage = {
+interface ConfigureMessage {
     type: typeof MIRRORD_UI_CONFIGURE_TYPE;
     backend: string;
     token: string;
-};
+}
 
-type PingMessage = { type: 'ping' };
-type JoinMessage = { type: 'join'; key: string };
-type LeaveMessage = { type: 'leave' };
+interface PingMessage {
+    type: 'ping';
+}
+interface JoinMessage {
+    type: 'join';
+    key: string;
+}
+interface LeaveMessage {
+    type: 'leave';
+}
 type BridgeMessage =
     | ConfigureMessage
     | PingMessage
@@ -53,7 +65,7 @@ let observationLoaded = false;
 
 self.addEventListener('error', (event: ErrorEvent) => {
     emitUserBlocked('unhandled_error', 'health', {
-        error: event.message ?? 'unknown',
+        error: event.message,
         source: 'error',
     });
 });
@@ -81,12 +93,12 @@ chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
 
-restoreObservation().then(loadHeaderName);
+void restoreObservation().then(loadHeaderName);
 chrome.runtime.onStartup.addListener(() => {
-    restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(loadHeaderName);
 });
 chrome.runtime.onInstalled.addListener(() => {
-    restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(loadHeaderName);
 });
 
 const RULE_TRIGGERING_KEYS: readonly string[] = [
@@ -146,7 +158,7 @@ function restrictStorageAccess() {
     if (typeof setAccessLevel !== 'function') return;
     setAccessLevel
         .call(chrome.storage.local, { accessLevel: 'TRUSTED_CONTEXTS' })
-        .catch(() => {});
+        .catch(() => undefined);
 }
 
 chrome.runtime.onMessageExternal.addListener(
@@ -160,16 +172,16 @@ chrome.runtime.onMessageExternal.addListener(
             return;
         }
         const m = message as Partial<BridgeMessage> | null;
-        if (m && m.type === 'ping') {
-            handlePing().then(sendResponse);
+        if (m?.type === 'ping') {
+            void handlePing().then(sendResponse);
             return true;
         }
-        if (m && m.type === 'join' && typeof m.key === 'string') {
-            handleJoin(m.key).then(sendResponse);
+        if (m?.type === 'join' && typeof m.key === 'string') {
+            void handleJoin(m.key).then(sendResponse);
             return true;
         }
-        if (m && m.type === 'leave') {
-            handleLeave().then(sendResponse);
+        if (m?.type === 'leave') {
+            void handleLeave().then(sendResponse);
             return true;
         }
         if (!isConfigureMessage(message)) {
@@ -234,17 +246,29 @@ export async function handleJoin(key: string) {
                 error,
             };
         }
-        const sessionsResp = await fetchOperatorSessions(backend, token);
-        const target = sessionsResp.sessions.find((s) => s.key === key);
-        if (!target) {
-            const error = `key ${key} not visible from extension`;
-            emitUserBlocked('join_key_not_visible', 'user_action', {
-                error,
-                key,
-            });
-            return { type: JOIN_RESULT_TYPE, ok: false, error };
+        let target: OperatorSessionSummary | undefined;
+        try {
+            const sessionsResp = await fetchOperatorSessions(backend, token);
+            target = sessionsResp.sessions.find((s) => s.key === key);
+        } catch (err) {
+            const status =
+                err instanceof Error &&
+                typeof (err as Error & { status?: unknown }).status === 'number'
+                    ? (err as Error & { status: number }).status
+                    : undefined;
+            if (isAuthFailureStatus(status)) {
+                const error = 'mirrord ui token rejected';
+                emitUserBlocked('join_auth_failed', 'user_action', {
+                    error,
+                    key,
+                });
+                return { type: JOIN_RESULT_TYPE, ok: false, error };
+            }
+            target = undefined;
         }
-        const { header, value } = sessionInjectionPair(target);
+        const { header, value } = sessionInjectionPair(
+            target ?? { key, httpFilter: null }
+        );
         const scope =
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
@@ -254,12 +278,15 @@ export async function handleJoin(key: string) {
         });
         await storageSet({
             [STORAGE_KEYS.JOINED_KEY]: key,
-            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: target?.id ?? key,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
         armCanary({ headerName: header, flow: 'session_monitor' });
-        emitUserSucceeded('joined', 'user_action', { key });
+        emitUserSucceeded('joined', 'user_action', {
+            key,
+            resolved: target ? 'operator' : 'key_convention',
+        });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -314,9 +341,9 @@ function isConfigureMessage(value: unknown): value is ConfigureMessage {
     if (typeof value !== 'object' || value === null) return false;
     const m = value as Record<string, unknown>;
     return (
-        m.type === MIRRORD_UI_CONFIGURE_TYPE &&
-        typeof m.backend === 'string' &&
-        typeof m.token === 'string'
+        m['type'] === MIRRORD_UI_CONFIGURE_TYPE &&
+        typeof m['backend'] === 'string' &&
+        typeof m['token'] === 'string'
     );
 }
 
@@ -332,7 +359,7 @@ function configureSidePanel() {
     ).sidePanel;
     sidePanel
         ?.setPanelBehavior?.({ openPanelOnActionClick: true })
-        ?.catch(() => {});
+        .catch(() => undefined);
 }
 
 function refreshIcon() {
@@ -388,7 +415,9 @@ function persistObservation() {
         chrome.storage as unknown as { session?: chrome.storage.StorageArea }
     ).session;
     if (!session) return;
-    session.set({ [OBSERVATION_SESSION_KEY]: observation }).catch(() => {});
+    session
+        .set({ [OBSERVATION_SESSION_KEY]: observation })
+        .catch(() => undefined);
 }
 
 function ensureRotation() {
@@ -396,7 +425,7 @@ function ensureRotation() {
     rotationTimer = setInterval(() => {
         observation = rotateBuckets(observation, Date.now());
         broadcast();
-    }, 1000);
+    }, ROTATION_INTERVAL_MS);
 }
 
 function stopRotation() {

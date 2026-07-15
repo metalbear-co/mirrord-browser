@@ -7,14 +7,14 @@ import {
 } from '@metalbear/ui';
 import { STRINGS } from '../constants';
 
-type HeaderFormProps = {
+interface HeaderFormProps {
     headerName: string;
     headerValue: string;
     scope: string;
     onHeaderNameChange: (value: string) => void;
     onHeaderValueChange: (value: string) => void;
     onScopeChange: (value: string) => void;
-};
+}
 
 export function HeaderForm({
     headerName,

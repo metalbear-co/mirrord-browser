@@ -5,7 +5,9 @@ import {
     encodeConfig,
     buildShareUrl,
     sessionInjectionPair,
+    aggregateSessions,
 } from '../util';
+import type { OperatorSessionSummary } from '../types';
 import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
 import { ALL_RESOURCE_TYPES } from '../types';
@@ -17,7 +19,7 @@ describe('refreshIconIndicator', () => {
                 setBadgeTextColor: jest.fn(),
                 setBadgeText: jest.fn(),
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('sets badge color and ✓ when num > 0', () => {
@@ -47,7 +49,7 @@ describe('parseRules', () => {
                     MODIFY_HEADERS: 'modifyHeaders',
                 },
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('parses a valid MODIFY_HEADERS rule', () => {
@@ -108,7 +110,7 @@ describe('parseRules', () => {
         const result = parseRules(rules);
 
         expect(result).toHaveLength(1);
-        expect(result[0].scope).toBe('*://api.example.com/*');
+        expect(result[0]?.scope).toBe('*://api.example.com/*');
     });
 
     it('filters out non-MODIFY_HEADERS rules', () => {
@@ -173,7 +175,7 @@ describe('parseRules', () => {
 
         const result = parseRules(rules);
 
-        expect(result[0].scope).toBe(STRINGS.MSG_ALL_URLS);
+        expect(result[0]?.scope).toBe(STRINGS.MSG_ALL_URLS);
     });
 });
 
@@ -188,7 +190,7 @@ describe('buildDnrRule', () => {
                     SET: 'set',
                 },
             },
-        } as any;
+        } as unknown as typeof chrome;
     });
 
     it('builds a rule with correct structure', () => {
@@ -218,19 +220,19 @@ describe('buildDnrRule', () => {
     it('defaults scope to | when not provided', () => {
         const rules = buildDnrRule('X-Test', 'value');
 
-        expect(rules[0].condition.urlFilter).toBe('|');
+        expect(rules[0]?.condition.urlFilter).toBe('|');
     });
 
     it('uses provided scope as urlFilter', () => {
         const rules = buildDnrRule('X-Test', 'value', '*://api.example.com/*');
 
-        expect(rules[0].condition.urlFilter).toBe('*://api.example.com/*');
+        expect(rules[0]?.condition.urlFilter).toBe('*://api.example.com/*');
     });
 
     it('includes ALL_RESOURCE_TYPES', () => {
         const rules = buildDnrRule('X-Test', 'value');
 
-        expect(rules[0].condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
+        expect(rules[0]?.condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
     });
 });
 
@@ -283,6 +285,9 @@ describe('buildShareUrl', () => {
 
         const url = buildShareUrl(config);
         const payload = url.split('#config=')[1];
+        if (payload === undefined) {
+            throw new Error('expected a config payload in the share url');
+        }
         const decoded = decodeConfig(payload);
 
         expect(decoded).toEqual(config);
@@ -322,5 +327,42 @@ describe('sessionInjectionPair', () => {
                 httpFilter: { headerFilter: null },
             })
         ).toEqual({ header: 'baggage', value: 'mirrord-session=k1' });
+    });
+});
+
+describe('aggregateSessions', () => {
+    const session = (
+        over: Partial<OperatorSessionSummary>
+    ): OperatorSessionSummary => ({
+        id: 'id-1',
+        key: 'k',
+        namespace: 'ns',
+        owner: { username: 'alice', k8sUsername: 'alice@k8s' },
+        target: { kind: 'deployment', name: 'web', container: 'app' },
+        createdAt: '2026-07-13T00:00:00Z',
+        ...over,
+    });
+
+    it('aggregates owners, targets, and namespaces', () => {
+        const agg = aggregateSessions([
+            session({}),
+            session({
+                id: 'id-2',
+                owner: { username: 'bob', k8sUsername: 'b' },
+            }),
+        ]);
+        expect(agg.owners.sort()).toEqual(['alice', 'bob']);
+        expect(agg.targets).toEqual(['deployment/web']);
+        expect(agg.isPreview).toBe(false);
+    });
+
+    it('tolerates sessions with null owner, target, and createdAt', () => {
+        const agg = aggregateSessions([
+            session({ owner: null, target: null, createdAt: null }),
+            session({ id: 'id-2' }),
+        ]);
+        expect(agg.owners).toEqual(['alice']);
+        expect(agg.targets.sort()).toEqual(['deployment/web', 'targetless']);
+        expect(agg.earliestCreatedAt).toBe('2026-07-13T00:00:00Z');
     });
 });

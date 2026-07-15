@@ -18,13 +18,13 @@ import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
 
-type Props = {
+interface Props {
     groupKey: string;
     sessions: OperatorSessionSummary[];
     joined: boolean;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
-};
+}
 
 const MAX_TARGETS = 4;
 
@@ -131,8 +131,9 @@ function GroupMeta({
     const age = formatRelativeTime(agg.earliestCreatedAt);
     const parts: string[] = [];
 
-    if (agg.owners.length === 1) {
-        parts.push(agg.owners[0]);
+    const singleOwner = agg.owners[0];
+    if (agg.owners.length === 1 && singleOwner !== undefined) {
+        parts.push(singleOwner);
     } else if (agg.owners.length > 1) {
         parts.push(`${agg.owners.length} owners`);
     }

@@ -30,7 +30,7 @@ const surface: 'side_panel' | 'popup_fallback' =
     typeof (chrome as { sidePanel?: unknown }).sidePanel === 'undefined'
         ? 'popup_fallback'
         : 'side_panel';
-optOutReady.then(() => capture('extension_popup_opened', { surface }));
+void optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return;
@@ -55,14 +55,14 @@ export function Popup() {
     const [themePref, setThemeState] = useState<ThemePref>('system');
     const isDark = resolveDark(themePref);
     useEffect(() => {
-        loadTheme().then(setThemeState);
+        void loadTheme().then(setThemeState);
     }, []);
 
     useEffect(() => {
         chrome.storage.local.get(
             [STORAGE_KEYS.ACTIVE_TAB],
             (stored: Record<string, unknown>) => {
-                const saved = stored?.[STORAGE_KEYS.ACTIVE_TAB];
+                const saved = stored[STORAGE_KEYS.ACTIVE_TAB];
                 if (saved === TAB.SESSIONS || saved === TAB.MANUAL) {
                     setTab(saved);
                 }
@@ -73,7 +73,10 @@ export function Popup() {
 
     useEffect(() => {
         if (!tabRestored) return;
-        chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_TAB]: tab }, () => {});
+        chrome.storage.local.set(
+            { [STORAGE_KEYS.ACTIVE_TAB]: tab },
+            () => undefined
+        );
     }, [tab, tabRestored]);
 
     return (
@@ -100,7 +103,7 @@ export function Popup() {
                             <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={headerRules.handleShare}
+                                onClick={() => void headerRules.handleShare()}
                                 disabled={!headerRules.canShare}
                                 title={
                                     headerRules.shareState === 'copied'
@@ -125,7 +128,7 @@ export function Popup() {
                                     ? 'light'
                                     : 'dark';
                                 setThemeState(next);
-                                saveTheme(next);
+                                void saveTheme(next);
                             }}
                             title={isDark ? 'Light mode' : 'Dark mode'}
                             aria-label={isDark ? 'Light mode' : 'Dark mode'}
@@ -136,7 +139,9 @@ export function Popup() {
                         <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => chrome.runtime.openOptionsPage()}
+                            onClick={() =>
+                                void chrome.runtime.openOptionsPage()
+                            }
                             title={STRINGS.SETTINGS_TITLE}
                             aria-label={STRINGS.SETTINGS_TITLE}
                             className="h-7 w-7"
@@ -207,14 +212,16 @@ function SessionsScreen({
             contexts={mirrordUi.contexts}
             currentContext={mirrordUi.currentContext}
             selectedContext={mirrordUi.selectedContext}
-            onSelectContext={mirrordUi.setSelectedContext}
+            onSelectContext={(context) =>
+                void mirrordUi.setSelectedContext(context)
+            }
             joinState={mirrordUi.joinState}
             status={mirrordUi.status}
-            onJoin={mirrordUi.join}
-            onClear={mirrordUi.clearJoin}
+            onJoin={(key) => void mirrordUi.join(key)}
+            onClear={() => void mirrordUi.clearJoin()}
             onShare={(key) => {
                 const url = mirrordUi.buildShareUrl(key);
-                navigator.clipboard.writeText(url).catch(() => {});
+                navigator.clipboard.writeText(url).catch(() => undefined);
             }}
             scopePatterns={mirrordUi.scopePatterns}
             onAddScopePattern={mirrordUi.addScopePattern}

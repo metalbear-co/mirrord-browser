@@ -36,7 +36,7 @@ globalThis.chrome = {
         setBadgeText: jest.fn(),
         setBadgeTextColor: jest.fn(),
     },
-} as any;
+} as unknown as typeof chrome;
 
 describe('isRegex', () => {
     it('detects simple regex-like strings', () => {
@@ -243,7 +243,7 @@ describe('promptForValidHeader', () => {
         const mockPrompt = jest
             .spyOn(globalThis, 'prompt')
             .mockImplementation(() => 'X-MIRRORD-USER: 123');
-        jest.spyOn(globalThis, 'alert').mockImplementation(() => {});
+        jest.spyOn(globalThis, 'alert').mockImplementation(() => undefined);
 
         const header = promptForValidHeader('X-MIRRORD-USER: \\d+');
         expect(header).toBe('X-MIRRORD-USER: 123');
@@ -258,7 +258,7 @@ describe('promptForValidHeader', () => {
             .mockImplementationOnce(() => 'X-MIRRORD-USER: 456'); // third: valid
         const mockAlert = jest
             .spyOn(globalThis, 'alert')
-            .mockImplementation(() => {});
+            .mockImplementation(() => undefined);
 
         const header = promptForValidHeader('X-MIRRORD-USER: \\d+');
         expect(header).toBe('X-MIRRORD-USER: 456');
@@ -270,11 +270,15 @@ describe('promptForValidHeader', () => {
 describe('storeDefaults', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        (chrome.runtime as any).lastError = null;
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = null;
     });
 
     it('stores header name and value in chrome.storage.local', async () => {
-        mockStorageSet.mockImplementation((_data, callback) => callback());
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
+        );
 
         await storeDefaults('X-Test-Header', 'test-value');
 
@@ -291,7 +295,9 @@ describe('storeDefaults', () => {
     });
 
     it('stores header with scope in chrome.storage.local', async () => {
-        mockStorageSet.mockImplementation((_data, callback) => callback());
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
+        );
 
         await storeDefaults('X-Test-Header', 'test-value', '*://example.com/*');
 
@@ -308,11 +314,15 @@ describe('storeDefaults', () => {
     });
 
     it('resolves even when storage fails', async () => {
-        (chrome.runtime as any).lastError = { message: 'Storage error' };
-        mockStorageSet.mockImplementation((_data, callback) => callback());
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = { message: 'Storage error' };
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
+        );
         const consoleSpy = jest
             .spyOn(console, 'error')
-            .mockImplementation(() => {});
+            .mockImplementation(() => undefined);
 
         await storeDefaults('X-Test-Header', 'test-value');
 
@@ -323,17 +333,17 @@ describe('storeDefaults', () => {
         consoleSpy.mockRestore();
     });
 
-    it('logs success message when storage succeeds', async () => {
-        mockStorageSet.mockImplementation((_data, callback) => callback());
+    it('resolves quietly when storage succeeds', async () => {
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
+        );
         const consoleSpy = jest
-            .spyOn(console, 'log')
-            .mockImplementation(() => {});
+            .spyOn(console, 'warn')
+            .mockImplementation(() => undefined);
 
         await storeDefaults('X-Test-Header', 'test-value');
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-            'defaults stored successfully.'
-        );
+        expect(consoleSpy).not.toHaveBeenCalled();
         consoleSpy.mockRestore();
     });
 });
@@ -341,11 +351,15 @@ describe('storeDefaults', () => {
 describe('storeOverride', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        (chrome.runtime as any).lastError = null;
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = null;
     });
 
     it('stores header name and value as an override', async () => {
-        mockStorageSet.mockImplementation((_data, callback) => callback());
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
+        );
 
         await storeOverride('X-Test-Header', 'test-value');
 
@@ -387,19 +401,28 @@ describe('joinMatchingSession', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        (chrome.runtime as any).lastError = null;
-        mockStorageGet.mockImplementation((_keys, callback) =>
-            callback({
-                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:9000',
-                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'tok',
-            })
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = null;
+        mockStorageGet.mockImplementation(
+            (
+                _keys: unknown,
+                callback: (items: Record<string, unknown>) => void
+            ) =>
+                callback({
+                    [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:9000',
+                    [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'tok',
+                })
         );
-        mockStorageSet.mockImplementation((_data, callback) => callback());
-        mockGetDynamicRules.mockImplementation((callback) =>
-            callback([{ id: 7 }])
+        mockStorageSet.mockImplementation(
+            (_data: unknown, callback: () => void) => callback()
         );
-        mockUpdateDynamicRules.mockImplementation((_opts, callback) =>
-            callback()
+        mockGetDynamicRules.mockImplementation(
+            (callback: (rules: { id: number }[]) => void) =>
+                callback([{ id: 7 }])
+        );
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, callback: () => void) => callback()
         );
         global.fetch = jest.fn().mockResolvedValue(sessionsResponse([session]));
     });
@@ -449,7 +472,12 @@ describe('joinMatchingSession', () => {
     });
 
     it('returns null when mirrord ui is not configured', async () => {
-        mockStorageGet.mockImplementation((_keys, callback) => callback({}));
+        mockStorageGet.mockImplementation(
+            (
+                _keys: unknown,
+                callback: (items: Record<string, unknown>) => void
+            ) => callback({})
+        );
 
         const joined = await joinMatchingSession(
             'baggage',
