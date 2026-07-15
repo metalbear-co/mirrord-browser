@@ -1,464 +1,524 @@
-import { useState, useRef, useEffect } from 'react'
-import { Activity, Box, Check, Copy, Globe, Share2, X, Plus } from 'lucide-react'
-import { Button, Input } from '@metalbear/ui'
-import type { OperatorSessionSummary } from '../types'
-import { STRINGS } from '../constants'
-import { COLORS } from '../colors'
-import { RING_SECONDS } from '../headerObservation'
-import { useHeaderObservation } from '../hooks/useHeaderObservation'
-import type { JoinLiveness } from '../hooks/useJoinLiveness'
-import { StatusDot } from './StatusDot'
-import { aggregateSessions, formatRelativeTime, targetDisplayName } from '../util'
+import { useState, useRef, useEffect } from 'react';
+import {
+    Activity,
+    Box,
+    Check,
+    Copy,
+    Globe,
+    Share2,
+    X,
+    Plus,
+} from 'lucide-react';
+import { Button, Input } from '@metalbear/ui';
+import type { OperatorSessionSummary } from '../types';
+import { STRINGS } from '../constants';
+import { COLORS } from '../colors';
+import { RING_SECONDS } from '../headerObservation';
+import { useHeaderObservation } from '../hooks/useHeaderObservation';
+import type { JoinLiveness } from '../hooks/useJoinLiveness';
+import { StatusDot } from './StatusDot';
+import {
+    aggregateSessions,
+    formatRelativeTime,
+    targetDisplayName,
+} from '../util';
 
 interface Props {
-  joinedKey: string
-  sessions: OperatorSessionSummary[]
-  liveness: JoinLiveness
-  onLeave: () => void
-  onShare: () => void
-  scopePatterns: string[]
-  onAddScopePattern: (pattern: string) => void | Promise<void>
-  onRemoveScopePattern: (pattern: string) => void | Promise<void>
-  joinedHeader: string | null
-  joinedValue: string | null
+    joinedKey: string;
+    sessions: OperatorSessionSummary[];
+    liveness: JoinLiveness;
+    onLeave: () => void;
+    onShare: () => void;
+    scopePatterns: string[];
+    onAddScopePattern: (pattern: string) => void | Promise<void>;
+    onRemoveScopePattern: (pattern: string) => void | Promise<void>;
+    joinedHeader: string | null;
+    joinedValue: string | null;
 }
 
-const MAX_TARGETS = 4
-const COPIED_RESET_MS = 1200
-const DIMMED_OPACITY = 0.6
+const MAX_TARGETS = 4;
+const COPIED_RESET_MS = 1200;
+const DIMMED_OPACITY = 0.6;
 
 export function ConnectedBanner({
-  joinedKey,
-  sessions,
-  liveness,
-  onLeave,
-  onShare,
-  scopePatterns,
-  onAddScopePattern,
-  onRemoveScopePattern,
-  joinedHeader,
-  joinedValue,
+    joinedKey,
+    sessions,
+    liveness,
+    onLeave,
+    onShare,
+    scopePatterns,
+    onAddScopePattern,
+    onRemoveScopePattern,
+    joinedHeader,
+    joinedValue,
 }: Props) {
-  const agg = aggregateSessions(sessions)
-  const shownTargets = agg.targets.slice(0, MAX_TARGETS)
-  const overflowTargets = agg.targets.length - shownTargets.length
-  const age = formatRelativeTime(agg.earliestCreatedAt)
-  const ownerLabel = agg.isPreview
-    ? 'preview'
-    : agg.owners.length === 1
-      ? agg.owners[0]
-      : agg.owners.length > 1
-        ? `${agg.owners.length} owners`
-        : ''
-  const metaParts = [ownerLabel, age].filter(Boolean)
-  const ended = liveness === 'ended'
-  const pending = liveness === 'pending'
-  const label = ended
-    ? STRINGS.MSG_SESSION_ENDED
-    : pending
-      ? STRINGS.MSG_SESSION_RECONNECTING
-      : STRINGS.MSG_SESSION_LIVE
-  const buttonLabel = ended ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE
-  const dotTone = ended ? 'destructive' : pending ? 'warning' : 'active'
-  const border = ended
-    ? COLORS.destructive.border
-    : pending
-      ? COLORS.warning.border
-      : COLORS.primary.borderSoft
-  const bg = ended ? COLORS.destructive.bg : pending ? COLORS.warning.bg : COLORS.primary.bg
-  const titleColor = ended
-    ? COLORS.destructive.solid
-    : pending
-      ? COLORS.warning.solid
-      : COLORS.brand.lilac
+    const agg = aggregateSessions(sessions);
+    const shownTargets = agg.targets.slice(0, MAX_TARGETS);
+    const overflowTargets = agg.targets.length - shownTargets.length;
+    const age = formatRelativeTime(agg.earliestCreatedAt);
+    const ownerLabel = agg.isPreview
+        ? 'preview'
+        : agg.owners.length === 1
+          ? agg.owners[0]
+          : agg.owners.length > 1
+            ? `${agg.owners.length} owners`
+            : '';
+    const metaParts = [ownerLabel, age].filter(Boolean);
+    const ended = liveness === 'ended';
+    const pending = liveness === 'pending';
+    const label = ended
+        ? STRINGS.MSG_SESSION_ENDED
+        : pending
+          ? STRINGS.MSG_SESSION_RECONNECTING
+          : STRINGS.MSG_SESSION_LIVE;
+    const buttonLabel = ended ? STRINGS.BTN_DISMISS : STRINGS.BTN_LEAVE;
+    const dotTone = ended ? 'destructive' : pending ? 'warning' : 'active';
+    const border = ended
+        ? COLORS.destructive.border
+        : pending
+          ? COLORS.warning.border
+          : COLORS.primary.borderSoft;
+    const bg = ended
+        ? COLORS.destructive.bg
+        : pending
+          ? COLORS.warning.bg
+          : COLORS.primary.bg;
+    const titleColor = ended
+        ? COLORS.destructive.solid
+        : pending
+          ? COLORS.warning.solid
+          : COLORS.brand.lilac;
 
-  const [draft, setDraft] = useState('')
-  const [composing, setComposing] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const showInput = composing || scopePatterns.length === 0
-  const observation = useHeaderObservation()
-  const observed = observation.totalLast60s
+    const [draft, setDraft] = useState('');
+    const [composing, setComposing] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const showInput = composing || scopePatterns.length === 0;
+    const observation = useHeaderObservation();
+    const observed = observation.totalLast60s;
 
-  const copyHeader = async () => {
-    if (!joinedHeader || !joinedValue) {
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(`${joinedHeader}: ${joinedValue}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), COPIED_RESET_MS)
-    } catch {}
-  }
+    const copyHeader = async () => {
+        if (!joinedHeader || !joinedValue) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(
+                `${joinedHeader}: ${joinedValue}`
+            );
+            setCopied(true);
+            setTimeout(() => setCopied(false), COPIED_RESET_MS);
+        } catch {}
+    };
 
-  useEffect(() => {
-    if (ended) {
-      setDraft('')
-      setComposing(false)
-    }
-  }, [ended])
+    useEffect(() => {
+        if (ended) {
+            setDraft('');
+            setComposing(false);
+        }
+    }, [ended]);
 
-  useEffect(() => {
-    if (composing) {
-      inputRef.current?.focus()
-    }
-  }, [composing])
+    useEffect(() => {
+        if (composing) {
+            inputRef.current?.focus();
+        }
+    }, [composing]);
 
-  const submit = async () => {
-    const trimmed = draft.trim()
-    if (!trimmed) {
-      if (scopePatterns.length > 0) {
-        setComposing(false)
-      }
-      return
-    }
-    await onAddScopePattern(trimmed)
-    setDraft('')
-    if (scopePatterns.length === 0) {
-      inputRef.current?.focus()
-    } else {
-      setComposing(false)
-    }
-  }
+    const submit = async () => {
+        const trimmed = draft.trim();
+        if (!trimmed) {
+            if (scopePatterns.length > 0) {
+                setComposing(false);
+            }
+            return;
+        }
+        await onAddScopePattern(trimmed);
+        setDraft('');
+        if (scopePatterns.length === 0) {
+            inputRef.current?.focus();
+        } else {
+            setComposing(false);
+        }
+    };
 
-  return (
-    <div
-      className="flex flex-col"
-      style={{
-        gap: 10,
-        padding: '10px 12px',
-        borderRadius: 8,
-        border: `1px solid ${border}`,
-        background: bg,
-      }}
-    >
-      <div className="flex items-center" style={{ gap: 10 }}>
-        <StatusDot tone={dotTone} glow />
-        <div className="min-w-0" style={{ flex: 1 }}>
-          <div
-            className="font-semibold"
-            style={{
-              fontSize: 10.5,
-              letterSpacing: 'normal',
-              textTransform: 'none',
-              color: titleColor,
-            }}
-          >
-            {label}
-          </div>
-          <div
-            className="font-mono"
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              marginTop: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {joinedKey}
-          </div>
-        </div>
-        <div className="flex items-center" style={{ gap: 6 }}>
-          {!ended && (
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={onShare}
-              aria-label={`Copy override link for ${joinedKey}`}
-              title="Copy override link"
-              style={{ height: 28, width: 28 }}
-            >
-              <Share2 style={{ height: 14, width: 14 }} />
-            </Button>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={onLeave}
-            style={{ height: 28, padding: '0 12px' }}
-          >
-            {buttonLabel}
-          </Button>
-        </div>
-      </div>
-
-      {(shownTargets.length > 0 || metaParts.length > 0) && (
+    return (
         <div
-          className="flex flex-col"
-          style={{
-            gap: 4,
-            paddingTop: 8,
-            borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
-          }}
+            className="flex flex-col"
+            style={{
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${border}`,
+                background: bg,
+            }}
         >
-          {shownTargets.map((t) => (
-            <div key={t} className="flex min-w-0 items-center gap-2">
-              <Box className="text-muted-foreground shrink-0" style={{ height: 13, width: 13 }} />
-              <div
-                className="min-w-0 font-mono font-bold"
-                style={{
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                  color: COLORS.brand.lilac,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {targetDisplayName(t)}
-              </div>
+            <div className="flex items-center" style={{ gap: 10 }}>
+                <StatusDot tone={dotTone} glow />
+                <div className="min-w-0" style={{ flex: 1 }}>
+                    <div
+                        className="font-semibold"
+                        style={{
+                            fontSize: 10.5,
+                            letterSpacing: 'normal',
+                            textTransform: 'none',
+                            color: titleColor,
+                        }}
+                    >
+                        {label}
+                    </div>
+                    <div
+                        className="font-mono"
+                        style={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                            marginTop: 1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {joinedKey}
+                    </div>
+                </div>
+                <div className="flex items-center" style={{ gap: 6 }}>
+                    {!ended && (
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={onShare}
+                            aria-label={`Copy override link for ${joinedKey}`}
+                            title="Copy override link"
+                            style={{ height: 28, width: 28 }}
+                        >
+                            <Share2 style={{ height: 14, width: 14 }} />
+                        </Button>
+                    )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={onLeave}
+                        style={{ height: 28, padding: '0 12px' }}
+                    >
+                        {buttonLabel}
+                    </Button>
+                </div>
             </div>
-          ))}
-          {overflowTargets > 0 && (
-            <div className="text-muted-foreground" style={{ paddingLeft: 21, fontSize: 11 }}>
-              {STRINGS.PUNCT_PLUS} {overflowTargets} {STRINGS.LABEL_MORE_TARGET}
-              {overflowTargets === 1 ? '' : 's'}
-            </div>
-          )}
-          {metaParts.length > 0 && (
-            <div
-              className="text-muted-foreground"
-              style={{
-                fontSize: 11,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {metaParts.join(' · ')}
-            </div>
-          )}
-        </div>
-      )}
 
-      {!ended && (
-        <div
-          className="flex flex-col"
-          style={{
-            gap: 8,
-            paddingTop: 8,
-            borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
-          }}
-        >
-          <div className="flex items-center justify-between" style={{ fontSize: 10.5 }}>
-            <span
-              className="text-muted-foreground inline-flex items-center font-semibold"
-              style={{
-                gap: 6,
-                letterSpacing: 'normal',
-                textTransform: 'none',
-              }}
-            >
-              <Globe style={{ height: 12, width: 12 }} />
-              {STRINGS.LABEL_URL_SCOPE_HEADING}
-            </span>
-            <span className="text-muted-foreground">
-              {STRINGS.MSG_PATTERN_COUNT(scopePatterns.length)}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center" style={{ gap: 6 }}>
-            {scopePatterns.map((pattern) => (
-              <span
-                key={pattern}
-                className="inline-flex items-center font-mono"
-                style={{
-                  gap: 6,
-                  fontSize: 11,
-                  padding: '4px 6px 4px 8px',
-                  borderRadius: 6,
-                  border: `1px solid ${COLORS.primary.border}`,
-                  background: COLORS.primary.tint,
-                  color: COLORS.brand.lilac,
-                }}
-              >
-                {pattern}
-                <button
-                  type="button"
-                  aria-label={STRINGS.LABEL_REMOVE_PATTERN}
-                  onClick={() => void onRemoveScopePattern(pattern)}
-                  className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
-                  style={{
-                    height: 16,
-                    width: 16,
-                    borderRadius: 4,
-                  }}
+            {(shownTargets.length > 0 || metaParts.length > 0) && (
+                <div
+                    className="flex flex-col"
+                    style={{
+                        gap: 4,
+                        paddingTop: 8,
+                        borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
+                    }}
                 >
-                  <X style={{ height: 12, width: 12 }} />
-                </button>
-              </span>
-            ))}
-            {showInput ? (
-              <Input
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    void submit()
-                  } else if (e.key === 'Escape' && scopePatterns.length > 0) {
-                    setDraft('')
-                    setComposing(false)
-                  }
-                }}
-                onBlur={() => void submit()}
-                placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
-                spellCheck={false}
-                autoComplete="off"
-                className="font-mono"
-                style={{
-                  flex: 1,
-                  minWidth: 120,
-                  height: 24,
-                  fontSize: 11,
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                aria-label={STRINGS.PLACEHOLDER_URL_PATTERN}
-                onClick={() => setComposing(true)}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
-                style={{
-                  height: 24,
-                  width: 24,
-                  borderRadius: 6,
-                  border: `1px dashed ${COLORS.primary.borderSubtle}`,
-                  background: 'transparent',
-                }}
-              >
-                <Plus style={{ height: 12, width: 12 }} />
-              </button>
+                    {shownTargets.map((t) => (
+                        <div
+                            key={t}
+                            className="flex min-w-0 items-center gap-2"
+                        >
+                            <Box
+                                className="text-muted-foreground shrink-0"
+                                style={{ height: 13, width: 13 }}
+                            />
+                            <div
+                                className="min-w-0 font-mono font-bold"
+                                style={{
+                                    fontSize: 12,
+                                    lineHeight: 1.45,
+                                    color: COLORS.brand.lilac,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {targetDisplayName(t)}
+                            </div>
+                        </div>
+                    ))}
+                    {overflowTargets > 0 && (
+                        <div
+                            className="text-muted-foreground"
+                            style={{ paddingLeft: 21, fontSize: 11 }}
+                        >
+                            {STRINGS.PUNCT_PLUS} {overflowTargets}{' '}
+                            {STRINGS.LABEL_MORE_TARGET}
+                            {overflowTargets === 1 ? '' : 's'}
+                        </div>
+                    )}
+                    {metaParts.length > 0 && (
+                        <div
+                            className="text-muted-foreground"
+                            style={{
+                                fontSize: 11,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {metaParts.join(' · ')}
+                        </div>
+                    )}
+                </div>
             )}
-          </div>
-          <div
-            className="flex items-center"
-            style={{
-              gap: 6,
-              fontSize: 10.5,
-              paddingTop: 6,
-              borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
-            }}
-          >
-            <Activity
-              style={{
-                height: 12,
-                width: 12,
-                color: observed > 0 ? COLORS.success.dot : COLORS.muted.dot,
-              }}
-            />
-            <span
-              className="text-muted-foreground font-semibold"
-              style={{
-                letterSpacing: 'normal',
-                textTransform: 'none',
-              }}
-            >
-              {STRINGS.LABEL_HEADER_OBSERVED}
-            </span>
-            <span
-              className="font-mono"
-              style={{
-                color: observed > 0 ? COLORS.success.dot : COLORS.muted.dot,
-                fontWeight: 600,
-              }}
-            >
-              {observed} {STRINGS.LABEL_REQ_LAST} {RING_SECONDS}
-              {STRINGS.LABEL_SECONDS_SUFFIX}
-            </span>
-          </div>
-          {joinedHeader && joinedValue && (
-            <button
-              type="button"
-              onClick={() => void copyHeader()}
-              title={copied ? STRINGS.BTN_COPIED : STRINGS.BTN_COPY_HEADER}
-              aria-label={STRINGS.BTN_COPY_HEADER}
-              className="group font-mono"
-              style={{
-                marginTop: 4,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '5px 8px',
-                borderRadius: 6,
-                border: `1px solid ${COLORS.primary.borderSubtle}`,
-                background: 'transparent',
-                cursor: 'pointer',
-                fontSize: 11,
-                lineHeight: 1.35,
-                color: 'inherit',
-                textAlign: 'left',
-                transition: 'background 120ms, border-color 120ms',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = COLORS.primary.bgSoft
-                e.currentTarget.style.borderColor = COLORS.primary.borderSoft
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.borderColor = COLORS.primary.borderSubtle
-              }}
-            >
-              <span
-                className="font-semibold"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: 'normal',
-                  textTransform: 'none',
-                  color: COLORS.brand.lilac,
-                  flexShrink: 0,
-                }}
-              >
-                {STRINGS.LABEL_INJECTING}
-              </span>
-              <span
-                style={{
-                  color: COLORS.brand.yellow,
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
-                {joinedHeader}
-              </span>
-              <span className="text-muted-foreground" style={{ flexShrink: 0 }}>
-                :
-              </span>
-              <span
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: 'inherit',
-                }}
-              >
-                {joinedValue}
-              </span>
-              <span
-                style={{
-                  color: copied ? COLORS.success.dot : 'inherit',
-                  opacity: copied ? 1 : DIMMED_OPACITY,
-                  flexShrink: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-                className="text-muted-foreground"
-              >
-                {copied ? (
-                  <Check style={{ height: 11, width: 11 }} />
-                ) : (
-                  <Copy style={{ height: 11, width: 11 }} />
-                )}
-              </span>
-            </button>
-          )}
+
+            {!ended && (
+                <div
+                    className="flex flex-col"
+                    style={{
+                        gap: 8,
+                        paddingTop: 8,
+                        borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
+                    }}
+                >
+                    <div
+                        className="flex items-center justify-between"
+                        style={{ fontSize: 10.5 }}
+                    >
+                        <span
+                            className="text-muted-foreground inline-flex items-center font-semibold"
+                            style={{
+                                gap: 6,
+                                letterSpacing: 'normal',
+                                textTransform: 'none',
+                            }}
+                        >
+                            <Globe style={{ height: 12, width: 12 }} />
+                            {STRINGS.LABEL_URL_SCOPE_HEADING}
+                        </span>
+                        <span className="text-muted-foreground">
+                            {STRINGS.MSG_PATTERN_COUNT(scopePatterns.length)}
+                        </span>
+                    </div>
+                    <div
+                        className="flex flex-wrap items-center"
+                        style={{ gap: 6 }}
+                    >
+                        {scopePatterns.map((pattern) => (
+                            <span
+                                key={pattern}
+                                className="inline-flex items-center font-mono"
+                                style={{
+                                    gap: 6,
+                                    fontSize: 11,
+                                    padding: '4px 6px 4px 8px',
+                                    borderRadius: 6,
+                                    border: `1px solid ${COLORS.primary.border}`,
+                                    background: COLORS.primary.tint,
+                                    color: COLORS.brand.lilac,
+                                }}
+                            >
+                                {pattern}
+                                <button
+                                    type="button"
+                                    aria-label={STRINGS.LABEL_REMOVE_PATTERN}
+                                    onClick={() =>
+                                        void onRemoveScopePattern(pattern)
+                                    }
+                                    className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                                    style={{
+                                        height: 16,
+                                        width: 16,
+                                        borderRadius: 4,
+                                    }}
+                                >
+                                    <X style={{ height: 12, width: 12 }} />
+                                </button>
+                            </span>
+                        ))}
+                        {showInput ? (
+                            <Input
+                                ref={inputRef}
+                                value={draft}
+                                onChange={(e) => setDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        void submit();
+                                    } else if (
+                                        e.key === 'Escape' &&
+                                        scopePatterns.length > 0
+                                    ) {
+                                        setDraft('');
+                                        setComposing(false);
+                                    }
+                                }}
+                                onBlur={() => void submit()}
+                                placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
+                                spellCheck={false}
+                                autoComplete="off"
+                                className="font-mono"
+                                style={{
+                                    flex: 1,
+                                    minWidth: 120,
+                                    height: 24,
+                                    fontSize: 11,
+                                }}
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                aria-label={STRINGS.PLACEHOLDER_URL_PATTERN}
+                                onClick={() => setComposing(true)}
+                                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                                style={{
+                                    height: 24,
+                                    width: 24,
+                                    borderRadius: 6,
+                                    border: `1px dashed ${COLORS.primary.borderSubtle}`,
+                                    background: 'transparent',
+                                }}
+                            >
+                                <Plus style={{ height: 12, width: 12 }} />
+                            </button>
+                        )}
+                    </div>
+                    <div
+                        className="flex items-center"
+                        style={{
+                            gap: 6,
+                            fontSize: 10.5,
+                            paddingTop: 6,
+                            borderTop: `1px dashed ${COLORS.primary.borderSubtle}`,
+                        }}
+                    >
+                        <Activity
+                            style={{
+                                height: 12,
+                                width: 12,
+                                color:
+                                    observed > 0
+                                        ? COLORS.success.dot
+                                        : COLORS.muted.dot,
+                            }}
+                        />
+                        <span
+                            className="text-muted-foreground font-semibold"
+                            style={{
+                                letterSpacing: 'normal',
+                                textTransform: 'none',
+                            }}
+                        >
+                            {STRINGS.LABEL_HEADER_OBSERVED}
+                        </span>
+                        <span
+                            className="font-mono"
+                            style={{
+                                color:
+                                    observed > 0
+                                        ? COLORS.success.dot
+                                        : COLORS.muted.dot,
+                                fontWeight: 600,
+                            }}
+                        >
+                            {observed} {STRINGS.LABEL_REQ_LAST} {RING_SECONDS}
+                            {STRINGS.LABEL_SECONDS_SUFFIX}
+                        </span>
+                    </div>
+                    {joinedHeader && joinedValue && (
+                        <button
+                            type="button"
+                            onClick={() => void copyHeader()}
+                            title={
+                                copied
+                                    ? STRINGS.BTN_COPIED
+                                    : STRINGS.BTN_COPY_HEADER
+                            }
+                            aria-label={STRINGS.BTN_COPY_HEADER}
+                            className="group font-mono"
+                            style={{
+                                marginTop: 4,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '5px 8px',
+                                borderRadius: 6,
+                                border: `1px solid ${COLORS.primary.borderSubtle}`,
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                fontSize: 11,
+                                lineHeight: 1.35,
+                                color: 'inherit',
+                                textAlign: 'left',
+                                transition:
+                                    'background 120ms, border-color 120ms',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background =
+                                    COLORS.primary.bgSoft;
+                                e.currentTarget.style.borderColor =
+                                    COLORS.primary.borderSoft;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background =
+                                    'transparent';
+                                e.currentTarget.style.borderColor =
+                                    COLORS.primary.borderSubtle;
+                            }}
+                        >
+                            <span
+                                className="font-semibold"
+                                style={{
+                                    fontSize: 9,
+                                    letterSpacing: 'normal',
+                                    textTransform: 'none',
+                                    color: COLORS.brand.lilac,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {STRINGS.LABEL_INJECTING}
+                            </span>
+                            <span
+                                style={{
+                                    color: COLORS.brand.yellow,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {joinedHeader}
+                            </span>
+                            <span
+                                className="text-muted-foreground"
+                                style={{ flexShrink: 0 }}
+                            >
+                                :
+                            </span>
+                            <span
+                                style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    color: 'inherit',
+                                }}
+                            >
+                                {joinedValue}
+                            </span>
+                            <span
+                                style={{
+                                    color: copied
+                                        ? COLORS.success.dot
+                                        : 'inherit',
+                                    opacity: copied ? 1 : DIMMED_OPACITY,
+                                    flexShrink: 0,
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                }}
+                                className="text-muted-foreground"
+                            >
+                                {copied ? (
+                                    <Check style={{ height: 11, width: 11 }} />
+                                ) : (
+                                    <Copy style={{ height: 11, width: 11 }} />
+                                )}
+                            </span>
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  )
+    );
 }

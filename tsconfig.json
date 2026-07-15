@@ -1,12 +1,12 @@
 {
-  "extends": "@metalbear/ui/tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ES6",
-    "lib": ["dom", "es6", "ES2015"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "outDir": "dist",
-    "jsx": "react-jsx"
-  },
-  "include": ["src", "vite.config.ts", "e2e", "playwright.config.ts"]
+    "extends": "@metalbear/ui/tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES6",
+        "lib": ["dom", "es6", "ES2015"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "outDir": "dist",
+        "jsx": "react-jsx"
+    },
+    "include": ["src", "vite.config.ts", "e2e", "playwright.config.ts"]
 }

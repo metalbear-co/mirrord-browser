@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
-export type JoinLiveness = 'live' | 'pending' | 'ended'
+export type JoinLiveness = 'live' | 'pending' | 'ended';
 
 /**
  * Tracks whether a joined session is still backed by a live operator session, with
@@ -18,20 +18,24 @@ export type JoinLiveness = 'live' | 'pending' | 'ended'
  * `graceMs`, and only settle on `ended` if nothing reclaims the key within that
  * window. If the key goes live again at any point, we snap back to `live`.
  */
-export function useJoinLiveness(joined: boolean, live: boolean, graceMs: number): JoinLiveness {
-  const [expired, setExpired] = useState(false)
+export function useJoinLiveness(
+    joined: boolean,
+    live: boolean,
+    graceMs: number
+): JoinLiveness {
+    const [expired, setExpired] = useState(false);
 
-  useEffect(() => {
-    if (!joined || live) {
-      setExpired(false)
-      return
+    useEffect(() => {
+        if (!joined || live) {
+            setExpired(false);
+            return;
+        }
+        const timer = setTimeout(() => setExpired(true), graceMs);
+        return () => clearTimeout(timer);
+    }, [joined, live, graceMs]);
+
+    if (live) {
+        return 'live';
     }
-    const timer = setTimeout(() => setExpired(true), graceMs)
-    return () => clearTimeout(timer)
-  }, [joined, live, graceMs])
-
-  if (live) {
-    return 'live'
-  }
-  return expired ? 'ended' : 'pending'
+    return expired ? 'ended' : 'pending';
 }

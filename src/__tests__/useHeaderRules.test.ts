@@ -1,680 +1,772 @@
-import { renderHook, act } from '@testing-library/react'
-import type { Config } from '../types'
+import { renderHook, act } from '@testing-library/react';
+import type { Config } from '../types';
 
 // Mock analytics module
-const mockCapture = jest.fn()
+const mockCapture = jest.fn();
 jest.mock('../analytics', () => ({
-  capture: (...args: unknown[]) => {
-    mockCapture(...args)
-  },
-  emitUserBlocked: jest.fn(),
-  emitUserSucceeded: jest.fn(),
-}))
+    capture: (...args: unknown[]) => {
+        mockCapture(...args);
+    },
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
+}));
 
 jest.mock('../headerObservation', () => {
-  const actual = jest.requireActual<Record<string, unknown>>('../headerObservation')
-  return {
-    ...actual,
-    armCanary: jest.fn(),
-    cancelCanary: jest.fn(),
-    notifyHeaderObserved: jest.fn(),
-  }
-})
+    const actual = jest.requireActual<Record<string, unknown>>(
+        '../headerObservation'
+    );
+    return {
+        ...actual,
+        armCanary: jest.fn(),
+        cancelCanary: jest.fn(),
+        notifyHeaderObserved: jest.fn(),
+    };
+});
 
 // Mock chrome API
-const mockGetDynamicRules = jest.fn()
-const mockUpdateDynamicRules = jest.fn()
-const mockSetBadgeText = jest.fn()
-const mockSetBadgeTextColor = jest.fn()
-const mockStorageGet = jest.fn()
-const mockStorageSet = jest.fn()
-const mockStorageRemove = jest.fn()
+const mockGetDynamicRules = jest.fn();
+const mockUpdateDynamicRules = jest.fn();
+const mockSetBadgeText = jest.fn();
+const mockSetBadgeTextColor = jest.fn();
+const mockStorageGet = jest.fn();
+const mockStorageSet = jest.fn();
+const mockStorageRemove = jest.fn();
 
-const mockClipboardWriteText = jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined)
+const mockClipboardWriteText = jest
+    .fn<Promise<void>, [string]>()
+    .mockResolvedValue(undefined);
 Object.assign(navigator, {
-  clipboard: { writeText: mockClipboardWriteText },
-})
+    clipboard: { writeText: mockClipboardWriteText },
+});
 
 globalThis.chrome = {
-  declarativeNetRequest: {
-    getDynamicRules: mockGetDynamicRules,
-    updateDynamicRules: mockUpdateDynamicRules,
-    RuleActionType: {
-      MODIFY_HEADERS: 'modifyHeaders',
+    declarativeNetRequest: {
+        getDynamicRules: mockGetDynamicRules,
+        updateDynamicRules: mockUpdateDynamicRules,
+        RuleActionType: {
+            MODIFY_HEADERS: 'modifyHeaders',
+        },
+        HeaderOperation: {
+            SET: 'set',
+        },
     },
-    HeaderOperation: {
-      SET: 'set',
+    action: {
+        setBadgeText: mockSetBadgeText,
+        setBadgeTextColor: mockSetBadgeTextColor,
     },
-  },
-  action: {
-    setBadgeText: mockSetBadgeText,
-    setBadgeTextColor: mockSetBadgeTextColor,
-  },
-  runtime: {
-    lastError: null,
-    id: 'test-extension-id',
-  },
-  storage: {
-    local: {
-      get: mockStorageGet,
-      set: mockStorageSet,
-      remove: mockStorageRemove,
+    runtime: {
+        lastError: null,
+        id: 'test-extension-id',
     },
-    onChanged: {
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
+    storage: {
+        local: {
+            get: mockStorageGet,
+            set: mockStorageSet,
+            remove: mockStorageRemove,
+        },
+        onChanged: {
+            addListener: jest.fn(),
+            removeListener: jest.fn(),
+        },
     },
-  },
-} as unknown as typeof chrome
+} as unknown as typeof chrome;
 
-import { useHeaderRules } from '../hooks/useHeaderRules'
+import { useHeaderRules } from '../hooks/useHeaderRules';
 
 describe('useHeaderRules analytics', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    ;(chrome.runtime as { lastError: chrome.runtime.LastError | null }).lastError = null
-    mockGetDynamicRules.mockImplementation(
-      (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([]),
-    )
-    mockStorageGet.mockImplementation(
-      (_keys: string[], cb: (result: Record<string, unknown>) => void) => cb({}),
-    )
-  })
-
-  describe('handleToggle', () => {
-    it('deactivates when rules exist', async () => {
-      const activeRule: chrome.declarativeNetRequest.Rule = {
-        id: 1,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
-          requestHeaders: [
-            {
-              header: 'X-Test',
-              operation: 'set' as chrome.declarativeNetRequest.HeaderOperation,
-              value: 'val',
-            },
-          ],
-        },
-        condition: { urlFilter: '|' },
-      }
-
-      mockGetDynamicRules.mockImplementation(
-        (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([activeRule]),
-      )
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        // Wait for initial load
-      })
-
-      await act(async () => {
-        void result.current.handleToggle()
-        await Promise.resolve()
-      })
-
-      expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
-        { removeRuleIds: [1], addRules: [] },
-        expect.any(Function),
-      )
-    })
-
-    it('activates when no rules and config exists', async () => {
-      mockGetDynamicRules.mockImplementation(
-        (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([]),
-      )
-      mockStorageGet.mockImplementation(
-        (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-          cb({
-            defaults: {
-              headerName: 'X-Test',
-              headerValue: 'val',
-            },
-          }),
-      )
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageRemove.mockImplementation((_keys: string[], cb: () => void) => cb())
-
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        // Wait for initial load
-      })
-
-      await act(async () => {
-        void result.current.handleToggle()
-        await Promise.resolve()
-      })
-
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_activated')
-    })
-  })
-
-  describe('handleSave', () => {
-    it('captures extension_header_rule_saved on success', async () => {
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => cb())
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_saved', {
-        has_scope: false,
-        was_active: false,
-      })
-    })
-
-    it('captures extension_header_rule_saved with scope', async () => {
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => cb())
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-        result.current.setScope('*://example.com/*')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_saved', {
-        has_scope: true,
-        was_active: false,
-      })
-    })
-
-    it('does not update DNR rules when no rules are active (toggle off)', async () => {
-      // No active rules, no config — toggle is off
-      mockGetDynamicRules.mockImplementation(
-        (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([]),
-      )
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => cb())
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(mockUpdateDynamicRules).not.toHaveBeenCalled()
-      expect(mockStorageSet).toHaveBeenCalledTimes(1)
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_saved', {
-        has_scope: false,
-        was_active: false,
-      })
-    })
-
-    it('updates DNR rules when a rule is already active (toggle on)', async () => {
-      const activeRule: chrome.declarativeNetRequest.Rule = {
-        id: 1,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
-          requestHeaders: [
-            {
-              header: 'X-Old',
-              operation: 'set' as chrome.declarativeNetRequest.HeaderOperation,
-              value: 'old',
-            },
-          ],
-        },
-        condition: { urlFilter: '|' },
-      }
-      mockGetDynamicRules.mockImplementation(
-        (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([activeRule]),
-      )
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => cb())
-      mockStorageRemove.mockImplementation((_keys: string[], cb: () => void) => cb())
-
-      const { result } = renderHook(() => useHeaderRules())
-      await act(async () => {
-        // initial load
-      })
-
-      act(() => {
-        result.current.setHeaderName('X-New')
-        result.current.setHeaderValue('new')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(mockUpdateDynamicRules).toHaveBeenCalled()
-      expect(mockStorageSet).toHaveBeenCalledTimes(1)
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_saved', {
-        has_scope: false,
-        was_active: true,
-      })
-    })
-
-    it('sets error on update_rules failure', async () => {
-      // Must have an active rule for the update path to run on save.
-      const activeRule: chrome.declarativeNetRequest.Rule = {
-        id: 1,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
-          requestHeaders: [
-            {
-              header: 'X-Test',
-              operation: 'set' as chrome.declarativeNetRequest.HeaderOperation,
-              value: 'val',
-            },
-          ],
-        },
-        condition: { urlFilter: '|' },
-      }
-      mockGetDynamicRules.mockImplementation(
-        (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([activeRule]),
-      )
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => {
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = { message: 'update failed' }
-        cb()
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = null
-      })
-      const { result } = renderHook(() => useHeaderRules())
-      await act(async () => {
-        // initial load
-      })
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toContain('update failed')
-      expect(mockCapture).toHaveBeenCalledWith('extension_error', {
-        action: 'save',
-        step: 'update_rules',
-        error: 'update failed',
-      })
-    })
-
-    it('sets error on storage_write failure', async () => {
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => {
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = { message: 'storage failed' }
-        cb()
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = null
-      })
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toContain('storage failed')
-      expect(mockCapture).toHaveBeenCalledWith('extension_error', {
-        action: 'save',
-        step: 'storage_write',
-        error: 'storage failed',
-      })
-    })
-
-    it('sets error for empty header name', async () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderValue('value')
-      })
-
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toBe('Header name and value are required')
-    })
-  })
-
-  describe('handleReset', () => {
-    it('captures extension_header_rule_reset on success', async () => {
-      mockStorageGet.mockImplementation(
-        (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-          cb({
-            defaults: {
-              headerName: 'X-Default',
-              headerValue: 'defaultval',
-            },
-          }),
-      )
-      mockStorageRemove.mockImplementation((_keys: string[], cb: () => void) => cb())
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        void result.current.handleReset()
-        await Promise.resolve()
-      })
-
-      expect(mockCapture).toHaveBeenCalledWith('extension_header_rule_reset')
-    })
-
-    it('sets error on storage_remove failure', async () => {
-      mockStorageGet.mockImplementation(
-        (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-          cb({
-            defaults: {
-              headerName: 'X-Default',
-              headerValue: 'defaultval',
-            },
-          }),
-      )
-      mockStorageRemove.mockImplementation((_keys: string[], cb: () => void) => {
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = { message: 'remove failed' }
-        cb()
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = null
-      })
-
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        void result.current.handleReset()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toContain('remove failed')
-      expect(mockCapture).toHaveBeenCalledWith('extension_error', {
-        action: 'reset',
-        step: 'storage_remove',
-        error: 'remove failed',
-      })
-    })
-
-    it('sets error on update_rules failure', async () => {
-      mockStorageGet.mockImplementation(
-        (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-          cb({
-            defaults: {
-              headerName: 'X-Default',
-              headerValue: 'defaultval',
-            },
-          }),
-      )
-      mockStorageRemove.mockImplementation((_keys: string[], cb: () => void) => cb())
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => {
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = { message: 'update failed' }
-        cb()
-        ;(
-          chrome.runtime as {
-            lastError: chrome.runtime.LastError | null
-          }
-        ).lastError = null
-      })
-
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        void result.current.handleReset()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toContain('update failed')
-      expect(mockCapture).toHaveBeenCalledWith('extension_error', {
-        action: 'reset',
-        step: 'update_rules',
-        error: 'update failed',
-      })
-    })
-
-    it('sets error when no defaults available', async () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        void result.current.handleReset()
-        await Promise.resolve()
-      })
-
-      expect(result.current.error).toBe('No defaults available')
-    })
-  })
-
-  describe('canShare', () => {
-    it('is false when form fields are empty', async () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      await act(async () => {
-        // Wait for initial load
-      })
-
-      expect(result.current.canShare).toBe(false)
-    })
-
-    it('is true when header name and value are set', () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
-
-      expect(result.current.canShare).toBe(true)
-    })
-
-    it('is false when only header name is set', () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('X-Test')
-      })
-
-      expect(result.current.canShare).toBe(false)
-    })
-
-    it('is false when values are whitespace only', () => {
-      const { result } = renderHook(() => useHeaderRules())
-
-      act(() => {
-        result.current.setHeaderName('  ')
-        result.current.setHeaderValue('  ')
-      })
-
-      expect(result.current.canShare).toBe(false)
-    })
-  })
-
-  describe('handleShare', () => {
     beforeEach(() => {
-      mockClipboardWriteText.mockClear()
-    })
+        jest.clearAllMocks();
+        (
+            chrome.runtime as { lastError: chrome.runtime.LastError | null }
+        ).lastError = null;
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({})
+        );
+    });
 
-    it('copies URL to clipboard with encoded config', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+    describe('handleToggle', () => {
+        it('deactivates when rules exist', async () => {
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Test',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'val',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
 
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
 
-      await act(async () => {
-        void result.current.handleShare()
-        await Promise.resolve()
-      })
+            const { result } = renderHook(() => useHeaderRules());
 
-      expect(mockClipboardWriteText).toHaveBeenCalledTimes(1)
-      const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? ''
-      expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#config=/)
-    })
+            await act(async () => {
+                // Wait for initial load
+            });
 
-    it('sets shareState to copied', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+            await act(async () => {
+                void result.current.handleToggle();
+                await Promise.resolve();
+            });
 
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
+            expect(mockUpdateDynamicRules).toHaveBeenCalledWith(
+                { removeRuleIds: [1], addRules: [] },
+                expect.any(Function)
+            );
+        });
 
-      await act(async () => {
-        void result.current.handleShare()
-        await Promise.resolve()
-      })
+        it('activates when no rules and config exists', async () => {
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([])
+            );
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Test',
+                            headerValue: 'val',
+                        },
+                    })
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
 
-      expect(result.current.shareState).toBe('copied')
-    })
+            const { result } = renderHook(() => useHeaderRules());
 
-    it('captures extension_config_shared event', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+            await act(async () => {
+                // Wait for initial load
+            });
 
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
+            await act(async () => {
+                void result.current.handleToggle();
+                await Promise.resolve();
+            });
 
-      await act(async () => {
-        void result.current.handleShare()
-        await Promise.resolve()
-      })
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_activated'
+            );
+        });
+    });
 
-      expect(mockCapture).toHaveBeenCalledWith('extension_config_shared')
-    })
+    describe('handleSave', () => {
+        it('captures extension_header_rule_saved on success', async () => {
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            const { result } = renderHook(() => useHeaderRules());
 
-    it('includes scope in encoded config when set', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
 
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-        result.current.setScope('*://example.com/*')
-      })
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
 
-      await act(async () => {
-        void result.current.handleShare()
-        await Promise.resolve()
-      })
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                {
+                    has_scope: false,
+                    was_active: false,
+                }
+            );
+        });
 
-      const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? ''
-      const payload = url.split('#config=')[1] ?? ''
-      const decoded = JSON.parse(atob(payload)) as Config
-      expect(decoded.inject_scope).toBe('*://example.com/*')
-    })
+        it('captures extension_header_rule_saved with scope', async () => {
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            const { result } = renderHook(() => useHeaderRules());
 
-    it('does nothing when canShare is false', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+                result.current.setScope('*://example.com/*');
+            });
 
-      await act(async () => {
-        void result.current.handleShare()
-        await Promise.resolve()
-      })
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
 
-      expect(mockClipboardWriteText).not.toHaveBeenCalled()
-    })
-  })
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                {
+                    has_scope: true,
+                    was_active: false,
+                }
+            );
+        });
 
-  describe('hasStoredConfig', () => {
-    it('is false when no config in storage', async () => {
-      const { result } = renderHook(() => useHeaderRules())
+        it('does not update DNR rules when no rules are active (toggle off)', async () => {
+            // No active rules, no config — toggle is off
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([])
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            const { result } = renderHook(() => useHeaderRules());
 
-      await act(async () => {
-        // Wait for initial load
-      })
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
 
-      expect(result.current.hasStoredConfig).toBe(false)
-    })
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
 
-    it('is true when config exists in storage', async () => {
-      mockStorageGet.mockImplementation(
-        (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-          cb({
-            defaults: {
-              headerName: 'X-Test',
-              headerValue: 'val',
-            },
-          }),
-      )
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockStorageSet).toHaveBeenCalledTimes(1);
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                {
+                    has_scope: false,
+                    was_active: false,
+                }
+            );
+        });
 
-      const { result } = renderHook(() => useHeaderRules())
+        it('updates DNR rules when a rule is already active (toggle on)', async () => {
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Old',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'old',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
 
-      await act(async () => {
-        // Wait for initial load
-      })
+            const { result } = renderHook(() => useHeaderRules());
+            await act(async () => {
+                // initial load
+            });
 
-      expect(result.current.hasStoredConfig).toBe(true)
-    })
+            act(() => {
+                result.current.setHeaderName('X-New');
+                result.current.setHeaderValue('new');
+            });
 
-    it('becomes true after save', async () => {
-      mockUpdateDynamicRules.mockImplementation((_opts: unknown, cb: () => void) => cb())
-      mockStorageSet.mockImplementation((_data: unknown, cb: () => void) => cb())
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
 
-      const { result } = renderHook(() => useHeaderRules())
+            expect(mockUpdateDynamicRules).toHaveBeenCalled();
+            expect(mockStorageSet).toHaveBeenCalledTimes(1);
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_saved',
+                {
+                    has_scope: false,
+                    was_active: true,
+                }
+            );
+        });
 
-      await act(async () => {
-        // Wait for initial load
-      })
+        it('sets error on update_rules failure', async () => {
+            // Must have an active rule for the update path to run on save.
+            const activeRule: chrome.declarativeNetRequest.Rule = {
+                id: 1,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+                    requestHeaders: [
+                        {
+                            header: 'X-Test',
+                            operation:
+                                'set' as chrome.declarativeNetRequest.HeaderOperation,
+                            value: 'val',
+                        },
+                    ],
+                },
+                condition: { urlFilter: '|' },
+            };
+            mockGetDynamicRules.mockImplementation(
+                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                    cb([activeRule])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => {
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = { message: 'update failed' };
+                    cb();
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = null;
+                }
+            );
+            const { result } = renderHook(() => useHeaderRules());
+            await act(async () => {
+                // initial load
+            });
 
-      expect(result.current.hasStoredConfig).toBe(false)
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
 
-      act(() => {
-        result.current.setHeaderName('X-Test')
-        result.current.setHeaderValue('value')
-      })
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
 
-      await act(async () => {
-        void result.current.handleSave()
-        await Promise.resolve()
-      })
+            expect(result.current.error).toContain('update failed');
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'save',
+                step: 'update_rules',
+                error: 'update failed',
+            });
+        });
 
-      expect(result.current.hasStoredConfig).toBe(true)
-    })
-  })
-})
+        it('sets error on storage_write failure', async () => {
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => {
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = { message: 'storage failed' };
+                    cb();
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = null;
+                }
+            );
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toContain('storage failed');
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'save',
+                step: 'storage_write',
+                error: 'storage failed',
+            });
+        });
+
+        it('sets error for empty header name', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(
+                'Header name and value are required'
+            );
+        });
+    });
+
+    describe('handleReset', () => {
+        it('captures extension_header_rule_reset on success', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Default',
+                            headerValue: 'defaultval',
+                        },
+                    })
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                void result.current.handleReset();
+                await Promise.resolve();
+            });
+
+            expect(mockCapture).toHaveBeenCalledWith(
+                'extension_header_rule_reset'
+            );
+        });
+
+        it('sets error on storage_remove failure', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Default',
+                            headerValue: 'defaultval',
+                        },
+                    })
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => {
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = { message: 'remove failed' };
+                    cb();
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = null;
+                }
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                void result.current.handleReset();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toContain('remove failed');
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'reset',
+                step: 'storage_remove',
+                error: 'remove failed',
+            });
+        });
+
+        it('sets error on update_rules failure', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Default',
+                            headerValue: 'defaultval',
+                        },
+                    })
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => {
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = { message: 'update failed' };
+                    cb();
+                    (
+                        chrome.runtime as {
+                            lastError: chrome.runtime.LastError | null;
+                        }
+                    ).lastError = null;
+                }
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                void result.current.handleReset();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toContain('update failed');
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'reset',
+                step: 'update_rules',
+                error: 'update failed',
+            });
+        });
+
+        it('sets error when no defaults available', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                void result.current.handleReset();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe('No defaults available');
+        });
+    });
+
+    describe('canShare', () => {
+        it('is false when form fields are empty', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            expect(result.current.canShare).toBe(false);
+        });
+
+        it('is true when header name and value are set', () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            expect(result.current.canShare).toBe(true);
+        });
+
+        it('is false when only header name is set', () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+            });
+
+            expect(result.current.canShare).toBe(false);
+        });
+
+        it('is false when values are whitespace only', () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('  ');
+                result.current.setHeaderValue('  ');
+            });
+
+            expect(result.current.canShare).toBe(false);
+        });
+    });
+
+    describe('handleShare', () => {
+        beforeEach(() => {
+            mockClipboardWriteText.mockClear();
+        });
+
+        it('copies URL to clipboard with encoded config', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleShare();
+                await Promise.resolve();
+            });
+
+            expect(mockClipboardWriteText).toHaveBeenCalledTimes(1);
+            const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? '';
+            expect(url).toMatch(
+                /^https:\/\/metalbear\.com\/mirrord\/extension#config=/
+            );
+        });
+
+        it('sets shareState to copied', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleShare();
+                await Promise.resolve();
+            });
+
+            expect(result.current.shareState).toBe('copied');
+        });
+
+        it('captures extension_config_shared event', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleShare();
+                await Promise.resolve();
+            });
+
+            expect(mockCapture).toHaveBeenCalledWith('extension_config_shared');
+        });
+
+        it('includes scope in encoded config when set', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+                result.current.setScope('*://example.com/*');
+            });
+
+            await act(async () => {
+                void result.current.handleShare();
+                await Promise.resolve();
+            });
+
+            const url = mockClipboardWriteText.mock.calls[0]?.[0] ?? '';
+            const payload = url.split('#config=')[1] ?? '';
+            const decoded = JSON.parse(atob(payload)) as Config;
+            expect(decoded.inject_scope).toBe('*://example.com/*');
+        });
+
+        it('does nothing when canShare is false', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                void result.current.handleShare();
+                await Promise.resolve();
+            });
+
+            expect(mockClipboardWriteText).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('hasStoredConfig', () => {
+        it('is false when no config in storage', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            expect(result.current.hasStoredConfig).toBe(false);
+        });
+
+        it('is true when config exists in storage', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Test',
+                            headerValue: 'val',
+                        },
+                    })
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            expect(result.current.hasStoredConfig).toBe(true);
+        });
+
+        it('becomes true after save', async () => {
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            expect(result.current.hasStoredConfig).toBe(false);
+
+            act(() => {
+                result.current.setHeaderName('X-Test');
+                result.current.setHeaderValue('value');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.hasStoredConfig).toBe(true);
+        });
+    });
+});
