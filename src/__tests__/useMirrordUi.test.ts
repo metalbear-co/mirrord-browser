@@ -8,6 +8,9 @@ import type { OperatorSessionsResponse } from '../types';
 import { STORAGE_KEYS } from '../types';
 import { decodeConfig } from '../config';
 
+const urlToString = (url: RequestInfo | URL): string =>
+    typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+
 const owner = { username: 'alice', k8sUsername: 'alice@ex' };
 const createdAt = '2026-01-01T00:00:00Z';
 
@@ -154,22 +157,22 @@ beforeEach(() => {
         }) as unknown as Response;
 
     global.fetch = jest.fn((url: RequestInfo | URL) => {
-        if (String(url).includes('/api/operator-sessions')) {
+        if (urlToString(url).includes('/api/operator-sessions')) {
             return Promise.resolve(
                 makeResponse(JSON.stringify(sampleResponse))
             );
         }
-        if (String(url).includes('/health')) {
+        if (urlToString(url).includes('/health')) {
             return Promise.resolve(makeResponse('ok'));
         }
         return Promise.reject(new Error('unexpected fetch'));
-    }) as unknown as typeof fetch;
+    });
 
     (global as unknown as { WebSocket: unknown }).WebSocket = class {
         onmessage: ((ev: MessageEvent) => void) | null = null;
         onerror: ((ev: Event) => void) | null = null;
         onclose: ((ev: CloseEvent) => void) | null = null;
-        close() {}
+        close = jest.fn();
     };
 });
 
@@ -184,7 +187,7 @@ test('fetches sessions on mount when backend is configured', async () => {
 
 test('flags authFailed when the poller rejects the token (401)', async () => {
     global.fetch = jest.fn((url: RequestInfo | URL) => {
-        const u = String(url);
+        const u = urlToString(url);
         if (u.includes('/health')) {
             return Promise.resolve({
                 ok: true,
@@ -201,7 +204,7 @@ test('flags authFailed when the poller rejects the token (401)', async () => {
             text: () => Promise.resolve('bad token'),
             json: () => Promise.resolve({}),
         } as unknown as Response);
-    }) as unknown as typeof fetch;
+    });
 
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() => expect(result.current.authFailed).toBe(true));
@@ -209,8 +212,11 @@ test('flags authFailed when the poller rejects the token (401)', async () => {
 });
 
 test('clears authFailed once a freshly stored token is accepted', async () => {
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
-        const u = String(url);
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
+        const u = urlToString(url);
+        const authToken = (
+            init?.headers as Record<string, string> | undefined
+        )?.['x-auth-token'];
         if (u.includes('/health')) {
             return Promise.resolve({
                 ok: true,
@@ -220,7 +226,7 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
                 json: () => Promise.resolve({}),
             } as unknown as Response);
         }
-        if (u.includes('token=fresh')) {
+        if (authToken === 'fresh' && u.includes('/api/operator-sessions')) {
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -236,12 +242,12 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
             text: () => Promise.resolve('bad token'),
             json: () => Promise.resolve({}),
         } as unknown as Response);
-    }) as unknown as typeof fetch;
+    });
 
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() => expect(result.current.authFailed).toBe(true));
 
-    await act(async () => {
+    act(() => {
         storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'fresh';
         storageListeners.forEach((l) =>
             l({
@@ -260,8 +266,11 @@ test('clears authFailed once a freshly stored token is accepted', async () => {
 });
 
 test('clears authFailed when a later poll fails for a non-auth reason', async () => {
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
-        const u = String(url);
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
+        const u = urlToString(url);
+        const authToken = (
+            init?.headers as Record<string, string> | undefined
+        )?.['x-auth-token'];
         if (u.includes('/health')) {
             return Promise.resolve({
                 ok: true,
@@ -271,7 +280,7 @@ test('clears authFailed when a later poll fails for a non-auth reason', async ()
                 json: () => Promise.resolve({}),
             } as unknown as Response);
         }
-        if (u.includes('token=other')) {
+        if (authToken === 'other' && u.includes('/api/operator-sessions')) {
             return Promise.resolve({
                 ok: false,
                 status: 503,
@@ -287,12 +296,12 @@ test('clears authFailed when a later poll fails for a non-auth reason', async ()
             text: () => Promise.resolve('bad token'),
             json: () => Promise.resolve({}),
         } as unknown as Response);
-    }) as unknown as typeof fetch;
+    });
 
     const { result } = renderHook(() => useMirrordUi());
     await waitFor(() => expect(result.current.authFailed).toBe(true));
 
-    await act(async () => {
+    act(() => {
         storage[STORAGE_KEYS.MIRRORD_UI_TOKEN] = 'other';
         storageListeners.forEach((l) =>
             l({
@@ -354,7 +363,7 @@ test('session share builds a config link without backend or join params', async 
     );
 
     const url = result.current.buildShareUrl('k1');
-    const payload = url.match(/#config=([^&]+)/)?.[1];
+    const payload = /#config=([^&]+)/.exec(url)?.[1];
 
     expect(url).toMatch(/^https:\/\/metalbear\.com\/mirrord\/extension#/);
     expect(url).not.toContain('storage=');
@@ -362,7 +371,8 @@ test('session share builds a config link without backend or join params', async 
     expect(url).not.toContain('backend=');
     expect(url).not.toContain('join=');
     expect(payload).toBeTruthy();
-    expect(decodeConfig(payload!)).toEqual({
+    if (payload === undefined) throw new Error('missing config payload');
+    expect(decodeConfig(payload)).toEqual({
         header_filter: 'baggage: mirrord-session=k1',
     });
 });
@@ -390,12 +400,12 @@ test('session share uses the operator HTTP filter when it can derive a header', 
                 text: () => Promise.resolve(body),
                 json: () => Promise.resolve(JSON.parse(body)),
             }) as unknown as Response;
-        if (String(url).includes('/api/operator-sessions')) {
+        if (urlToString(url).includes('/api/operator-sessions')) {
             return Promise.resolve(
                 makeResponse(JSON.stringify(responseWithFilter))
             );
         }
-        if (String(url).includes('/health')) {
+        if (urlToString(url).includes('/health')) {
             return Promise.resolve(makeResponse('ok'));
         }
         return Promise.reject(new Error('unexpected fetch'));
@@ -407,10 +417,11 @@ test('session share uses the operator HTTP filter when it can derive a header', 
     );
 
     const url = result.current.buildShareUrl('k0');
-    const payload = url.match(/#config=([^&]+)/)?.[1];
+    const payload = /#config=([^&]+)/.exec(url)?.[1];
 
     expect(payload).toBeTruthy();
-    expect(decodeConfig(payload!)).toEqual({
+    if (payload === undefined) throw new Error('missing config payload');
+    expect(decodeConfig(payload)).toEqual({
         header_filter: 'x-tenant: alice',
     });
 });
@@ -427,8 +438,8 @@ describe('v2 API', () => {
 
     const mockFetch = (impl: (url: string) => Response) =>
         jest.fn((url: RequestInfo | URL) =>
-            Promise.resolve(impl(String(url)))
-        ) as unknown as typeof fetch;
+            Promise.resolve(impl(urlToString(url)))
+        ) as unknown as jest.MockedFunction<typeof fetch>;
 
     test('fetchContexts returns null on 404 (server without v2)', async () => {
         const f = mockFetch(() => makeResp('', 404));
@@ -447,6 +458,9 @@ describe('v2 API', () => {
         const r = await fetchContexts('http://b', 't', f);
         expect(r?.current).toBe('ctx-a');
         expect(r?.contexts.map((c) => c.name)).toEqual(['ctx-a', 'ctx-b']);
+        expect(
+            new Headers(f.mock.calls[0]?.[1]?.headers).get('x-auth-token')
+        ).toBe('t');
     });
 
     test('fetchOperatorSessionsV2 maps the v2 shape to the internal one', async () => {
@@ -505,9 +519,12 @@ describe('v2 API', () => {
             )
         );
         await fetchOperatorSessionsV2('http://b', 'tok', 'ctx-a', f);
-        const calledUrl = String((f as jest.Mock).mock.calls[0][0]);
+        const calledUrl = urlToString(f.mock.calls[0]?.[0] ?? '');
         expect(calledUrl).toContain('/api/v2/operator/sessions');
         expect(calledUrl).toContain('context=ctx-a');
-        expect(calledUrl).toContain('token=tok');
+        expect(calledUrl).not.toContain('token=tok');
+        expect(
+            new Headers(f.mock.calls[0]?.[1]?.headers).get('x-auth-token')
+        ).toBe('tok');
     });
 });

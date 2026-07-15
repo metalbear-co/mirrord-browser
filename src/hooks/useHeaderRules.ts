@@ -10,7 +10,8 @@ import {
     storageRemove,
     buildShareUrl,
 } from '../util';
-import { Config, StoredConfig, STORAGE_KEYS } from '../types';
+import type { Config, StoredConfig } from '../types';
+import { STORAGE_KEYS } from '../types';
 import { STRINGS } from '../constants';
 import { capture, emitUserBlocked, emitUserSucceeded } from '../analytics';
 import { armCanary, cancelCanary } from '../headerObservation';
@@ -18,6 +19,10 @@ import { armCanary, cancelCanary } from '../headerObservation';
 type SaveState = 'idle' | 'saving' | 'saved';
 type ResetState = 'idle' | 'resetting' | 'reset';
 type ShareState = 'idle' | 'copied';
+
+const SAVED_FEEDBACK_MS = 1500;
+const RESET_FEEDBACK_MS = 1500;
+const COPIED_FEEDBACK_MS = 2000;
 
 export function useHeaderRules() {
     const [rules, setRules] = useState<ReturnType<typeof parseRules>>([]);
@@ -47,13 +52,13 @@ export function useHeaderRules() {
             STORAGE_KEYS.DEFAULTS,
         ]);
         const config: StoredConfig | undefined =
-            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ||
+            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
             (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined);
 
         if (config) {
             setHeaderName(config.headerName || '');
             setHeaderValue(config.headerValue || '');
-            setScope(config.scope || '');
+            setScope(config.scope ?? '');
         }
 
         setHasStoredConfig(!!config);
@@ -61,8 +66,8 @@ export function useHeaderRules() {
     }, []);
 
     useEffect(() => {
-        loadRules();
-        loadFormValues();
+        void loadRules();
+        void loadFormValues();
     }, [loadRules, loadFormValues]);
 
     useEffect(() => {
@@ -76,8 +81,8 @@ export function useHeaderRules() {
                 STORAGE_KEYS.DEFAULTS in changes ||
                 STORAGE_KEYS.SCOPE_PATTERNS in changes
             ) {
-                loadRules();
-                loadFormValues();
+                void loadRules();
+                void loadFormValues();
             }
         };
         chrome.storage.onChanged.addListener(listener);
@@ -92,7 +97,7 @@ export function useHeaderRules() {
             STORAGE_KEYS.DEFAULTS,
         ]);
         const config: StoredConfig | undefined =
-            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ||
+            (result[STORAGE_KEYS.OVERRIDE] as StoredConfig | undefined) ??
             (result[STORAGE_KEYS.DEFAULTS] as StoredConfig | undefined);
 
         if (!config) return;
@@ -115,7 +120,7 @@ export function useHeaderRules() {
             ]);
             setHeaderName(config.headerName);
             setHeaderValue(config.headerValue);
-            setScope(config.scope || '');
+            setScope(config.scope ?? '');
             await loadRules();
             capture('extension_header_rule_activated');
             emitUserSucceeded('header_rule_activated', 'user_action');
@@ -133,37 +138,6 @@ export function useHeaderRules() {
             });
         }
     }, [loadRules]);
-
-    const handleRemove = useCallback(
-        async (ruleId: number) => {
-            setError(null);
-
-            try {
-                await updateDynamicRules({ removeRuleIds: [ruleId] });
-                await storageRemove([
-                    STORAGE_KEYS.JOINED_KEY,
-                    STORAGE_KEYS.JOINED_SESSION_NAME,
-                ]);
-                await loadRules();
-                capture('extension_header_rule_removed');
-                emitUserSucceeded('header_rule_removed', 'user_action');
-                cancelCanary();
-            } catch (e) {
-                const msg =
-                    e instanceof Error ? e.message : STRINGS.ERR_REMOVE_RULE;
-                setError(msg);
-                console.error(STRINGS.ERR_REMOVE_RULE, e);
-                capture('extension_error', {
-                    action: 'remove',
-                    error: msg,
-                });
-                emitUserBlocked('header_rule_remove_failed', 'user_action', {
-                    error: msg,
-                });
-            }
-        },
-        [loadRules]
-    );
 
     const handleRemoveAll = useCallback(async () => {
         setError(null);
@@ -224,10 +198,11 @@ export function useHeaderRules() {
 
         setSaveState('saving');
 
+        const trimmedScope = scope.trim();
         const override: StoredConfig = {
             headerName: headerName.trim(),
             headerValue: headerValue.trim(),
-            scope: scope.trim() || undefined,
+            ...(trimmedScope ? { scope: trimmedScope } : {}),
         };
 
         // Save is non-destructive: only refresh the active DNR rule
@@ -290,7 +265,7 @@ export function useHeaderRules() {
         await loadRules();
         setHasStoredConfig(true);
         setSaveState('saved');
-        setTimeout(() => setSaveState('idle'), 1500);
+        setTimeout(() => setSaveState('idle'), SAVED_FEEDBACK_MS);
         capture('extension_header_rule_saved', {
             has_scope: !!scope.trim(),
             was_active: wasActive,
@@ -362,10 +337,10 @@ export function useHeaderRules() {
 
         setHeaderName(defaults.headerName);
         setHeaderValue(defaults.headerValue);
-        setScope(defaults.scope || '');
+        setScope(defaults.scope ?? '');
         await loadRules();
         setResetState('reset');
-        setTimeout(() => setResetState('idle'), 1500);
+        setTimeout(() => setResetState('idle'), RESET_FEEDBACK_MS);
         capture('extension_header_rule_reset');
         cancelCanary();
         emitUserSucceeded('header_rule_reset', 'user_action');
@@ -373,15 +348,16 @@ export function useHeaderRules() {
 
     const handleShare = useCallback(async () => {
         if (!canShare) return;
+        const trimmedScope = scope.trim();
         const config: Config = {
             header_filter: `${headerName.trim()}: ${headerValue.trim()}`,
-            inject_scope: scope.trim() || undefined,
+            ...(trimmedScope ? { inject_scope: trimmedScope } : {}),
         };
         const url = buildShareUrl(config);
         await navigator.clipboard.writeText(url);
         setShareState('copied');
         capture('extension_config_shared');
-        setTimeout(() => setShareState('idle'), 2000);
+        setTimeout(() => setShareState('idle'), COPIED_FEEDBACK_MS);
     }, [headerName, headerValue, scope, canShare]);
 
     const getSaveButtonText = () => {
@@ -390,7 +366,7 @@ export function useHeaderRules() {
                 return STRINGS.BTN_SAVING;
             case 'saved':
                 return STRINGS.BTN_SAVED;
-            default:
+            case 'idle':
                 return STRINGS.BTN_SAVE;
         }
     };
@@ -401,7 +377,7 @@ export function useHeaderRules() {
                 return STRINGS.BTN_RESETTING;
             case 'reset':
                 return STRINGS.BTN_RESET_DONE;
-            default:
+            case 'idle':
                 return STRINGS.BTN_RESET;
         }
     };

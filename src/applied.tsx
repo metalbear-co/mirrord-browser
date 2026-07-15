@@ -47,7 +47,7 @@ export async function run(): Promise<AppliedState> {
             ? promptForValidHeader(config.header_filter)
             : config.header_filter;
         ({ key: header, value } = parseHeader(headerLine));
-        scope = config.inject_scope || undefined;
+        scope = config.inject_scope;
     } catch (err) {
         return {
             kind: 'error',
@@ -74,7 +74,13 @@ export async function run(): Promise<AppliedState> {
                 key: joinedKey,
                 source: 'web_link',
             });
-            return { kind: 'done', header, value, scope, joinedKey };
+            return {
+                kind: 'done',
+                header,
+                value,
+                ...(scope !== undefined ? { scope } : {}),
+                joinedKey,
+            };
         }
 
         await applyHeaderConfig(header, value, scope);
@@ -83,7 +89,12 @@ export async function run(): Promise<AppliedState> {
             source: 'web_link',
         });
         emitUserSucceeded('configured', 'user_action', { source: 'web_link' });
-        return { kind: 'done', header, value, scope };
+        return {
+            kind: 'done',
+            header,
+            value,
+            ...(scope !== undefined ? { scope } : {}),
+        };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         emitUserBlocked('configure_failed', 'user_action', {
@@ -98,7 +109,7 @@ function AppliedPage() {
     const [state, setState] = useState<AppliedState>({ kind: 'loading' });
 
     useEffect(() => {
-        run().then(setState);
+        void run().then(setState);
     }, []);
 
     return (

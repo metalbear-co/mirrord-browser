@@ -1,10 +1,10 @@
-import { HeaderRule } from '../types';
+import type { HeaderRule } from '../types';
 import { STRINGS } from '../constants';
 import { RuleItem } from './RuleItem';
 
-type RulesListProps = {
+interface RulesListProps {
     rules: HeaderRule[];
-};
+}
 
 export function RulesList({ rules }: RulesListProps) {
     if (rules.length === 0) {

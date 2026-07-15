@@ -16,7 +16,7 @@ export function Options() {
     const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
-        optOutReady.then(() => {
+        void optOutReady.then(() =>
             chrome.storage.local
                 .get(STORAGE_KEYS.ANALYTICS_OPT_OUT)
                 .then((result) => {
@@ -24,13 +24,13 @@ export function Options() {
                         result[STORAGE_KEYS.ANALYTICS_OPT_OUT] !== true
                     );
                     setLoaded(true);
-                });
-        });
+                })
+        );
     }, []);
 
     const handleAnalyticsToggle = (checked: boolean) => {
         setAnalyticsEnabled(checked);
-        setOptOut(!checked);
+        void setOptOut(!checked);
     };
 
     if (!loaded) return null;

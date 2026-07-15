@@ -2,11 +2,11 @@ import { COLORS } from '../colors';
 
 type Tone = 'active' | 'muted' | 'destructive' | 'inactive' | 'warning';
 
-type Props = {
+interface Props {
     size?: number;
     tone: Tone;
     glow?: boolean;
-};
+}
 
 const TONE_COLOR: Record<Tone, string> = {
     active: COLORS.success.dot,

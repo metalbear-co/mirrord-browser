@@ -73,7 +73,7 @@ export function capture(
                 },
                 timestamp: new Date().toISOString(),
             }),
-        }).catch(() => {});
+        }).catch(() => undefined);
     } catch {
         // Analytics should never break the extension
     }

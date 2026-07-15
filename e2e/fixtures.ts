@@ -11,11 +11,11 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, '..', 'dist');
 
-type ExtensionFixtures = {
+interface ExtensionFixtures {
     context: BrowserContext;
     extensionId: string;
     popupPage: Page;
-};
+}
 
 export const test = base.extend<ExtensionFixtures>({
     context: async ({}, use) => {
@@ -41,12 +41,16 @@ export const test = base.extend<ExtensionFixtures>({
 
     extensionId: async ({ context }, use) => {
         // Wait for the service worker to register
-        let serviceWorker = context.serviceWorkers()[0];
-        if (!serviceWorker) {
-            serviceWorker = await context.waitForEvent('serviceworker');
-        }
+        const workers = context.serviceWorkers();
+        let serviceWorker = workers.length > 0 ? workers[0] : undefined;
+        serviceWorker ??= await context.waitForEvent('serviceworker');
 
         const extensionId = serviceWorker.url().split('/')[2];
+        if (extensionId === undefined) {
+            throw new Error(
+                'could not derive extension id from service worker url'
+            );
+        }
         await use(extensionId);
     },
 

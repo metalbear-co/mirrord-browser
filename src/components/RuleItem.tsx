@@ -1,9 +1,9 @@
-import { HeaderRule } from '../types';
+import type { HeaderRule } from '../types';
 import { COLORS } from '../colors';
 
-type RuleItemProps = {
+interface RuleItemProps {
     rule: HeaderRule;
-};
+}
 
 export function RuleItem({ rule }: RuleItemProps) {
     return (
