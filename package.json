@@ -11,7 +11,8 @@
         "format:check": "prettier --check .",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix",
-        "check": "pnpm run format:check && pnpm run lint",
+        "typecheck": "tsc --noEmit",
+        "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui",
         "prepare": "husky"
