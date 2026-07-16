@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ErrorBoundary as KitErrorBoundary } from '@metalbear/ui';
-import { emitUserBlocked } from '../analytics';
+import { captureException, emitUserBlocked } from '../analytics';
 import { STRINGS } from '../constants';
 
 type Flow = 'session_monitor' | 'header_injector' | 'configure';
@@ -23,6 +23,14 @@ export function ErrorBoundary({ flow, component, children }: Props) {
                 </div>
             }
             onError={(error, info) => {
+                captureException(error, {
+                    component,
+                    flow,
+                    componentStack: info.componentStack?.slice(
+                        0,
+                        MAX_STACK_LENGTH
+                    ),
+                });
                 emitUserBlocked('ui_crashed', 'user_action', {
                     error: error.message,
                     component,

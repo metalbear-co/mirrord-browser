@@ -110,6 +110,35 @@ export function captureBeacon(
     }
 }
 
+export function captureException(
+    error: unknown,
+    properties: Record<string, unknown> = {},
+    handled = true
+): void {
+    const err = error instanceof Error ? error : new Error(String(error));
+    capture('$exception', {
+        $exception_list: [
+            {
+                type: err.name,
+                value: err.message,
+                mechanism: { handled, synthetic: false },
+            },
+        ],
+        $exception_stack_trace_raw: err.stack,
+        surface: 'extension',
+        ...properties,
+    });
+}
+
+export function initErrorTracking(page: string): void {
+    window.addEventListener('error', (event) => {
+        captureException(event.error ?? event.message, { page }, false);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        captureException(event.reason, { page }, false);
+    });
+}
+
 export type EventKind = 'user_action' | 'health';
 
 export function emitUserBlocked(
