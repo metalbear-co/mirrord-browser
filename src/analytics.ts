@@ -3,6 +3,14 @@ import { STORAGE_KEYS } from './types';
 const POSTHOG_KEY = 'phc_wIZh92nyk4vu6HidiLFUzjW6piZlZszuWZZFBS7yHHe';
 const POSTHOG_HOST = 'https://hog.metalbear.com';
 
+const APP_VERSION = (() => {
+    try {
+        return chrome.runtime.getManifest().version;
+    } catch {
+        return 'unknown';
+    }
+})();
+
 let distinctId: string | null = null;
 let optedOut = false;
 
@@ -74,6 +82,7 @@ export function capture(
                 properties: {
                     ...properties,
                     $lib: 'mirrord-browser-extension',
+                    $app_version: APP_VERSION,
                 },
                 timestamp: new Date().toISOString(),
             }),
@@ -101,6 +110,7 @@ export function captureBeacon(
             properties: {
                 ...properties,
                 $lib: 'mirrord-browser-extension',
+                $app_version: APP_VERSION,
             },
             timestamp: new Date().toISOString(),
         });
