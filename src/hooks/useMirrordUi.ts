@@ -141,7 +141,7 @@ export type PollResult =
     | { ok: true; data: OperatorSessionsResponse }
     | { ok: false; status?: number; error: string };
 
-export async function runPoll(
+async function runPoll(
     backend: string,
     token: string,
     v2 = false,
@@ -194,7 +194,7 @@ export function buildWsUrl(backend: string, token: string): string {
     return `${scheme}://${hostAndRest}/ws?token=${encodeURIComponent(token)}`;
 }
 
-export async function pingHealth(
+async function pingHealth(
     backend: string,
     timeoutMs = 1500,
     fetchImpl: typeof fetch = fetch

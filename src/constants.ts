@@ -135,12 +135,6 @@ export const STRINGS = {
     PUNCT_PERIOD: '.',
 } as const;
 
-export const BADGE = {
-    COLOR: '#ADD8E6',
-    ACTIVE: '✓',
-    INACTIVE: '',
-} as const;
-
 export const TAB = {
     SESSIONS: 'sessions',
     MANUAL: 'manual',
@@ -155,13 +149,6 @@ export const SESSION_NOTIFICATION_TYPE = {
     OPERATOR_SESSION_REMOVED: 'operator_session_removed',
     OPERATOR_SESSION_UPDATED: 'operator_session_updated',
 } as const;
-
-export const ROW_TAG = {
-    JOINED: 'joined',
-    LOCAL: 'local',
-} as const;
-
-export type RowTag = (typeof ROW_TAG)[keyof typeof ROW_TAG];
 
 export const NAMESPACE_ALL_SENTINEL = '__all__';
 
@@ -179,7 +166,7 @@ export const CONFIG_HASH_PARAM = 'config';
 
 // Default port `mirrord ui` listens on (its `--port` default).
 // Source: metalbear-co/mirrord — mirrord/cli/src/config.rs `UI_DEFAULT_PORT`.
-export const MIRRORD_UI_DEFAULT_PORT = 59281;
+const MIRRORD_UI_DEFAULT_PORT = 59281;
 export const MIRRORD_UI_DEFAULT_BACKEND = `http://127.0.0.1:${MIRRORD_UI_DEFAULT_PORT}`;
 
 // How long the joined banner stays in the amber "waiting" state after the session

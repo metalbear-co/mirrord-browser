@@ -168,7 +168,7 @@ export function formatRelativeTime(iso: string | null | undefined): string {
     return parsed.fromNow();
 }
 
-export const PREVIEW_OWNER_USERNAME = 'preview-env';
+const PREVIEW_OWNER_USERNAME = 'preview-env';
 
 export interface SessionGroupAggregate {
     targets: string[];
@@ -278,8 +278,8 @@ export function deriveInjectionHint(
     return parseHeaderLine(generated);
 }
 
-export const BAGGAGE_HEADER_NAME = 'baggage';
-export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+const BAGGAGE_HEADER_NAME = 'baggage';
+const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
 export function sessionInjectionPair(
     session: Pick<OperatorSessionSummary, 'key' | 'httpFilter'>
