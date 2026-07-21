@@ -8,6 +8,21 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.6.0](https://github.com/metalbear-co/mirrord-browser/tree/0.6.0) - 2026-07-21
+
+
+### Added
+
+- Added a kube context selector to the popup. When the `mirrord ui` server
+  supports it, you can pick which cluster context's sessions to view (and still
+  filter by namespace); older servers keep working unchanged.
+
+
+### Changed
+
+- Saving a manual header now also enables it, so the header is injected right
+  away without a separate toggle step.
+
 ## [0.5.2](https://github.com/metalbear-co/mirrord-browser/tree/0.5.2) - 2026-07-09
 
 
