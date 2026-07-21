@@ -209,43 +209,38 @@ export function useHeaderRules() {
             ...(trimmedScope ? { scope: trimmedScope } : {}),
         };
 
-        // Save is non-destructive: only refresh the active DNR rule
-        // if injection is already turned on. If the toggle is off,
-        // saving persists to storage without activating.
         const wasActive = rules.length > 0;
 
-        if (wasActive) {
-            const newRules = buildDnrRule(
-                headerName.trim(),
-                headerValue.trim(),
-                scope.trim() || undefined
-            );
+        const newRules = buildDnrRule(
+            headerName.trim(),
+            headerValue.trim(),
+            trimmedScope || undefined
+        );
 
-            try {
-                const existingRules = await getDynamicRules();
-                await updateDynamicRules({
-                    removeRuleIds: existingRules.map((r) => r.id),
-                    addRules: newRules,
-                });
-                await storageRemove([
-                    STORAGE_KEYS.JOINED_KEY,
-                    STORAGE_KEYS.JOINED_SESSION_NAME,
-                ]);
-            } catch (e) {
-                const msg =
-                    e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
-                setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
-                setSaveState('idle');
-                capture('extension_error', {
-                    action: 'save',
-                    step: 'update_rules',
-                    error: msg,
-                });
-                emitUserBlocked('header_rule_save_failed', 'user_action', {
-                    error: msg,
-                });
-                return;
-            }
+        try {
+            const existingRules = await getDynamicRules();
+            await updateDynamicRules({
+                removeRuleIds: existingRules.map((r) => r.id),
+                addRules: newRules,
+            });
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+            ]);
+        } catch (e) {
+            const msg =
+                e instanceof Error ? e.message : STRINGS.ERR_SAVE_FAILED;
+            setError(`${STRINGS.ERR_SAVE_FAILED}: ${msg}`);
+            setSaveState('idle');
+            capture('extension_error', {
+                action: 'save',
+                step: 'update_rules',
+                error: msg,
+            });
+            emitUserBlocked('header_rule_save_failed', 'user_action', {
+                error: msg,
+            });
+            return;
         }
 
         try {

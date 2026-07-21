@@ -86,6 +86,9 @@ describe('useHeaderRules analytics', () => {
             (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
                 cb({})
         );
+        mockStorageRemove.mockImplementation(
+            (_keys: string[], cb: () => void) => cb()
+        );
     });
 
     describe('handleToggle', () => {
@@ -231,11 +234,13 @@ describe('useHeaderRules analytics', () => {
             );
         });
 
-        it('does not update DNR rules when no rules are active (toggle off)', async () => {
-            // No active rules, no config — toggle is off
+        it('activates the rule when saving while no rules are active (toggle off)', async () => {
             mockGetDynamicRules.mockImplementation(
                 (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
                     cb([])
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
             );
             mockStorageSet.mockImplementation(
                 (_data: unknown, cb: () => void) => cb()
@@ -252,7 +257,7 @@ describe('useHeaderRules analytics', () => {
                 await Promise.resolve();
             });
 
-            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockUpdateDynamicRules).toHaveBeenCalled();
             expect(mockStorageSet).toHaveBeenCalledTimes(1);
             expect(mockCapture).toHaveBeenCalledWith(
                 'extension_header_rule_saved',
@@ -321,27 +326,6 @@ describe('useHeaderRules analytics', () => {
         });
 
         it('sets error on update_rules failure', async () => {
-            // Must have an active rule for the update path to run on save.
-            const activeRule: chrome.declarativeNetRequest.Rule = {
-                id: 1,
-                priority: 1,
-                action: {
-                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
-                    requestHeaders: [
-                        {
-                            header: 'X-Test',
-                            operation:
-                                'set' as chrome.declarativeNetRequest.HeaderOperation,
-                            value: 'val',
-                        },
-                    ],
-                },
-                condition: { urlFilter: '|' },
-            };
-            mockGetDynamicRules.mockImplementation(
-                (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
-                    cb([activeRule])
-            );
             mockUpdateDynamicRules.mockImplementation(
                 (_opts: unknown, cb: () => void) => {
                     (
