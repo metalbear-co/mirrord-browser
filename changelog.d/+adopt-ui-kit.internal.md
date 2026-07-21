@@ -1,1 +1,0 @@
-Adopted the shared @metalbear/ui strictness contract: the tsconfig and ESLint configs now extend the published bases instead of maintaining inline copies, the kit is bumped to 0.2.4, the local ErrorBoundary became a thin wrapper over the kit component (keeping crash analytics), and the unused eslint-plugin-ts dependency was removed.
