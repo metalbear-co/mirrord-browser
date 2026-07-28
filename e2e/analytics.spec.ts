@@ -87,6 +87,13 @@ async function getCapturedEvents(page: Page): Promise<string[]> {
     });
 }
 
+async function getCapturedEventDetails(page: Page): Promise<CapturedEvent[]> {
+    return page.evaluate(() => {
+        const analyticsWindow = window as CapturedAnalyticsWindow;
+        return analyticsWindow.__captured_analytics__ ?? [];
+    });
+}
+
 async function openPopupWithSpy(
     context: BrowserContext,
     extensionId: string
@@ -126,6 +133,44 @@ test.describe('Analytics events', () => {
 
         const events = await getCapturedEvents(page);
         expect(events).toContain('extension_header_rule_saved');
+    });
+
+    test('visibility episodes pair popup closed events with opened events', async ({
+        context,
+        extensionId,
+    }) => {
+        const page = await openPopupWithSpy(context, extensionId);
+        await expect(page.getByText('mirrord', { exact: true })).toBeVisible();
+
+        const setVisibility = (state: 'hidden' | 'visible') =>
+            page.evaluate((visibility) => {
+                Object.defineProperty(document, 'visibilityState', {
+                    configurable: true,
+                    get: () => visibility,
+                });
+                document.dispatchEvent(new Event('visibilitychange'));
+            }, state);
+
+        for (let i = 0; i < 3; i++) {
+            await setVisibility('hidden');
+            await setVisibility('visible');
+        }
+
+        const events = await getCapturedEventDetails(page);
+        const opened = events.filter(
+            (e) => e.event === 'extension_popup_opened'
+        );
+        const closed = events.filter(
+            (e) => e.event === 'extension_popup_closed'
+        );
+        expect(closed).toHaveLength(3);
+        expect(opened).toHaveLength(4);
+        expect(
+            opened.filter((e) => e.properties['resumed'] === true)
+        ).toHaveLength(3);
+        for (const event of closed) {
+            expect(typeof event.properties['duration_ms']).toBe('number');
+        }
     });
 
     test('removing a header rule sends extension_header_rule_removed event', async ({

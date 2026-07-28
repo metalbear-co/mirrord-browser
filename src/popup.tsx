@@ -21,26 +21,15 @@ import type { ThemePref } from './types';
 import { SessionsView, ManualSetup } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
-import { capture, captureBeacon, optOutReady } from './analytics';
+import { trackPopupLifecycle, type PopupSurface } from './popupLifecycle';
 import { STRINGS, TAB, type TabId } from './constants';
 import { STORAGE_KEYS } from './types';
 
-const popupOpenedAt = Date.now();
-const surface: 'side_panel' | 'popup_fallback' =
+const surface: PopupSurface =
     typeof (chrome as { sidePanel?: unknown }).sidePanel === 'undefined'
         ? 'popup_fallback'
         : 'side_panel';
-void optOutReady.then(() => capture('extension_popup_opened', { surface }));
-
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden') {
-        return;
-    }
-    captureBeacon('extension_popup_closed', {
-        duration_ms: Date.now() - popupOpenedAt,
-        surface,
-    });
-});
+trackPopupLifecycle(surface);
 
 export function Popup() {
     const headerRules = useHeaderRules();
