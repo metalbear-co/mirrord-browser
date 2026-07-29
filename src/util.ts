@@ -70,6 +70,26 @@ export function parseRules(
     }));
 }
 
+const HEADER_NAME_RE = /^[!#$%&'*+\-.^_`|~A-Za-z0-9]+$/;
+
+export function isValidHeaderName(name: string): boolean {
+    return HEADER_NAME_RE.test(name);
+}
+
+const CHAR_TAB = 0x09;
+const CHAR_SPACE = 0x20;
+const CHAR_DELETE = 0x7f;
+
+export function isValidHeaderValue(value: string): boolean {
+    for (const ch of value) {
+        const code = ch.codePointAt(0) ?? 0;
+        if ((code < CHAR_SPACE && code !== CHAR_TAB) || code === CHAR_DELETE) {
+            return false;
+        }
+    }
+    return true;
+}
+
 export function buildDnrRule(
     header: string,
     value: string,
