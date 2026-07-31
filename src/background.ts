@@ -5,6 +5,7 @@ import {
     getDynamicRules,
     refreshIconIndicator,
     sessionInjectionPair,
+    MATCH_ALL_URL_FILTER,
     storageGet,
     storageRemove,
     storageSet,
@@ -19,10 +20,12 @@ import {
     armCanary,
     cancelCanary,
     emptyObservation,
+    noteRequestSeen,
     notifyHeaderObserved,
     recordRequest,
     rotateBuckets,
     setHeaderName,
+    type CanaryFlow,
     type HeaderObservation,
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
@@ -93,12 +96,12 @@ chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
 
-void restoreObservation().then(loadHeaderName);
+void restoreObservation().then(() => loadHeaderName());
 chrome.runtime.onStartup.addListener(() => {
-    void restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
 chrome.runtime.onInstalled.addListener(() => {
-    void restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
 
 const RULE_TRIGGERING_KEYS: readonly string[] = [
@@ -113,12 +116,17 @@ chrome.storage.onChanged.addListener((changes, area) => {
         return;
     }
     if (RULE_TRIGGERING_KEYS.some((key) => key in changes)) {
-        loadHeaderName();
+        loadHeaderName(
+            changes[STORAGE_KEYS.JOINED_KEY]?.newValue
+                ? 'session_monitor'
+                : 'header_injector'
+        );
     }
 });
 
 chrome.webRequest.onSendHeaders.addListener(
     (details) => {
+        noteRequestSeen();
         if (!observation.headerName) {
             return;
         }
@@ -296,7 +304,6 @@ export async function handleJoin(key: string) {
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
         });
-        armCanary({ headerName: header, flow: 'session_monitor' });
         emitUserSucceeded('joined', 'user_action', {
             key,
             resolved: target ? 'operator' : 'key_convention',
@@ -386,9 +393,14 @@ function refreshIcon() {
     });
 }
 
-function loadHeaderName() {
+// `armFlow` is set only when a storage write changed the rule, i.e. the user just
+// joined a session or saved a header. The canary has to be armed here rather than
+// at those call sites: the popup is a separate context from this service worker,
+// so a canary armed there can never see `notifyHeaderObserved` and always expires.
+function loadHeaderName(armFlow?: CanaryFlow) {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
         let headerName = '';
+        let scoped = false;
         for (const rule of rules) {
             if (
                 rule.action.type ===
@@ -397,6 +409,7 @@ function loadHeaderName() {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;
+                    scoped = rule.condition.urlFilter !== MATCH_ALL_URL_FILTER;
                     break;
                 }
             }
@@ -405,6 +418,13 @@ function loadHeaderName() {
         if (next !== observation) {
             observation = next;
             persistObservation();
+        }
+        if (armFlow) {
+            if (headerName) {
+                armCanary({ headerName, flow: armFlow, scoped });
+            } else {
+                cancelCanary();
+            }
         }
         broadcast();
     });
