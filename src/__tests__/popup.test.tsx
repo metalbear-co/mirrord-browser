@@ -9,6 +9,7 @@ jest.mock('../analytics', () => ({
     optOutReady: Promise.resolve(),
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
+    initErrorTracking: jest.fn(),
 }));
 
 jest.mock('../headerObservation', () => {
