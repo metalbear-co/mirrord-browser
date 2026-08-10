@@ -185,6 +185,48 @@ test('fetches sessions on mount when backend is configured', async () => {
     expect(Object.keys(result.current.groupedFiltered)).toContain('k1');
 });
 
+test('does not start another session poll while one is still in flight', async () => {
+    jest.useFakeTimers();
+    let sessionCalls = 0;
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+        const u = urlToString(url);
+        if (u.includes('/health')) {
+            return Promise.resolve({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: () => Promise.resolve('ok'),
+                json: () => Promise.resolve({}),
+            } as unknown as Response);
+        }
+        if (u.includes('/api/operator-sessions')) {
+            sessionCalls += 1;
+            return new Promise<Response>(() => {
+                // Never settles, so the poll stays in flight across the next ticks.
+            });
+        }
+        return Promise.reject(new Error('unexpected fetch'));
+    });
+
+    const { unmount } = renderHook(() => useMirrordUi());
+    await act(async () => {
+        await Promise.resolve();
+    });
+    await act(async () => {
+        await Promise.resolve();
+    });
+    expect(sessionCalls).toBe(1);
+
+    await act(async () => {
+        jest.advanceTimersByTime(20_000);
+        await Promise.resolve();
+    });
+    expect(sessionCalls).toBe(1);
+
+    unmount();
+    jest.useRealTimers();
+});
+
 test('flags authFailed when the poller rejects the token (401)', async () => {
     global.fetch = jest.fn((url: RequestInfo | URL) => {
         const u = urlToString(url);
