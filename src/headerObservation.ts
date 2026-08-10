@@ -1,11 +1,11 @@
 export const HEADER_OBSERVATION_PORT = 'header-observation';
 
 export const RING_SECONDS = 60;
-export const RECENT_URL_LIMIT = 3;
+const RECENT_URL_LIMIT = 3;
 
 const MS_PER_SECOND = 1000;
 
-export interface RecentUrl {
+interface RecentUrl {
     url: string;
     method: string;
     at: number;
@@ -32,7 +32,7 @@ export function emptyObservation(
     };
 }
 
-export function alignToSecond(ms: number): number {
+function alignToSecond(ms: number): number {
     return Math.floor(ms / MS_PER_SECOND) * MS_PER_SECOND;
 }
 
@@ -104,7 +104,7 @@ let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let observed = false;
 
-export const CANARY_TIMEOUT_MS = 60_000;
+const CANARY_TIMEOUT_MS = 60_000;
 
 export function armCanary(arm: CanaryArm): void {
     cancelCanary();

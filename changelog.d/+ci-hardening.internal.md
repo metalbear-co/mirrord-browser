@@ -1,1 +1,0 @@
-Pinned the package manager and Node version (packageManager field, engines, .nvmrc), switched CI to the pinned pnpm via corepack with store caching, added Dependabot for monthly grouped dependency updates, and removed the ReviewPal workflow.
