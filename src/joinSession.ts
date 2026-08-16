@@ -4,6 +4,7 @@
 import {
     buildDnrRule,
     getDynamicRules,
+    headerRuleIds,
     refreshIconIndicator,
     sessionInjectionPair,
     storageGet,
@@ -62,7 +63,7 @@ export async function joinMatchingSession(
         (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
     const existing = await getDynamicRules();
     await updateDynamicRules({
-        removeRuleIds: existing.map((r) => r.id),
+        removeRuleIds: headerRuleIds(existing),
         addRules: buildDnrRule(header, value, scope),
     });
     await storageSet({

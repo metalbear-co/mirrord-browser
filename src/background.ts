@@ -3,6 +3,7 @@ import type { OperatorSessionSummary } from './types';
 import {
     buildDnrRule,
     getDynamicRules,
+    headerRuleIds,
     refreshIconIndicator,
     sessionInjectionPair,
     storageGet,
@@ -287,7 +288,7 @@ export async function handleJoin(key: string) {
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
         await updateDynamicRules({
-            removeRuleIds: existing.map((r) => r.id),
+            removeRuleIds: headerRuleIds(existing),
             addRules: buildDnrRule(header, value, scope),
         });
         await storageSet({
@@ -317,7 +318,7 @@ export async function handleLeave() {
     try {
         const existing = await getDynamicRules();
         await updateDynamicRules({
-            removeRuleIds: existing.map((r) => r.id),
+            removeRuleIds: headerRuleIds(existing),
             addRules: [],
         });
         await storageRemove([

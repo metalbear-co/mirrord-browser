@@ -16,9 +16,21 @@ export interface HeaderRule {
     scope: string;
 }
 
+// Redirect rules live in their own DNR id range so header flows (which wipe and
+// rebuild their rules wholesale) never clobber them, and vice versa.
+export const REDIRECT_RULE_ID_BASE = 1000;
+
+// A user-defined URL rewrite: requests matching the RE2 `from` pattern are
+// redirected to the `to` substitution (supports \1..\9 capture references).
+export interface RedirectRule {
+    from: string;
+    to: string;
+}
+
 export const STORAGE_KEYS = {
     DEFAULTS: 'defaults',
     OVERRIDE: 'override',
+    REDIRECT_RULES: 'redirect_rules',
     ANALYTICS_OPT_OUT: 'analytics_opt_out',
     MIRRORD_UI_BACKEND: 'mirrord_ui_backend',
     MIRRORD_UI_TOKEN: 'mirrord_ui_token',

@@ -18,8 +18,8 @@ import mirrordIconLight from './assets/mirrord-icon-light.svg';
 import { Moon, Settings, Share2, Sun, Check } from 'lucide-react';
 import { loadTheme, saveTheme, resolveDark } from './theme';
 import type { ThemePref } from './types';
-import { SessionsView, ManualSetup } from './components';
-import { useHeaderRules } from './hooks';
+import { SessionsView, ManualSetup, RedirectsSection } from './components';
+import { useHeaderRules, useRedirectRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
 import {
     capture,
@@ -51,6 +51,7 @@ document.addEventListener('visibilitychange', () => {
 
 export function Popup() {
     const headerRules = useHeaderRules();
+    const redirectRules = useRedirectRules();
     const mirrordUi = useMirrordUi();
 
     // Sessions sharing a key are presented as one group, so count distinct keys
@@ -200,6 +201,7 @@ export function Popup() {
                         <ManualSetup headerRules={headerRules} />
                     </TabsContent>
                 </Tabs>
+                <RedirectsSection redirectRules={redirectRules} />
             </div>
         </TooltipProvider>
     );

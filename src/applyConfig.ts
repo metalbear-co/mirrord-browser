@@ -6,6 +6,7 @@
 import {
     buildDnrRule,
     getDynamicRules,
+    headerRuleIds,
     refreshIconIndicator,
     storageRemove,
     storageSet,
@@ -21,10 +22,7 @@ export async function applyHeaderConfig(
     const existing = await getDynamicRules();
     const rules = buildDnrRule(header, value, scope);
     await updateDynamicRules({
-        removeRuleIds: [
-            ...rules.map((r) => r.id),
-            ...existing.map((r) => r.id),
-        ],
+        removeRuleIds: [...rules.map((r) => r.id), ...headerRuleIds(existing)],
         addRules: rules,
     });
     // Replace any joined-session state and store under OVERRIDE so the user's saved defaults

@@ -9,3 +9,4 @@ export { ManualSetup } from './ManualSetup';
 export { StatusDot } from './StatusDot';
 export { NotConfiguredPrompt } from './NotConfiguredPrompt';
 export { OperatorUnavailableNote } from './OperatorUnavailableNote';
+export { RedirectsSection } from './RedirectsSection';

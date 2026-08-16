@@ -13,6 +13,7 @@ import { fetchOperatorSessions } from './hooks/useMirrordUi';
 import {
     buildDnrRule,
     getDynamicRules,
+    headerRuleIds,
     updateDynamicRules,
     storageGet,
     storageSet,
@@ -57,7 +58,7 @@ async function joinKey(
     const value = `mirrord-session=${key}`;
     const existing = await getDynamicRules();
     await updateDynamicRules({
-        removeRuleIds: existing.map((r) => r.id),
+        removeRuleIds: headerRuleIds(existing),
         addRules: buildDnrRule(header, value),
     });
     await storageSet({
