@@ -9,6 +9,8 @@ import {
     storageSet,
     storageRemove,
     buildShareUrl,
+    isValidHeaderName,
+    isValidHeaderValue,
 } from '../util';
 import type { Config, StoredConfig } from '../types';
 import { STORAGE_KEYS } from '../types';
@@ -38,6 +40,31 @@ export function useHeaderRules() {
     const [shareState, setShareState] = useState<ShareState>('idle');
 
     const canShare = !!headerName.trim() && !!headerValue.trim();
+
+    const validateHeader = useCallback(
+        (name: string, value: string, action: string): boolean => {
+            if (!isValidHeaderName(name)) {
+                setError(STRINGS.ERR_INVALID_HEADER_NAME);
+                capture('extension_error', {
+                    action,
+                    step: 'client_validation',
+                    error: 'invalid_header_name',
+                });
+                return false;
+            }
+            if (!isValidHeaderValue(value)) {
+                setError(STRINGS.ERR_INVALID_HEADER_VALUE);
+                capture('extension_error', {
+                    action,
+                    step: 'client_validation',
+                    error: 'invalid_header_value',
+                });
+                return false;
+            }
+            return true;
+        },
+        []
+    );
 
     const loadRules = useCallback(async () => {
         const chromeRules = await getDynamicRules();
@@ -104,6 +131,12 @@ export function useHeaderRules() {
             return;
         }
 
+        if (
+            !validateHeader(config.headerName, config.headerValue, 'activate')
+        ) {
+            return;
+        }
+
         const newRules = buildDnrRule(
             config.headerName,
             config.headerValue,
@@ -137,9 +170,10 @@ export function useHeaderRules() {
             });
             emitUserBlocked('header_rule_save_failed', 'user_action', {
                 error: msg,
+                action: 'activate',
             });
         }
-    }, [loadRules]);
+    }, [loadRules, validateHeader]);
 
     const handleRemoveAll = useCallback(async () => {
         setError(null);
@@ -195,8 +229,15 @@ export function useHeaderRules() {
     const handleSave = useCallback(async () => {
         setError(null);
 
-        if (!headerName.trim() || !headerValue.trim()) {
+        const trimmedName = headerName.trim();
+        const trimmedValue = headerValue.trim();
+
+        if (!trimmedName || !trimmedValue) {
             setError(STRINGS.ERR_HEADER_REQUIRED);
+            return;
+        }
+
+        if (!validateHeader(trimmedName, trimmedValue, 'save')) {
             return;
         }
 
@@ -204,16 +245,16 @@ export function useHeaderRules() {
 
         const trimmedScope = scope.trim();
         const override: StoredConfig = {
-            headerName: headerName.trim(),
-            headerValue: headerValue.trim(),
+            headerName: trimmedName,
+            headerValue: trimmedValue,
             ...(trimmedScope ? { scope: trimmedScope } : {}),
         };
 
         const wasActive = rules.length > 0;
 
         const newRules = buildDnrRule(
-            headerName.trim(),
-            headerValue.trim(),
+            trimmedName,
+            trimmedValue,
             trimmedScope || undefined
         );
 
@@ -239,6 +280,8 @@ export function useHeaderRules() {
             });
             emitUserBlocked('header_rule_save_failed', 'user_action', {
                 error: msg,
+                action: 'save',
+                step: 'update_rules',
             });
             return;
         }
@@ -257,6 +300,8 @@ export function useHeaderRules() {
             });
             emitUserBlocked('header_rule_save_failed', 'user_action', {
                 error: msg,
+                action: 'save',
+                step: 'storage_write',
             });
             return;
         }
@@ -269,9 +314,9 @@ export function useHeaderRules() {
             has_scope: !!scope.trim(),
             was_active: wasActive,
         });
-        armCanary({ headerName: headerName.trim(), flow: 'header_injector' });
+        armCanary({ headerName: trimmedName, flow: 'header_injector' });
         emitUserSucceeded('header_rule_saved', 'user_action');
-    }, [headerName, headerValue, scope, loadRules, rules]);
+    }, [headerName, headerValue, scope, loadRules, rules, validateHeader]);
 
     const handleReset = useCallback(async () => {
         setError(null);
@@ -284,6 +329,13 @@ export function useHeaderRules() {
 
         if (!defaults) {
             setError(STRINGS.ERR_NO_DEFAULTS);
+            setResetState('idle');
+            return;
+        }
+
+        if (
+            !validateHeader(defaults.headerName, defaults.headerValue, 'reset')
+        ) {
             setResetState('idle');
             return;
         }
@@ -343,7 +395,7 @@ export function useHeaderRules() {
         capture('extension_header_rule_reset');
         cancelCanary();
         emitUserSucceeded('header_rule_reset', 'user_action');
-    }, [loadRules]);
+    }, [loadRules, validateHeader]);
 
     const handleShare = useCallback(async () => {
         if (!canShare) {

@@ -6,6 +6,8 @@ import {
     buildShareUrl,
     sessionInjectionPair,
     aggregateSessions,
+    isValidHeaderName,
+    isValidHeaderValue,
 } from '../util';
 import type { OperatorSessionSummary } from '../types';
 import { decodeConfig } from '../config';
@@ -365,4 +367,40 @@ describe('aggregateSessions', () => {
         expect(agg.targets.sort()).toEqual(['deployment/web', 'targetless']);
         expect(agg.earliestCreatedAt).toBe('2026-07-13T00:00:00Z');
     });
+});
+
+describe('isValidHeaderName', () => {
+    it.each(['X-MB-Session', 'x_custom.header', 'X-Debug-1', 'authorization'])(
+        'accepts token name %s',
+        (name) => {
+            expect(isValidHeaderName(name)).toBe(true);
+        }
+    );
+
+    it.each([
+        'X-User: alice',
+        'my header',
+        'X-User:',
+        ':authority',
+        'h\u00e9ader',
+        'name\nname',
+    ])('rejects invalid name %s', (name) => {
+        expect(isValidHeaderName(name)).toBe(false);
+    });
+});
+
+describe('isValidHeaderValue', () => {
+    it.each(['alice', 'token=abc; Path=/', 'a b c', 'v\tv', ''])(
+        'accepts value %s',
+        (value) => {
+            expect(isValidHeaderValue(value)).toBe(true);
+        }
+    );
+
+    it.each(['line1\nline2', 'a\rb', 'a\u0000b', 'a\u007fb'])(
+        'rejects control characters in %s',
+        (value) => {
+            expect(isValidHeaderValue(value)).toBe(false);
+        }
+    );
 });

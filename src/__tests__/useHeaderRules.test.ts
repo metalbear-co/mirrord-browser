@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import type { Config } from '../types';
+import { STRINGS } from '../constants';
 
 // Mock analytics module
 const mockCapture = jest.fn();
@@ -751,6 +752,152 @@ describe('useHeaderRules analytics', () => {
             });
 
             expect(result.current.hasStoredConfig).toBe(true);
+        });
+    });
+
+    describe('header validation', () => {
+        it('rejects a header name containing a colon without touching DNR', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-User: alice');
+                result.current.setHeaderValue('alice');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(STRINGS.ERR_INVALID_HEADER_NAME);
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'save',
+                step: 'client_validation',
+                error: 'invalid_header_name',
+            });
+        });
+
+        it('rejects a header name containing spaces', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('my header');
+                result.current.setHeaderValue('alice');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(STRINGS.ERR_INVALID_HEADER_NAME);
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+        });
+
+        it('rejects a header value containing a line break', async () => {
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-User');
+                result.current.setHeaderValue('line1\nline2');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(STRINGS.ERR_INVALID_HEADER_VALUE);
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+        });
+
+        it('saves normally once the name is corrected', async () => {
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+            mockStorageSet.mockImplementation(
+                (_data: unknown, cb: () => void) => cb()
+            );
+            const { result } = renderHook(() => useHeaderRules());
+
+            act(() => {
+                result.current.setHeaderName('X-User');
+                result.current.setHeaderValue('alice');
+            });
+
+            await act(async () => {
+                void result.current.handleSave();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBeNull();
+            expect(mockUpdateDynamicRules).toHaveBeenCalled();
+        });
+
+        it('blocks toggle-activate when the stored config name is invalid', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-User: alice',
+                            headerValue: 'alice',
+                        },
+                    })
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            await act(async () => {
+                void result.current.handleToggle();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(STRINGS.ERR_INVALID_HEADER_NAME);
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockCapture).toHaveBeenCalledWith('extension_error', {
+                action: 'activate',
+                step: 'client_validation',
+                error: 'invalid_header_name',
+            });
+        });
+
+        it('blocks reset when the stored defaults are invalid', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'bad name',
+                            headerValue: 'alice',
+                        },
+                    })
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                // Wait for initial load
+            });
+
+            await act(async () => {
+                void result.current.handleReset();
+                await Promise.resolve();
+            });
+
+            expect(result.current.error).toBe(STRINGS.ERR_INVALID_HEADER_NAME);
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+            expect(mockStorageRemove).not.toHaveBeenCalled();
+            expect(result.current.resetState).toBe('idle');
         });
     });
 });

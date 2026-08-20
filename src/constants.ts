@@ -99,6 +99,10 @@ export const STRINGS = {
     MSG_PATTERN_COUNT: (n: number) => `${n} pattern${n === 1 ? '' : 's'}`,
 
     ERR_HEADER_REQUIRED: 'Header name and value are required',
+    ERR_INVALID_HEADER_NAME:
+        'Header names cannot contain spaces or ":". Enter only the name here and put the value in its own field',
+    ERR_INVALID_HEADER_VALUE:
+        'Header values cannot contain line breaks or other control characters',
     ERR_REMOVE_RULE: 'Failed to remove rule',
     ERR_SAVE_FAILED: 'Failed to save',
     ERR_NO_DEFAULTS: 'No defaults available',
