@@ -4,6 +4,7 @@ import {
     parseRules,
     buildDnrRule,
     getDynamicRules,
+    headerRuleIds,
     updateDynamicRules,
     storageGet,
     storageSet,
@@ -113,7 +114,7 @@ export function useHeaderRules() {
         try {
             const existingRules = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existingRules),
                 addRules: newRules,
             });
             await storageRemove([
@@ -146,7 +147,7 @@ export function useHeaderRules() {
         try {
             const existingRules = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existingRules),
                 addRules: [],
             });
             await storageRemove([
@@ -220,7 +221,7 @@ export function useHeaderRules() {
         try {
             const existingRules = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existingRules),
                 addRules: newRules,
             });
             await storageRemove([
@@ -315,7 +316,7 @@ export function useHeaderRules() {
         try {
             const existingRules = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existingRules.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existingRules),
                 addRules: newRules,
             });
         } catch (e) {

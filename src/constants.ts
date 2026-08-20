@@ -98,6 +98,19 @@ export const STRINGS = {
     MSG_NO_SESSIONS_MATCH_QUERY: 'No sessions match your search.',
     MSG_PATTERN_COUNT: (n: number) => `${n} pattern${n === 1 ? '' : 's'}`,
 
+    LABEL_REDIRECTS_HEADING: 'URL redirects',
+    LABEL_REDIRECT_FROM: 'Redirect from pattern',
+    LABEL_REDIRECT_TO: 'Redirect to substitution',
+    LABEL_REMOVE_REDIRECT: 'Remove redirect',
+    PLACEHOLDER_REDIRECT_FROM: '^https://app-[^.]*\\.example\\.com/(.*)',
+    PLACEHOLDER_REDIRECT_TO: 'https://app-master.example.com/\\1',
+    BTN_ADD_REDIRECT: 'Add',
+    MSG_REDIRECT_COUNT: (n: number) => `${n} redirect${n === 1 ? '' : 's'}`,
+    MSG_REDIRECT_HINT:
+        'Rewrite matching URLs before the request is sent (RE2 pattern → substitution, \\1..\\9 for capture groups). Useful when the app links to per-env hosts that don’t exist while you work through mirrord.',
+    ERR_REDIRECT_REQUIRED: 'Both pattern and substitution are required',
+    ERR_REDIRECT_INVALID: 'Invalid redirect rule',
+
     ERR_HEADER_REQUIRED: 'Header name and value are required',
     ERR_REMOVE_RULE: 'Failed to remove rule',
     ERR_SAVE_FAILED: 'Failed to save',

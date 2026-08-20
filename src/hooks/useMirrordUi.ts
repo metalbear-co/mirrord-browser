@@ -21,6 +21,7 @@ import {
     storageSet,
     storageRemove,
     getDynamicRules,
+    headerRuleIds,
     updateDynamicRules,
     sessionInjectionPair,
     buildDnrRule,
@@ -529,7 +530,7 @@ export function useMirrordUi() {
             const { header, value } = sessionInjectionPair(target);
             const existing = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existing.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existing),
                 addRules: buildDnrRule(header, value, scopePatterns),
             });
             await storageSet({
@@ -553,7 +554,7 @@ export function useMirrordUi() {
     const clearJoin = useCallback(async () => {
         const existing = await getDynamicRules();
         await updateDynamicRules({
-            removeRuleIds: existing.map((r) => r.id),
+            removeRuleIds: headerRuleIds(existing),
             addRules: [],
         });
         await storageRemove([
@@ -584,7 +585,7 @@ export function useMirrordUi() {
         if (header && value) {
             const existing = await getDynamicRules();
             await updateDynamicRules({
-                removeRuleIds: existing.map((r) => r.id),
+                removeRuleIds: headerRuleIds(existing),
                 addRules: buildDnrRule(header, value, dedup),
             });
         }

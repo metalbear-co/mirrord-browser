@@ -1,0 +1,1 @@
+Added URL redirect rules: rewrite matching request URLs (RE2 pattern → substitution) before they are sent, e.g. to map per-env hostnames the app builds from the injected header back onto a host that exists. Managed from a new "URL redirects" section in the popup; header save/join/leave flows no longer touch redirect rules.

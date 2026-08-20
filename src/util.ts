@@ -1,8 +1,13 @@
 import RandExp from 'randexp';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import type { Config, HeaderRule, OperatorSessionSummary } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import type {
+    Config,
+    HeaderRule,
+    OperatorSessionSummary,
+    RedirectRule,
+} from './types';
+import { ALL_RESOURCE_TYPES, REDIRECT_RULE_ID_BASE } from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -96,6 +101,38 @@ export function buildDnrRule(
         },
         condition: {
             urlFilter,
+            resourceTypes: ALL_RESOURCE_TYPES,
+        },
+    }));
+}
+
+export function isRedirectDnrRule(
+    rule: chrome.declarativeNetRequest.Rule
+): boolean {
+    return rule.id >= REDIRECT_RULE_ID_BASE;
+}
+
+// Ids of the header-injection rules only. Header flows replace their rules
+// wholesale; passing this (instead of every existing id) to removeRuleIds keeps
+// redirect rules intact across save/join/leave/reset.
+export function headerRuleIds(
+    rules: chrome.declarativeNetRequest.Rule[]
+): number[] {
+    return rules.filter((r) => !isRedirectDnrRule(r)).map((r) => r.id);
+}
+
+export function buildRedirectDnrRules(
+    redirects: RedirectRule[]
+): chrome.declarativeNetRequest.Rule[] {
+    return redirects.map((redirect, idx) => ({
+        id: REDIRECT_RULE_ID_BASE + idx,
+        priority: 1,
+        action: {
+            type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
+            redirect: { regexSubstitution: redirect.to },
+        },
+        condition: {
+            regexFilter: redirect.from,
             resourceTypes: ALL_RESOURCE_TYPES,
         },
     }));

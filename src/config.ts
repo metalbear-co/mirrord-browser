@@ -1,5 +1,5 @@
 import '@metalbear/ui/styles.css';
-import { refreshIconIndicator } from './util';
+import { headerRuleIds, refreshIconIndicator } from './util';
 import type { Config, StoredConfig } from './types';
 import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
@@ -142,7 +142,7 @@ function setHeaderRule(
                 {
                     removeRuleIds: rules
                         .map(({ id }) => id)
-                        .concat(existingRules.map((rule) => rule.id)),
+                        .concat(headerRuleIds(existingRules)),
                     addRules: rules,
                 },
                 () => {
