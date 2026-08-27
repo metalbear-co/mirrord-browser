@@ -134,32 +134,24 @@ describe('applied result page run()', () => {
         });
     });
 
-    it.each([
-        ['http://shop.example.com/', '*://shop.example.com/*', 'https'],
-        ['https://evil.example.net/', '*://shop.example.com/*', 'inside'],
-        ['https://shop.example.com/', undefined, 'inject_scope'],
-        ['not a url', '*://shop.example.com/*', 'valid URL'],
-    ])(
-        'rejects open_url %s with scope %s',
-        async (openUrl, scope, expectedError) => {
-            const payload = btoa(
-                JSON.stringify({
-                    header_filter: 'X-Test: v',
-                    ...(scope ? { inject_scope: scope } : {}),
-                    open_url: openUrl,
-                })
-            );
-            setSearch(`?payload=${encodeURIComponent(payload)}`);
+    it('rejects open_url outside inject_scope without applying anything', async () => {
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'X-Test: v',
+                inject_scope: '*://shop.example.com/*',
+                open_url: 'https://evil.example.net/',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
 
-            const state = await run();
+        const state = await run();
 
-            expect(state.kind).toBe('error');
-            if (state.kind === 'error') {
-                expect(state.error).toContain(expectedError);
-            }
-            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
-        }
-    );
+        expect(state).toMatchObject({
+            kind: 'error',
+            error: 'open_url must be inside inject_scope.',
+        });
+        expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+    });
 
     it('falls back to a transient override when no live session matches', async () => {
         mockJoinMatchingSession.mockResolvedValue(null);

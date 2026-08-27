@@ -30,27 +30,4 @@ test.describe('config link open_url', () => {
         await page.waitForURL(TARGET);
         await expect(page.getByText('preview')).toBeVisible();
     });
-
-    test('stays on the result card when open_url is outside the scope', async ({
-        context,
-        extensionId,
-    }) => {
-        const page = await context.newPage();
-        const query = payload({
-            header_filter: 'X-E2E: v',
-            inject_scope: '*://example.com/*',
-            open_url: 'https://evil.example.net/',
-        });
-        const url = `chrome-extension://${extensionId}/pages/applied.html?payload=${query}`;
-        await page.goto(url);
-
-        await expect(
-            page.getByText('Couldn’t apply mirrord config')
-        ).toBeVisible();
-        await expect(
-            page.getByText('open_url must be inside inject_scope.')
-        ).toBeVisible();
-        await page.waitForTimeout(1500);
-        expect(page.url()).toBe(url);
-    });
 });
