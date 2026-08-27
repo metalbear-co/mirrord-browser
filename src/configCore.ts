@@ -66,18 +66,6 @@ export function decodeConfig(encoded: string): Config {
  * @param pattern a regex pattern for HTTP headers
  */
 /**
- * Whether `url` falls inside a scope. Scopes are written in the `*://host/*` match-pattern
- * form, which `URLPattern` parses natively; a scope it cannot parse never matches.
- */
-export function urlMatchesScope(url: string, scope: string): boolean {
-    try {
-        return new URLPattern(scope.trim()).test(url);
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Validate the page a config link wants to open once its header is applied. The link is served
  * from metalbear.com, so an unconstrained redirect would let anyone dress up an arbitrary site
  * as a mirrord preview: only https, and only a URL the injected header actually reaches.
@@ -101,7 +89,7 @@ export function resolveOpenUrl(
     if (!scope) {
         throw new Error('open_url requires an inject_scope.');
     }
-    if (!urlMatchesScope(parsed.href, scope)) {
+    if (!new URLPattern(scope.trim()).test(parsed.href)) {
         throw new Error('open_url must be inside inject_scope.');
     }
     return parsed.href;
