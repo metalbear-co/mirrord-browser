@@ -11,6 +11,7 @@ import {
     isRegex,
     parseHeader,
     promptForValidHeader,
+    resolveOpenUrl,
 } from './configCore';
 import { applyHeaderConfig } from './applyConfig';
 import { joinMatchingSession } from './joinSession';
@@ -32,8 +33,11 @@ export type AppliedState =
           value: string;
           scope?: string;
           joinedKey?: string;
+          openUrl?: string;
       }
     | { kind: 'error'; error: string; input?: string };
+
+const OPEN_URL_DELAY_MS = 800;
 
 /** Decode the `?payload=` query, install the rule, and return the outcome. */
 export async function run(): Promise<AppliedState> {
@@ -46,6 +50,7 @@ export async function run(): Promise<AppliedState> {
     let header: string;
     let value: string;
     let scope: string | undefined;
+    let openUrl: string | undefined;
     try {
         const config = decodeConfig(payload);
         if (!config.header_filter) {
@@ -56,6 +61,7 @@ export async function run(): Promise<AppliedState> {
             : config.header_filter;
         ({ key: header, value } = parseHeader(headerLine));
         scope = config.inject_scope;
+        openUrl = resolveOpenUrl(config.open_url, scope);
     } catch (err) {
         return {
             kind: 'error',
@@ -75,6 +81,7 @@ export async function run(): Promise<AppliedState> {
         if (joinedKey) {
             capture('extension_config_received', {
                 has_scope: !!scope,
+                has_open_url: !!openUrl,
                 source: 'web_link',
                 joined_session: true,
             });
@@ -88,12 +95,14 @@ export async function run(): Promise<AppliedState> {
                 value,
                 ...(scope !== undefined ? { scope } : {}),
                 joinedKey,
+                ...(openUrl !== undefined ? { openUrl } : {}),
             };
         }
 
         await applyHeaderConfig(header, value, scope);
         capture('extension_config_received', {
             has_scope: !!scope,
+            has_open_url: !!openUrl,
             source: 'web_link',
         });
         emitUserSucceeded('configured', 'user_action', { source: 'web_link' });
@@ -102,6 +111,7 @@ export async function run(): Promise<AppliedState> {
             header,
             value,
             ...(scope !== undefined ? { scope } : {}),
+            ...(openUrl !== undefined ? { openUrl } : {}),
         };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -120,10 +130,29 @@ function AppliedPage() {
         void run().then(setState);
     }, []);
 
+    const openUrl = state.kind === 'done' ? state.openUrl : undefined;
+    useEffect(() => {
+        if (!openUrl) {
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            window.location.replace(openUrl);
+        }, OPEN_URL_DELAY_MS);
+        return () => window.clearTimeout(timer);
+    }, [openUrl]);
+
     return (
         <div className="mb-card">
             {state.kind === 'loading' && (
                 <p className="mb-text">{STRINGS.MSG_APPLYING_CONFIG}</p>
+            )}
+
+            {openUrl && (
+                <p className="mb-text">
+                    {STRINGS.MSG_OPENING}{' '}
+                    <code className="mb-code">{openUrl}</code>
+                    {STRINGS.PUNCT_PERIOD}
+                </p>
             )}
 
             {state.kind === 'done' && state.joinedKey && (

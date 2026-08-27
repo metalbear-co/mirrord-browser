@@ -114,6 +114,7 @@ export const STRINGS = {
         'Help improve mirrord by sending anonymous usage data.',
 
     MSG_APPLYING_CONFIG: 'Applying mirrord config…',
+    MSG_OPENING: 'Opening',
     MSG_JOINED_LIVE_SESSION: 'Joined live session',
     MSG_ROUTING_TO_SESSION: 'Routing your traffic to session',
     MSG_BY_INJECTING: 'by injecting',

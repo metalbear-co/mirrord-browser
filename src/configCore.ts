@@ -65,6 +65,66 @@ export function decodeConfig(encoded: string): Config {
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  */
+function escapeRegex(text: string): string {
+    return text.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Loose reading of a declarativeNetRequest `urlFilter` as a regex: `*` matches anything, a
+ * leading `||` anchors to a domain or its subdomains, a leading or trailing `|` anchors the
+ * string. Anything more exotic errs toward not matching.
+ */
+export function urlMatchesScope(url: string, scope: string): boolean {
+    let pattern = scope.trim();
+    let prefix = '';
+    let suffix = '';
+    if (pattern.startsWith('||')) {
+        prefix = '^[a-z][a-z0-9+.-]*://([^/?#]*\\.)?';
+        pattern = pattern.slice(2);
+    } else if (pattern.startsWith('|')) {
+        prefix = '^';
+        pattern = pattern.slice(1);
+    }
+    if (pattern.endsWith('|')) {
+        suffix = '$';
+        pattern = pattern.slice(0, -1);
+    } else if (prefix.length > 1 && !pattern.endsWith('*')) {
+        suffix = '(?=[/:?#]|$)';
+    }
+    const body = pattern.split('*').map(escapeRegex).join('.*');
+    return new RegExp(prefix + body + suffix).test(url);
+}
+
+/**
+ * Validate the page a config link wants to open once its header is applied. The link is served
+ * from metalbear.com, so an unconstrained redirect would let anyone dress up an arbitrary site
+ * as a mirrord preview: only https, and only a URL the injected header actually reaches.
+ */
+export function resolveOpenUrl(
+    openUrl: string | undefined,
+    scope: string | undefined
+): string | undefined {
+    if (openUrl === undefined) {
+        return undefined;
+    }
+    let parsed: URL;
+    try {
+        parsed = new URL(openUrl);
+    } catch {
+        throw new Error('open_url is not a valid URL.');
+    }
+    if (parsed.protocol !== 'https:') {
+        throw new Error('open_url must use https.');
+    }
+    if (!scope) {
+        throw new Error('open_url requires an inject_scope.');
+    }
+    if (!urlMatchesScope(parsed.href, scope)) {
+        throw new Error('open_url must be inside inject_scope.');
+    }
+    return parsed.href;
+}
+
 export function promptForValidHeader(pattern: string): string {
     const regex = new RegExp(pattern);
     let header: string | null = null;

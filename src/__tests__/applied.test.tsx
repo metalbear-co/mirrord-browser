@@ -116,6 +116,51 @@ describe('applied result page run()', () => {
         );
     });
 
+    it('returns open_url when it is https and inside inject_scope', async () => {
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'baggage: mirrord-session=pr1',
+                inject_scope: '*://shop.example.com/*',
+                open_url: 'https://shop.example.com/cart',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state).toMatchObject({
+            kind: 'done',
+            openUrl: 'https://shop.example.com/cart',
+        });
+    });
+
+    it.each([
+        ['http://shop.example.com/', '*://shop.example.com/*', 'https'],
+        ['https://evil.example.net/', '*://shop.example.com/*', 'inside'],
+        ['https://shop.example.com/', undefined, 'inject_scope'],
+        ['not a url', '*://shop.example.com/*', 'valid URL'],
+    ])(
+        'rejects open_url %s with scope %s',
+        async (openUrl, scope, expectedError) => {
+            const payload = btoa(
+                JSON.stringify({
+                    header_filter: 'X-Test: v',
+                    ...(scope ? { inject_scope: scope } : {}),
+                    open_url: openUrl,
+                })
+            );
+            setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+            const state = await run();
+
+            expect(state.kind).toBe('error');
+            if (state.kind === 'error') {
+                expect(state.error).toContain(expectedError);
+            }
+            expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+        }
+    );
+
     it('falls back to a transient override when no live session matches', async () => {
         mockJoinMatchingSession.mockResolvedValue(null);
         const payload = btoa(
