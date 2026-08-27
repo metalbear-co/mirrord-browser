@@ -147,14 +147,6 @@ function AppliedPage() {
                 <p className="mb-text">{STRINGS.MSG_APPLYING_CONFIG}</p>
             )}
 
-            {openUrl && (
-                <p className="mb-text">
-                    {STRINGS.MSG_OPENING}{' '}
-                    <code className="mb-code">{openUrl}</code>
-                    {STRINGS.PUNCT_PERIOD}
-                </p>
-            )}
-
             {state.kind === 'done' && state.joinedKey && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--success">
@@ -213,6 +205,14 @@ function AppliedPage() {
                         </>
                     )}
                 </>
+            )}
+
+            {openUrl && (
+                <p className="mb-text">
+                    {STRINGS.MSG_OPENING}{' '}
+                    <code className="mb-code">{openUrl}</code>
+                    {STRINGS.PUNCT_PERIOD}
+                </p>
             )}
         </div>
     );
