@@ -65,34 +65,16 @@ export function decodeConfig(encoded: string): Config {
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  */
-function escapeRegex(text: string): string {
-    return text.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
- * Loose reading of a declarativeNetRequest `urlFilter` as a regex: `*` matches anything, a
- * leading `||` anchors to a domain or its subdomains, a leading or trailing `|` anchors the
- * string. Anything more exotic errs toward not matching.
+ * Whether `url` falls inside a scope. Scopes are written in the `*://host/*` match-pattern
+ * form, which `URLPattern` parses natively; a scope it cannot parse never matches.
  */
 export function urlMatchesScope(url: string, scope: string): boolean {
-    let pattern = scope.trim();
-    let prefix = '';
-    let suffix = '';
-    if (pattern.startsWith('||')) {
-        prefix = '^[a-z][a-z0-9+.-]*://([^/?#]*\\.)?';
-        pattern = pattern.slice(2);
-    } else if (pattern.startsWith('|')) {
-        prefix = '^';
-        pattern = pattern.slice(1);
+    try {
+        return new URLPattern(scope.trim()).test(url);
+    } catch {
+        return false;
     }
-    if (pattern.endsWith('|')) {
-        suffix = '$';
-        pattern = pattern.slice(0, -1);
-    } else if (prefix.length > 1 && !pattern.endsWith('*')) {
-        suffix = '(?=[/:?#]|$)';
-    }
-    const body = pattern.split('*').map(escapeRegex).join('.*');
-    return new RegExp(prefix + body + suffix).test(url);
 }
 
 /**

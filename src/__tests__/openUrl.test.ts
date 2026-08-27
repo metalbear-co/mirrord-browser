@@ -5,13 +5,13 @@ import { resolveOpenUrl, urlMatchesScope } from '../configCore';
 describe('urlMatchesScope', () => {
     it.each([
         ['https://shop.example.com/cart', '*://shop.example.com/*', true],
-        ['https://shop.example.com/', '||example.com', true],
-        ['https://api.shop.example.com/x', '||example.com', true],
-        ['https://example.com.evil.net/', '||example.com', false],
-        ['https://shop.example.com/', '|https://shop.example.com/|', true],
-        ['https://shop.example.com/x', '|https://shop.example.com/|', false],
-        ['https://other.example.com/', '*://shop.example.com/*', false],
         ['https://shop.example.com/', '*://*.example.com/*', true],
+        ['https://other.example.com/', '*://shop.example.com/*', false],
+        ['https://example.com.evil.net/', '*://example.com/*', false],
+        ['https://shop.example.com/', 'https://shop.example.com/', true],
+        ['https://shop.example.com/x', 'https://shop.example.com/', false],
+        ['https://shop.example.com/', '||example.com', false],
+        ['https://shop.example.com/', '', false],
     ])('%s against %s -> %s', (url, scope, expected) => {
         expect(urlMatchesScope(url, scope)).toBe(expected);
     });
