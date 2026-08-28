@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import groupBy from 'lodash.groupby';
 import { STORAGE_KEYS } from '../types';
 import type {
+    ClusterSession,
     Config,
     ContextsResponse,
     KubeContext,
-    OperatorSessionSummary,
     OperatorSessionsResponse,
+    OperatorSessionsV1Response,
     OperatorSessionsV2Response,
     OperatorWatchStatus,
     SessionNotification,
@@ -25,6 +26,7 @@ import {
     sessionInjectionPair,
     buildDnrRule,
     buildShareUrl as buildConfigShareUrl,
+    toClusterSessions,
 } from '../util';
 import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
@@ -49,7 +51,9 @@ export async function fetchOperatorSessions(
         );
         if (retry.ok) {
             try {
-                return (await retry.json()) as OperatorSessionsResponse;
+                return mapV1ToInternal(
+                    (await retry.json()) as OperatorSessionsV1Response
+                );
             } catch {}
         }
         const e = new Error(
@@ -65,7 +69,23 @@ export async function fetchOperatorSessions(
         (e as Error & { status?: number }).status = resp.status;
         throw e;
     }
-    return (await resp.json()) as OperatorSessionsResponse;
+    return mapV1ToInternal((await resp.json()) as OperatorSessionsV1Response);
+}
+
+/**
+ * v1 or older operator has no dedicated preview list. Its previews therefore only ever
+ * arrive folded into `sessions`, which `toClusterSessions` includes on the fallback path if
+ * it's not already included.
+ */
+function mapV1ToInternal(
+    v1: OperatorSessionsV1Response
+): OperatorSessionsResponse {
+    const sessions = toClusterSessions(v1.sessions, undefined);
+    return {
+        sessions,
+        by_key: groupByKey(sessions),
+        watch_status: v1.watch_status,
+    };
 }
 
 /**
@@ -102,9 +122,10 @@ function mapV2ToInternal(
         v2.status === 'available'
             ? { status: 'watching' }
             : { status: 'unavailable', reason: v2.reason ?? '' };
+    const sessions = toClusterSessions(v2.sessions, v2.previewSessions);
     return {
-        sessions: v2.sessions,
-        by_key: groupByKey(v2.sessions),
+        sessions,
+        by_key: groupByKey(sessions),
         watch_status,
     };
 }
@@ -231,8 +252,8 @@ function hasWatchedChange(
 }
 
 function groupByKey(
-    sessions: OperatorSessionSummary[]
-): Record<string, OperatorSessionSummary[]> {
+    sessions: ClusterSession[]
+): Record<string, ClusterSession[]> {
     return groupBy(sessions, (s) => s.key);
 }
 
@@ -507,9 +528,7 @@ export function useMirrordUi() {
         return ['', ...Array.from(set).sort()];
     }, [sessions]);
 
-    const groupedFiltered = useMemo<
-        Record<string, OperatorSessionSummary[]>
-    >(() => {
+    const groupedFiltered = useMemo<Record<string, ClusterSession[]>>(() => {
         if (!sessions) {
             return {};
         }
@@ -606,7 +625,10 @@ export function useMirrordUi() {
             const target = sessions?.sessions.find((s) => s.key === key);
             const { header, value } = sessionInjectionPair({
                 key,
-                httpFilter: target?.httpFilter ?? null,
+                httpFilter:
+                    target?.kind === 'exec'
+                        ? (target.httpFilter ?? null)
+                        : null,
             });
             const config: Config = {
                 header_filter: `${header}: ${value}`,
@@ -658,11 +680,15 @@ function applyNotification(
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_ADDED ||
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_UPDATED
     ) {
-        const idx = current.sessions.findIndex((s) => s.id === msg.session.id);
+        const [session] = toClusterSessions([msg.session], undefined);
+        if (!session) {
+            return current;
+        }
+        const idx = current.sessions.findIndex((s) => s.id === session.id);
         const next =
             idx === -1
-                ? [...current.sessions, msg.session]
-                : current.sessions.map((s, i) => (i === idx ? msg.session : s));
+                ? [...current.sessions, session]
+                : current.sessions.map((s, i) => (i === idx ? session : s));
         return rebuild(next, current.watch_status);
     }
     if (msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED) {
@@ -673,7 +699,7 @@ function applyNotification(
 }
 
 function rebuild(
-    sessions: OperatorSessionSummary[],
+    sessions: ClusterSession[],
     watch_status: OperatorWatchStatus
 ): OperatorSessionsResponse {
     return { sessions, by_key: groupByKey(sessions), watch_status };

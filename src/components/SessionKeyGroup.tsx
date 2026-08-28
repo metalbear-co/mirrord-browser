@@ -7,11 +7,15 @@ import {
     CardFooter,
     Separator,
 } from '@metalbear/ui';
-import type { OperatorSessionSummary } from '../types';
+import type { ClusterSession, PreviewSession } from '../types';
 import {
     aggregateSessions,
     formatRelativeTime,
+    previewPhaseLabel,
+    previewPhaseTone,
+    previewStatusLine,
     targetDisplayName,
+    type PreviewTone,
     type SessionGroupAggregate,
 } from '../util';
 import { STRINGS } from '../constants';
@@ -20,13 +24,23 @@ import { StatusDot } from './StatusDot';
 
 interface Props {
     groupKey: string;
-    sessions: OperatorSessionSummary[];
+    sessions: ClusterSession[];
     joined: boolean;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
 }
 
 const MAX_TARGETS = 4;
+
+const PREVIEW_DOT_TONE: Record<
+    PreviewTone,
+    'active' | 'warning' | 'inactive' | 'destructive'
+> = {
+    live: 'active',
+    pending: 'warning',
+    idle: 'inactive',
+    failed: 'destructive',
+};
 
 const TRUNCATE_STYLE: React.CSSProperties = {
     overflow: 'hidden',
@@ -37,12 +51,14 @@ const TRUNCATE_STYLE: React.CSSProperties = {
 function GroupHeader({
     groupKey,
     joined,
-    isPreview,
+    preview,
 }: {
     groupKey: string;
     joined: boolean;
-    isPreview: boolean;
+    preview: PreviewSession | null;
 }) {
+    const phaseTone = preview && previewPhaseTone(preview);
+    const phaseLabel = preview && previewPhaseLabel(preview);
     return (
         <div
             className="border-border flex items-center gap-2 border-b"
@@ -66,17 +82,29 @@ function GroupHeader({
             >
                 {groupKey}
             </span>
-            {isPreview && (
+            {preview && (
                 <Badge
                     variant="outline"
                     className="shrink-0 font-mono"
                     style={{
+                        gap: 5,
                         fontSize: 9.5,
                         letterSpacing: '0.08em',
                         textTransform: 'uppercase',
                     }}
                 >
+                    {phaseTone && (
+                        <StatusDot
+                            tone={PREVIEW_DOT_TONE[phaseTone]}
+                            size={5}
+                        />
+                    )}
                     {STRINGS.LABEL_PREVIEW}
+                    {phaseLabel && (
+                        <span className="text-muted-foreground">
+                            {phaseLabel}
+                        </span>
+                    )}
                 </Badge>
             )}
             {joined && (
@@ -166,14 +194,29 @@ function GroupMeta({
 function GroupFooter({
     groupKey,
     joined,
+    preview,
     onJoin,
     onShare,
 }: {
     groupKey: string;
     joined: boolean;
+    preview: PreviewSession | null;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
 }) {
+    // Once joined, the preview's own phase gives way.
+    const phaseTone = !joined && preview ? previewPhaseTone(preview) : null;
+    const tone = joined
+        ? 'active'
+        : phaseTone
+          ? PREVIEW_DOT_TONE[phaseTone]
+          : 'muted';
+    const label = joined
+        ? STRINGS.MSG_ROUTING_TRAFFIC
+        : preview
+          ? previewStatusLine(preview)
+          : STRINGS.MSG_AVAILABLE;
+
     return (
         <CardFooter
             className="flex items-center justify-between gap-2"
@@ -181,10 +224,17 @@ function GroupFooter({
         >
             <div
                 className="text-muted-foreground inline-flex items-center"
-                style={{ gap: 6, fontSize: 11 }}
+                style={{
+                    gap: 6,
+                    fontSize: 11,
+                    ...(phaseTone === 'failed' && {
+                        color: COLORS.destructive.solid,
+                        fontWeight: 500,
+                    }),
+                }}
             >
-                <StatusDot tone={joined ? 'active' : 'muted'} glow={joined} />
-                {joined ? STRINGS.MSG_ROUTING_TRAFFIC : STRINGS.MSG_AVAILABLE}
+                <StatusDot tone={tone} glow={joined} />
+                {label}
             </div>
             <div className="flex items-center gap-1">
                 {!joined && (
@@ -241,7 +291,7 @@ export function SessionKeyGroup({
             <GroupHeader
                 groupKey={groupKey}
                 joined={joined}
-                isPreview={agg.isPreview}
+                preview={agg.preview}
             />
 
             <CardContent style={{ padding: '10px 14px 8px' }}>
@@ -269,6 +319,7 @@ export function SessionKeyGroup({
             <GroupFooter
                 groupKey={groupKey}
                 joined={joined}
+                preview={agg.preview}
                 onJoin={onJoin}
                 onShare={onShare}
             />
