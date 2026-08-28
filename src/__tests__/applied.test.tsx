@@ -137,3 +137,80 @@ describe('applied result page run()', () => {
         expect(mockStorageRemove).toHaveBeenCalled();
     });
 });
+
+describe('applied result page open_url', () => {
+    it('passes an http(s) open_url through to the result', async () => {
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'baggage: mirrord-session=k1',
+                inject_scope: '*://playground.metalbear.dev/*',
+                open_url: 'https://playground.metalbear.dev/shop',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state).toMatchObject({
+            kind: 'done',
+            openUrl: 'https://playground.metalbear.dev/shop',
+        });
+    });
+
+    it('keeps open_url when a live session was joined', async () => {
+        mockJoinMatchingSession.mockResolvedValue('k1');
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'baggage: mirrord-session=k1',
+                open_url: 'https://playground.metalbear.dev/shop',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state).toMatchObject({
+            kind: 'done',
+            joinedKey: 'k1',
+            openUrl: 'https://playground.metalbear.dev/shop',
+        });
+    });
+
+    it.each([
+        'javascript:alert(1)',
+        'chrome-extension://abc/pages/popup.html',
+        '/shop',
+        'not a url',
+        42,
+    ])(
+        'drops an open_url that is not an absolute http(s) URL: %p',
+        async (openUrl) => {
+            const payload = btoa(
+                JSON.stringify({
+                    header_filter: 'X-Test: v',
+                    open_url: openUrl,
+                })
+            );
+            setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+            const state = await run();
+
+            expect(state.kind).toBe('done');
+            if (state.kind === 'done') {
+                expect(state.openUrl).toBeUndefined();
+            }
+        }
+    );
+
+    it('omits openUrl when the payload has none', async () => {
+        const payload = btoa(JSON.stringify({ header_filter: 'X-Test: v' }));
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state.kind).toBe('done');
+        if (state.kind === 'done') {
+            expect('openUrl' in state).toBe(false);
+        }
+    });
+});

@@ -62,6 +62,26 @@ export function decodeConfig(encoded: string): Config {
 }
 
 /**
+ * The config's `open_url`, if it is an absolute http(s) URL. Anything else (a relative path,
+ * a `javascript:` or `chrome-extension:` URL, a non-string) is dropped: the value comes from a
+ * link anyone can craft, and the applied page renders it as a link the user is invited to click.
+ * @param config a decoded configuration payload
+ */
+export function openUrlFromConfig(config: Config): string | undefined {
+    if (typeof config.open_url !== 'string') {
+        return undefined;
+    }
+    try {
+        const url = new URL(config.open_url);
+        return url.protocol === 'http:' || url.protocol === 'https:'
+            ? url.toString()
+            : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  */

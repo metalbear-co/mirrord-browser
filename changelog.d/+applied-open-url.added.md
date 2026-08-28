@@ -1,0 +1,1 @@
+A config link can now carry an `open_url`; once the header is applied, the result page offers a button that opens it, so a preview link can drop the user straight into the app with the session header already injected.

@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import {
     decodeConfig,
     isRegex,
+    openUrlFromConfig,
     parseHeader,
     promptForValidHeader,
 } from './configCore';
@@ -32,6 +33,7 @@ export type AppliedState =
           value: string;
           scope?: string;
           joinedKey?: string;
+          openUrl?: string;
       }
     | { kind: 'error'; error: string; input?: string };
 
@@ -46,6 +48,7 @@ export async function run(): Promise<AppliedState> {
     let header: string;
     let value: string;
     let scope: string | undefined;
+    let openUrl: string | undefined;
     try {
         const config = decodeConfig(payload);
         if (!config.header_filter) {
@@ -56,6 +59,7 @@ export async function run(): Promise<AppliedState> {
             : config.header_filter;
         ({ key: header, value } = parseHeader(headerLine));
         scope = config.inject_scope;
+        openUrl = openUrlFromConfig(config);
     } catch (err) {
         return {
             kind: 'error',
@@ -88,6 +92,7 @@ export async function run(): Promise<AppliedState> {
                 value,
                 ...(scope !== undefined ? { scope } : {}),
                 joinedKey,
+                ...(openUrl !== undefined ? { openUrl } : {}),
             };
         }
 
@@ -102,6 +107,7 @@ export async function run(): Promise<AppliedState> {
             header,
             value,
             ...(scope !== undefined ? { scope } : {}),
+            ...(openUrl !== undefined ? { openUrl } : {}),
         };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -111,6 +117,15 @@ export async function run(): Promise<AppliedState> {
         });
         return { kind: 'error', error };
     }
+}
+
+/** The link the config asked to send the user to, once the header is in place. */
+function OpenLink({ href }: { href: string }) {
+    return (
+        <a className="mb-button" href={href} rel="noreferrer">
+            {STRINGS.MSG_OPEN_URL} {href.replace(/^https?:\/\//, '')}
+        </a>
+    );
 }
 
 function AppliedPage() {
@@ -143,6 +158,7 @@ function AppliedPage() {
                         </code>
                         {STRINGS.PUNCT_PERIOD}
                     </p>
+                    {state.openUrl && <OpenLink href={state.openUrl} />}
                 </>
             )}
 
@@ -163,6 +179,7 @@ function AppliedPage() {
                             ? `on requests matching ${state.scope}.`
                             : 'on all requests.'}
                     </p>
+                    {state.openUrl && <OpenLink href={state.openUrl} />}
                 </>
             )}
 

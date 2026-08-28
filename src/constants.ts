@@ -119,6 +119,7 @@ export const STRINGS = {
     MSG_BY_INJECTING: 'by injecting',
     MSG_CONFIGURED_TAG: 'Configured',
     MSG_HEADER_CONFIGURED: 'mirrord header configured',
+    MSG_OPEN_URL: 'Open',
     MSG_COULDNT_APPLY_TAG: 'Couldn’t apply',
     MSG_COULDNT_APPLY_CONFIG: 'Couldn’t apply mirrord config',
     MSG_INVALID_INPUT: 'Invalid input',

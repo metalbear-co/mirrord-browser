@@ -1,6 +1,8 @@
 export interface Config {
     header_filter: string;
     inject_scope?: string;
+    /** Where to send the user once the header is applied (http/https only). */
+    open_url?: string;
 }
 
 export interface StoredConfig {
