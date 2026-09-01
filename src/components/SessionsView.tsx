@@ -53,7 +53,11 @@ function matchesQuery(s: ClusterSession, q: string): boolean {
         s.key,
         s.namespace,
         s.kind === 'exec' ? s.owner?.username : STRINGS.LABEL_PREVIEW,
-        s.kind === 'exec' ? s.owner?.k8sUsername : s.phase,
+        s.kind === 'exec'
+            ? s.owner?.k8sUsername
+            : s.phase === 'unknown'
+              ? undefined
+              : s.phase,
         s.target ? `${s.target.kind}/${s.target.name}` : '',
         s.target?.name,
         s.target?.container,
