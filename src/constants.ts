@@ -144,7 +144,7 @@ export const STRINGS = {
     MSG_PREVIEW_READY: 'Ready',
     MSG_PREVIEW_IDLE: 'Idle — wakes on traffic',
     MSG_PREVIEW_PAUSED: 'Paused — will not wake on traffic',
-    MSG_PREVIEW_FAILED: 'Failed to start',
+    MSG_PREVIEW_FAILED: 'Failed',
     TERMINAL_PROMPT: '$',
     PUNCT_PLUS: '+',
     PUNCT_PERIOD: '.',

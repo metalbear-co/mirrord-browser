@@ -416,7 +416,7 @@ describe('SessionsView', () => {
         expect(screen.getByText('idle 5m 30s')).toBeInTheDocument();
         expect(screen.getByText(/wakes on traffic/i)).toBeInTheDocument();
         // Idle is a normal state, not an error one.
-        expect(screen.queryByText(/failed to start/i)).toBeNull();
+        expect(screen.queryByText('failed')).toBeNull();
     });
 
     test('shows a failed preview and still offers Join', () => {
@@ -427,7 +427,6 @@ describe('SessionsView', () => {
             />
         );
         expect(screen.getByText('failed')).toBeInTheDocument();
-        expect(screen.getByText(/failed to start/i)).toBeInTheDocument();
         expect(
             screen.getByRole('button', { name: /join pk/i })
         ).toBeInTheDocument();
