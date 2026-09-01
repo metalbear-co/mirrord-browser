@@ -12,7 +12,7 @@ import type {
     PreviewPhase,
     PreviewSession,
 } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, PREVIEW_PHASES } from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -179,16 +179,6 @@ export function formatRelativeTime(iso: string | null | undefined): string {
 }
 
 const PREVIEW_OWNER_USERNAME = 'preview-env';
-
-const PREVIEW_PHASES: readonly PreviewPhase[] = [
-    'initializing',
-    'waiting',
-    'ready',
-    'failed',
-    'idle',
-    'paused',
-    'unknown',
-];
 
 export function normalizePreviewPhase(raw: unknown): PreviewPhase {
     return PREVIEW_PHASES.includes(raw as PreviewPhase)

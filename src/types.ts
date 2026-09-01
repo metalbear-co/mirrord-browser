@@ -81,14 +81,17 @@ export interface OperatorSessionSummary {
     httpFilter?: OperatorSessionHttpFilter | null;
 }
 
-export type PreviewPhase =
-    | 'initializing'
-    | 'waiting'
-    | 'ready'
-    | 'failed'
-    | 'idle'
-    | 'paused'
-    | 'unknown';
+export const PREVIEW_PHASES = [
+    'initializing',
+    'waiting',
+    'ready',
+    'failed',
+    'idle',
+    'paused',
+    'unknown',
+] as const;
+
+export type PreviewPhase = (typeof PREVIEW_PHASES)[number];
 
 export interface OperatorPreviewSession {
     id: string;
@@ -96,7 +99,6 @@ export interface OperatorPreviewSession {
     namespace: string;
     target: OperatorSessionTarget | null;
     createdAt: string | null;
-    durationSecs?: number;
     phase: PreviewPhase;
     // Only set while `phase` is `idle`.
     idleSecs?: number;
@@ -126,12 +128,6 @@ export interface PreviewSession extends SessionBase {
 }
 
 export type ClusterSession = ExecSession | PreviewSession;
-
-export function isPreviewSession(
-    session: ClusterSession
-): session is PreviewSession {
-    return session.kind === 'preview';
-}
 
 export type OperatorWatchStatus =
     | { status: 'not_started' }
