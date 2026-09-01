@@ -196,8 +196,12 @@ export function normalizePreviewPhase(raw: unknown): PreviewPhase {
         : 'unknown';
 }
 
+// Check both markers set by mirrord CLI when folding a preview into the session list.
 function isFoldedPreview(session: OperatorSessionSummary): boolean {
-    return session.owner?.username === PREVIEW_OWNER_USERNAME;
+    return (
+        session.owner?.username === PREVIEW_OWNER_USERNAME &&
+        session.owner.k8sUsername === PREVIEW_OWNER_USERNAME
+    );
 }
 
 /**
