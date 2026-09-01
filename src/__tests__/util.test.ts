@@ -11,6 +11,8 @@ import {
     previewPhaseTone,
     previewPhaseLabel,
     previewStatusLine,
+    isPreviewLive,
+    isGroupLive,
     formatDurationSecs,
 } from '../util';
 import type {
@@ -613,6 +615,48 @@ describe('previewStatusLine', () => {
         expect(previewStatusLine(previewSession({ phase: 'unknown' }))).toBe(
             STRINGS.MSG_AVAILABLE
         );
+    });
+});
+
+describe('isPreviewLive', () => {
+    it.each(['ready', 'idle', 'unknown'] as const)(
+        'counts %s as live',
+        (phase) => {
+            expect(isPreviewLive(previewSession({ phase }))).toBe(true);
+        }
+    );
+
+    it.each(['initializing', 'waiting', 'paused', 'failed'] as const)(
+        'does not count %s as live',
+        (phase) => {
+            expect(isPreviewLive(previewSession({ phase }))).toBe(false);
+        }
+    );
+});
+
+describe('isGroupLive', () => {
+    const exec: ClusterSession = {
+        kind: 'exec',
+        id: 'e1',
+        key: 'k',
+        namespace: 'ns',
+        owner: { username: 'alice', k8sUsername: 'alice@k8s' },
+        target: null,
+        createdAt: null,
+    };
+
+    it('treats a group of exec sessions as live', () => {
+        expect(isGroupLive([exec])).toBe(true);
+    });
+
+    it('follows the preview phase when the group is a preview', () => {
+        expect(isGroupLive([previewSession({ phase: 'ready' })])).toBe(true);
+        expect(isGroupLive([previewSession({ phase: 'failed' })])).toBe(false);
+        expect(isGroupLive([previewSession({ phase: 'paused' })])).toBe(false);
+    });
+
+    it('treats an empty group as live', () => {
+        expect(isGroupLive([])).toBe(true);
     });
 });
 

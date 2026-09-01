@@ -48,7 +48,10 @@ export const STRINGS = {
     MSG_INSTALL_OPERATOR: 'Install the operator',
     MSG_INSTALL_OPERATOR_TO_VIEW_REMOTE: 'to view your teammates’ sessions.',
     MSG_ALL_NAMESPACES: 'All',
-    MSG_LIVE_SESSIONS: 'Live sessions',
+    MSG_LIVE_SESSIONS: (live: number, total: number) =>
+        live === total
+            ? `${total} Live sessions`
+            : `${live}/${total} Live sessions`,
     MSG_SHOW_MORE: (n: number) => `Show ${n} more session${n === 1 ? '' : 's'}`,
     MSG_SHOW_LESS: 'Show less',
     MSG_USE_SEARCH_HINT: 'Use search to narrow down',

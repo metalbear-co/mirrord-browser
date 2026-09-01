@@ -12,7 +12,7 @@ import type {
     PreviewPhase,
     PreviewSession,
 } from './types';
-import { ALL_RESOURCE_TYPES } from './types';
+import { ALL_RESOURCE_TYPES, isPreviewSession } from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -311,6 +311,29 @@ export function previewPhaseLabel(preview: PreviewSession): string | null {
         case 'unknown':
             return null;
     }
+}
+
+// Whether a preview environment is currently serving, or would on the next request. `idle` counts:
+// its pods are scaled to zero but traffic wakes them. `paused` does not — nothing wakes it.
+export function isPreviewLive(preview: PreviewSession): boolean {
+    switch (preview.phase) {
+        // `unknown` means the operator never told us, so assume up, as before phases existed.
+        case 'ready':
+        case 'idle':
+        case 'unknown':
+            return true;
+        case 'initializing':
+        case 'waiting':
+        case 'paused':
+        case 'failed':
+            return false;
+    }
+}
+
+// A key's group is live unless it is a preview environment that is not currently serving.
+export function isGroupLive(sessions: ClusterSession[]): boolean {
+    const preview = sessions.find(isPreviewSession);
+    return preview ? isPreviewLive(preview) : true;
 }
 
 export function previewStatusLine(preview: PreviewSession): string {

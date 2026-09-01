@@ -170,7 +170,43 @@ describe('SessionsView', () => {
         // k3 has two sessions; the count should treat that group as one.
         const withDup = [...sessions, s('d', 'k3', 'ns-a')];
         render(<SessionsView {...baseProps} sessions={withDup} />);
-        expect(screen.getByText(/3 live sessions/i)).toBeInTheDocument();
+        expect(screen.getByText('3 Live sessions')).toBeInTheDocument();
+    });
+
+    test('excludes a non-live preview from the live session count', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'failed')]}
+            />
+        );
+        // 4 cards listed, but the failed preview is not serving traffic.
+        expect(screen.getByText('3/4 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a ready or idle preview as live', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[
+                    ...sessions,
+                    previewSession('pk', 'idle', 30),
+                    previewSession('pk2', 'ready'),
+                ]}
+            />
+        );
+        // An idle preview still wakes on traffic, so no split is shown.
+        expect(screen.getByText('5 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a phase-less preview as live, as before phases existed', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'unknown')]}
+            />
+        );
+        expect(screen.getByText('4 Live sessions')).toBeInTheDocument();
     });
 
     test('clicking Join on a row calls onJoin with that session key', () => {

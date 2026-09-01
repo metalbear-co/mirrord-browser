@@ -19,6 +19,7 @@ import type {
     OperatorWatchStatus,
 } from '../types';
 import { JOIN_GRACE_MS, STRINGS } from '../constants';
+import { isGroupLive } from '../util';
 
 interface Props {
     sessions: ClusterSession[];
@@ -136,6 +137,12 @@ export function SessionsView({
         ? sessions.filter((s) => s.key === joinedKey)
         : [];
 
+    // A failed or paused preview environment is not serving traffic, so it must not be counted
+    // among the live sessions even though its card is still listed.
+    const liveCount = orderedKeys.filter((k) =>
+        isGroupLive(groups[k] ?? [])
+    ).length;
+
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
     const hasGroups = orderedKeys.length > 0;
@@ -237,7 +244,10 @@ export function SessionsView({
                         }}
                     >
                         <span>
-                            {orderedKeys.length} {STRINGS.MSG_LIVE_SESSIONS}
+                            {STRINGS.MSG_LIVE_SESSIONS(
+                                liveCount,
+                                orderedKeys.length
+                            )}
                         </span>
                         {status && (
                             <span
