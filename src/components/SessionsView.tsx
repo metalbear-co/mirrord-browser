@@ -14,14 +14,15 @@ import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
 import { useJoinLiveness } from '../hooks/useJoinLiveness';
 import type {
+    ClusterSession,
     KubeContext,
-    OperatorSessionSummary,
     OperatorWatchStatus,
 } from '../types';
 import { JOIN_GRACE_MS, STRINGS } from '../constants';
+import { isGroupLive } from '../util';
 
 interface Props {
-    sessions: OperatorSessionSummary[];
+    sessions: ClusterSession[];
     sessionsLoaded: boolean;
     authFailed: boolean;
     uiDetectedNoToken: boolean;
@@ -45,15 +46,15 @@ interface Props {
     joinedValue: string | null;
 }
 
-function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
+function matchesQuery(s: ClusterSession, q: string): boolean {
     if (!q) {
         return true;
     }
     const haystack = [
         s.key,
         s.namespace,
-        s.owner?.username,
-        s.owner?.k8sUsername,
+        s.kind === 'exec' ? s.owner?.username : STRINGS.LABEL_PREVIEW,
+        s.kind === 'exec' ? s.owner?.k8sUsername : s.phase,
         s.target ? `${s.target.kind}/${s.target.name}` : '',
         s.target?.name,
         s.target?.container,
@@ -135,6 +136,12 @@ export function SessionsView({
     const joinedSessions = joinedKey
         ? sessions.filter((s) => s.key === joinedKey)
         : [];
+
+    // A failed or paused preview environment is not serving traffic, so it must not be counted
+    // among the live sessions even though its card is still listed.
+    const liveCount = orderedKeys.filter((k) =>
+        isGroupLive(groups[k] ?? [])
+    ).length;
 
     const watching = status?.status === 'watching';
     const operatorUnavailable = status?.status === 'unavailable';
@@ -237,7 +244,10 @@ export function SessionsView({
                         }}
                     >
                         <span>
-                            {orderedKeys.length} {STRINGS.MSG_LIVE_SESSIONS}
+                            {STRINGS.MSG_LIVE_SESSIONS(
+                                liveCount,
+                                orderedKeys.length
+                            )}
                         </span>
                         {status && (
                             <span
@@ -258,7 +268,6 @@ export function SessionsView({
                                 key={k}
                                 groupKey={k}
                                 sessions={groups[k] ?? []}
-                                joined={k === joinedKey}
                                 onJoin={onJoin}
                                 onShare={onShare}
                             />

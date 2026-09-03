@@ -7,11 +7,14 @@ import {
     CardFooter,
     Separator,
 } from '@metalbear/ui';
-import type { OperatorSessionSummary } from '../types';
+import type { ClusterSession, PreviewSession } from '../types';
 import {
     aggregateSessions,
     formatRelativeTime,
+    groupTone,
+    previewStatusLine,
     targetDisplayName,
+    type PreviewTone,
     type SessionGroupAggregate,
 } from '../util';
 import { STRINGS } from '../constants';
@@ -20,13 +23,36 @@ import { StatusDot } from './StatusDot';
 
 interface Props {
     groupKey: string;
-    sessions: OperatorSessionSummary[];
-    joined: boolean;
+    sessions: ClusterSession[];
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
 }
 
 const MAX_TARGETS = 4;
+
+const TONE_DOT: Record<
+    PreviewTone,
+    'active' | 'warning' | 'inactive' | 'destructive'
+> = {
+    live: 'active',
+    pending: 'warning',
+    idle: 'warning',
+    paused: 'inactive',
+    failed: 'destructive',
+};
+
+const TONE_BAND: Record<PreviewTone, string> = {
+    live: COLORS.success.band,
+    pending: COLORS.warning.band,
+    idle: COLORS.warning.band,
+    paused: COLORS.muted.band,
+    failed: COLORS.destructive.band,
+};
+
+const TONE_TEXT: Partial<Record<PreviewTone, string>> = {
+    idle: COLORS.warning.solid,
+    failed: COLORS.destructive.solid,
+};
 
 const TRUNCATE_STYLE: React.CSSProperties = {
     overflow: 'hidden',
@@ -36,19 +62,19 @@ const TRUNCATE_STYLE: React.CSSProperties = {
 
 function GroupHeader({
     groupKey,
-    joined,
     isPreview,
+    tone,
 }: {
     groupKey: string;
-    joined: boolean;
     isPreview: boolean;
+    tone: PreviewTone;
 }) {
     return (
         <div
             className="border-border flex items-center gap-2 border-b"
             style={{
                 padding: '10px 14px',
-                background: joined ? COLORS.primary.band : COLORS.muted.band,
+                background: TONE_BAND[tone],
             }}
         >
             <KeyIcon
@@ -77,21 +103,6 @@ function GroupHeader({
                     }}
                 >
                     {STRINGS.LABEL_PREVIEW}
-                </Badge>
-            )}
-            {joined && (
-                <Badge
-                    variant="outline"
-                    className="text-foreground border-foreground/30 bg-foreground/10 shrink-0 font-mono"
-                    style={{
-                        gap: 5,
-                        fontSize: 9.5,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                    }}
-                >
-                    <StatusDot tone="active" size={5} />
-                    {STRINGS.MSG_JOINED_TAG}
                 </Badge>
             )}
         </div>
@@ -165,15 +176,20 @@ function GroupMeta({
 
 function GroupFooter({
     groupKey,
-    joined,
+    preview,
     onJoin,
     onShare,
+    tone,
 }: {
     groupKey: string;
-    joined: boolean;
+    preview: PreviewSession | null;
+    tone: PreviewTone;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
 }) {
+    const label = preview ? previewStatusLine(preview) : STRINGS.MSG_AVAILABLE;
+    const textColor = TONE_TEXT[tone];
+
     return (
         <CardFooter
             className="flex items-center justify-between gap-2"
@@ -181,24 +197,26 @@ function GroupFooter({
         >
             <div
                 className="text-muted-foreground inline-flex items-center"
-                style={{ gap: 6, fontSize: 11 }}
+                style={{
+                    gap: 6,
+                    fontSize: 11,
+                    ...(textColor && { color: textColor, fontWeight: 500 }),
+                }}
             >
-                <StatusDot tone={joined ? 'active' : 'muted'} glow={joined} />
-                {joined ? STRINGS.MSG_ROUTING_TRAFFIC : STRINGS.MSG_AVAILABLE}
+                <StatusDot tone={TONE_DOT[tone]} />
+                {label}
             </div>
             <div className="flex items-center gap-1">
-                {!joined && (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
-                        onClick={() => onJoin(groupKey)}
-                        style={{ height: 28, padding: '0 12px' }}
-                    >
-                        {STRINGS.BTN_JOIN}
-                    </Button>
-                )}
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
+                    onClick={() => onJoin(groupKey)}
+                    style={{ height: 28, padding: '0 12px' }}
+                >
+                    {STRINGS.BTN_JOIN}
+                </Button>
                 <Button
                     type="button"
                     size="icon"
@@ -218,30 +236,20 @@ function GroupFooter({
 export function SessionKeyGroup({
     groupKey,
     sessions,
-    joined,
     onJoin,
     onShare,
 }: Props) {
     const agg = aggregateSessions(sessions);
+    const tone = groupTone(sessions);
     const shownTargets = agg.targets.slice(0, MAX_TARGETS);
     const overflow = agg.targets.length - shownTargets.length;
 
     return (
-        <Card
-            className="overflow-hidden"
-            style={
-                joined
-                    ? {
-                          borderColor: COLORS.primary.border,
-                          boxShadow: `0 0 0 1px ${COLORS.primary.tint}`,
-                      }
-                    : undefined
-            }
-        >
+        <Card className="overflow-hidden">
             <GroupHeader
                 groupKey={groupKey}
-                joined={joined}
-                isPreview={agg.isPreview}
+                isPreview={agg.preview !== null}
+                tone={tone}
             />
 
             <CardContent style={{ padding: '10px 14px 8px' }}>
@@ -268,7 +276,8 @@ export function SessionKeyGroup({
 
             <GroupFooter
                 groupKey={groupKey}
-                joined={joined}
+                preview={agg.preview}
+                tone={tone}
                 onJoin={onJoin}
                 onShare={onShare}
             />

@@ -48,14 +48,16 @@ export const STRINGS = {
     MSG_INSTALL_OPERATOR: 'Install the operator',
     MSG_INSTALL_OPERATOR_TO_VIEW_REMOTE: 'to view your teammates’ sessions.',
     MSG_ALL_NAMESPACES: 'All',
-    MSG_LIVE_SESSIONS: 'Live sessions',
+    MSG_LIVE_SESSIONS: (live: number, total: number) =>
+        live === total
+            ? `${total} Live sessions`
+            : `${live}/${total} Live sessions`,
     MSG_SHOW_MORE: (n: number) => `Show ${n} more session${n === 1 ? '' : 's'}`,
     MSG_SHOW_LESS: 'Show less',
     MSG_USE_SEARCH_HINT: 'Use search to narrow down',
     MSG_SESSION_LIVE: 'Session live',
     MSG_SESSION_RECONNECTING: 'Waiting for session',
     MSG_SESSION_ENDED: 'Session ended',
-    MSG_ROUTING_TRAFFIC: 'Routing your traffic',
     MSG_AVAILABLE: 'Available',
     MSG_JOINED_TAG: 'Joined',
     MSG_ACTIVE: 'Active',
@@ -130,6 +132,19 @@ export const STRINGS = {
     LABEL_REQ_LAST: 'req · last',
     LABEL_SECONDS_SUFFIX: 's',
     LABEL_PREVIEW: 'preview',
+    PREVIEW_PHASE_LABEL: {
+        initializing: 'initializing',
+        waiting: 'waiting',
+        failed: 'failed',
+        idle: 'idle',
+        paused: 'paused',
+    },
+    MSG_PREVIEW_STARTING: 'Starting up',
+    MSG_PREVIEW_READY: 'Ready',
+    MSG_PREVIEW_IDLE: (duration: string | null) =>
+        duration ? `Idle for ${duration}` : 'Idle',
+    MSG_PREVIEW_PAUSED: 'Paused — will not wake on traffic',
+    MSG_PREVIEW_FAILED: 'Failed',
     TERMINAL_PROMPT: '$',
     PUNCT_PLUS: '+',
     PUNCT_PERIOD: '.',

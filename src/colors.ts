@@ -17,6 +17,7 @@ export const COLORS = {
         solid: 'hsl(var(--destructive))',
         border: 'hsl(var(--destructive) / 0.4)',
         bg: 'hsl(var(--destructive) / 0.1)',
+        band: 'hsl(var(--destructive) / 0.12)',
         glow: 'hsl(var(--destructive) / 0.22)',
     },
     // Amber, used for the "session might be coming back" grace state before we
@@ -26,10 +27,12 @@ export const COLORS = {
         solid: 'hsl(var(--brand-amber, 38 92% 50%))',
         border: 'hsl(var(--brand-amber, 38 92% 50%) / 0.4)',
         bg: 'hsl(var(--brand-amber, 38 92% 50%) / 0.1)',
+        band: 'hsl(var(--brand-amber, 38 92% 50%) / 0.14)',
         glow: 'hsl(var(--brand-amber, 38 92% 50%) / 0.22)',
     },
     success: {
         dot: 'hsl(var(--brand-green, 142 71% 45%))',
+        band: 'hsl(var(--brand-green, 142 71% 45%) / 0.12)',
         glow: 'hsl(var(--brand-green, 142 71% 45%) / 0.22)',
     },
     muted: {

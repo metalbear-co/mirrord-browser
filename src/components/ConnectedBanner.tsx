@@ -10,7 +10,7 @@ import {
     Plus,
 } from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
-import type { OperatorSessionSummary } from '../types';
+import type { ClusterSession } from '../types';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { RING_SECONDS } from '../headerObservation';
@@ -20,12 +20,13 @@ import { StatusDot } from './StatusDot';
 import {
     aggregateSessions,
     formatRelativeTime,
+    previewPhaseLabel,
     targetDisplayName,
 } from '../util';
 
 interface Props {
     joinedKey: string;
-    sessions: OperatorSessionSummary[];
+    sessions: ClusterSession[];
     liveness: JoinLiveness;
     onLeave: () => void;
     onShare: () => void;
@@ -56,14 +57,15 @@ export function ConnectedBanner({
     const shownTargets = agg.targets.slice(0, MAX_TARGETS);
     const overflowTargets = agg.targets.length - shownTargets.length;
     const age = formatRelativeTime(agg.earliestCreatedAt);
-    const ownerLabel = agg.isPreview
-        ? 'preview'
+    const ownerLabel = agg.preview
+        ? STRINGS.LABEL_PREVIEW
         : agg.owners.length === 1
           ? agg.owners[0]
           : agg.owners.length > 1
             ? `${agg.owners.length} owners`
             : '';
-    const metaParts = [ownerLabel, age].filter(Boolean);
+    const phaseLabel = agg.preview ? previewPhaseLabel(agg.preview) : null;
+    const metaParts = [ownerLabel, phaseLabel, age].filter(Boolean);
     const ended = liveness === 'ended';
     const pending = liveness === 'pending';
     const label = ended

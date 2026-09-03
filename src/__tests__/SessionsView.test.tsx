@@ -1,11 +1,12 @@
 /** @jest-environment jsdom */
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import type {
+    ClusterSession,
     KubeContext,
-    OperatorSessionSummary,
     OperatorWatchStatus,
+    PreviewPhase,
 } from '../types';
 
 jest.mock('@metalbear/ui', () => ({
@@ -90,19 +91,37 @@ jest.mock('@metalbear/ui', () => ({
 }));
 
 import { SessionsView } from '../components/SessionsView';
+import { STRINGS } from '../constants';
 
 const s = (
     name: string,
     key: string,
     namespace = 'ns',
     createdAt = '2026-01-01T00:00:00Z'
-): OperatorSessionSummary => ({
+): ClusterSession => ({
+    kind: 'exec',
     id: name,
     key,
     namespace,
     owner: { username: 'alice', k8sUsername: 'alice@ex' },
     target: { kind: 'Deployment', name: 'web', container: 'app' },
     createdAt,
+});
+
+// A preview environment as `toClusterSessions` hands it to the view.
+const previewSession = (
+    key: string,
+    phase: PreviewPhase,
+    idleSecs?: number
+): ClusterSession => ({
+    kind: 'preview',
+    id: `preview-${key}`,
+    key,
+    namespace: 'ns-a',
+    target: { kind: 'Deployment', name: 'web', container: 'app' },
+    createdAt: '2026-01-01T00:00:00Z',
+    phase,
+    ...(idleSecs === undefined ? {} : { idleSecs }),
 });
 
 describe('SessionsView', () => {
@@ -152,7 +171,43 @@ describe('SessionsView', () => {
         // k3 has two sessions; the count should treat that group as one.
         const withDup = [...sessions, s('d', 'k3', 'ns-a')];
         render(<SessionsView {...baseProps} sessions={withDup} />);
-        expect(screen.getByText(/3 live sessions/i)).toBeInTheDocument();
+        expect(screen.getByText('3 Live sessions')).toBeInTheDocument();
+    });
+
+    test('excludes a non-live preview from the live session count', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'failed')]}
+            />
+        );
+        // 4 cards listed, but the failed preview is not serving traffic.
+        expect(screen.getByText('3/4 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a ready or idle preview as live', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[
+                    ...sessions,
+                    previewSession('pk', 'idle', 30),
+                    previewSession('pk2', 'ready'),
+                ]}
+            />
+        );
+        // An idle preview still wakes on traffic, so no split is shown.
+        expect(screen.getByText('5 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a phase-less preview as live, as before phases existed', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'unknown')]}
+            />
+        );
+        expect(screen.getByText('4 Live sessions')).toBeInTheDocument();
     });
 
     test('clicking Join on a row calls onJoin with that session key', () => {
@@ -200,7 +255,8 @@ describe('SessionsView', () => {
 
     test('banner carries the joined session target, owner, and share button', () => {
         const onShare = jest.fn();
-        const joined: OperatorSessionSummary = {
+        const joined: ClusterSession = {
+            kind: 'exec',
             id: 'j',
             key: 'k9',
             namespace: 'ns',
@@ -348,5 +404,71 @@ describe('SessionsView', () => {
         expect(
             screen.getByRole('link', { name: /install the operator/i })
         ).toBeInTheDocument();
+    });
+
+    test('shows how long an idle preview has been idling, in the footer', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[previewSession('pk', 'idle', 330)]}
+            />
+        );
+        expect(screen.getByText('Idle for 5m 30s')).toBeInTheDocument();
+        // Idle is a normal state, not an error one.
+        expect(screen.queryByText(STRINGS.MSG_PREVIEW_FAILED)).toBeNull();
+    });
+
+    test('shows a failed preview and still offers Join', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[previewSession('pk', 'failed')]}
+            />
+        );
+        expect(
+            screen.getByText(STRINGS.MSG_PREVIEW_FAILED)
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: /join pk/i })
+        ).toBeInTheDocument();
+    });
+
+    test('leaves a ready preview unannotated', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[previewSession('pk', 'ready')]}
+            />
+        );
+        expect(screen.getByText('preview')).toBeInTheDocument();
+        expect(screen.getByText(/^ready$/i)).toBeInTheDocument();
+        expect(screen.queryByText(/wakes on traffic/i)).toBeNull();
+    });
+
+    test('falls back to the plain preview badge when the operator reports no phase', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[previewSession('pk', 'unknown')]}
+            />
+        );
+        const badge = screen.getByText('preview');
+        expect(screen.getByText(/available/i)).toBeInTheDocument();
+        // No phase to show, so the badge carries no state dot — exactly as before phases existed.
+        expect(within(badge).queryByTestId('status-dot')).toBeNull();
+    });
+
+    test('search matches a preview by its phase', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'failed')]}
+            />
+        );
+        fireEvent.change(screen.getByLabelText(/search sessions/i), {
+            target: { value: 'failed' },
+        });
+        expect(screen.getByText('pk')).toBeInTheDocument();
+        expect(screen.queryByText('k1')).toBeNull();
     });
 });

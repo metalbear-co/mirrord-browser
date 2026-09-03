@@ -58,14 +58,79 @@ export interface OperatorSessionHttpFilter {
     headerFilter: string | null;
 }
 
+export interface OperatorSessionTarget {
+    kind: string;
+    name: string;
+    container: string;
+}
+
+export interface OperatorSessionOwner {
+    username: string;
+    k8sUsername: string;
+}
+
+// An entry of `sessions`. Before operator status carries dedicated preview session info, preview
+// environments are also folded into this list.
 export interface OperatorSessionSummary {
     id: string;
     key: string;
     namespace: string;
-    owner: { username: string; k8sUsername: string } | null;
-    target: { kind: string; name: string; container: string } | null;
+    owner: OperatorSessionOwner | null;
+    target: OperatorSessionTarget | null;
     createdAt: string | null;
     httpFilter?: OperatorSessionHttpFilter | null;
+}
+
+export type PreviewPhase =
+    | 'initializing'
+    | 'waiting'
+    | 'ready'
+    | 'failed'
+    | 'idle'
+    | 'paused'
+    | 'unknown';
+
+export interface OperatorPreviewSession {
+    id: string;
+    key: string;
+    namespace: string;
+    target: OperatorSessionTarget | null;
+    createdAt: string | null;
+    durationSecs?: number;
+    phase: PreviewPhase;
+    // Only set while `phase` is `idle`.
+    idleSecs?: number;
+}
+
+interface SessionBase {
+    id: string;
+    key: string;
+    namespace: string;
+    target: OperatorSessionTarget | null;
+    createdAt: string | null;
+}
+
+// A session started with `mirrord exec` or `mirrord ci`
+export interface ExecSession extends SessionBase {
+    kind: 'exec';
+    owner: OperatorSessionOwner | null;
+    httpFilter?: OperatorSessionHttpFilter | null;
+}
+
+// A preview environment.
+export interface PreviewSession extends SessionBase {
+    kind: 'preview';
+    phase: PreviewPhase;
+    // Only set while `phase` is `idle`.
+    idleSecs?: number;
+}
+
+export type ClusterSession = ExecSession | PreviewSession;
+
+export function isPreviewSession(
+    session: ClusterSession
+): session is PreviewSession {
+    return session.kind === 'preview';
 }
 
 export type OperatorWatchStatus =
@@ -74,9 +139,15 @@ export type OperatorWatchStatus =
     | { status: 'error'; message: string }
     | { status: 'unavailable'; reason: string };
 
-export interface OperatorSessionsResponse {
+export interface OperatorSessionsV1Response {
     by_key: Record<string, OperatorSessionSummary[]>;
     sessions: OperatorSessionSummary[];
+    watch_status: OperatorWatchStatus;
+}
+
+export interface OperatorSessionsResponse {
+    by_key: Record<string, ClusterSession[]>;
+    sessions: ClusterSession[];
     watch_status: OperatorWatchStatus;
 }
 
@@ -92,12 +163,15 @@ export interface ContextsResponse {
 }
 
 // `GET /api/v2/operator/sessions?context=`. Namespace is filtered client-side, so this doesn't take
-// a namespace param. `OperatorSession` is the same shape the extension already uses for a summary.
+// a namespace param.
 export interface OperatorSessionsV2Response {
     context: string | null;
     status: 'available' | 'unavailable';
     reason?: string;
     sessions: OperatorSessionSummary[];
+    // Absent when there are no previews, or against an operator that predates the
+    // dedicated preview list.
+    previewSessions?: OperatorPreviewSession[];
 }
 
 export type SessionNotification =
