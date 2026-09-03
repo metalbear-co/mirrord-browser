@@ -36,18 +36,37 @@ const HTTP_NOT_FOUND = 404;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 
+// Listing sessions round-trips through the operator to the Kubernetes API, so it can outlast the
+// poll interval on a slow or unreachable cluster. Bounding it keeps a stalled request from holding
+// one of the origin's few connections until the browser gives up on it.
+const MS_PER_SEC = 1000;
+const REQUEST_TIMEOUT_SEC = 15;
+const REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_SEC * MS_PER_SEC;
+
+/**
+ * True for the rejection `AbortSignal.timeout` produces. A request we gave up on says the server
+ * was too slow, which is a different fault from one the browser could not send at all — and the
+ * message it carries ("signal timed out", "The operation timed out", ...) is vendor-specific.
+ */
+export function isTimeout(err: unknown): boolean {
+    return err instanceof DOMException && err.name === 'TimeoutError';
+}
+
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
-    fetchImpl: typeof fetch = fetch
+    fetchImpl: typeof fetch = fetch,
+    signal: AbortSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 ): Promise<OperatorSessionsResponse> {
     const url = `${backend}/api/operator-sessions`;
     const resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
+        signal,
     });
     if (isAuthFailureStatus(resp.status)) {
         const retry = await fetchImpl(
-            `${url}?token=${encodeURIComponent(token)}`
+            `${url}?token=${encodeURIComponent(token)}`,
+            { signal }
         );
         if (retry.ok) {
             try {
@@ -138,7 +157,8 @@ export async function fetchOperatorSessionsV2(
     backend: string,
     token: string,
     context: string | null,
-    fetchImpl: typeof fetch = fetch
+    fetchImpl: typeof fetch = fetch,
+    signal: AbortSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 ): Promise<OperatorSessionsResponse> {
     const params = new URLSearchParams();
     if (context) {
@@ -147,6 +167,7 @@ export async function fetchOperatorSessionsV2(
     const url = `${backend}/api/v2/operator/sessions?${params.toString()}`;
     const resp = await fetchImpl(url, {
         headers: { 'x-auth-token': token },
+        signal,
     });
     if (!resp.ok) {
         const e = new Error(
@@ -178,7 +199,11 @@ async function runPoll(
         }
         return { ok: true, data: resp };
     } catch (err) {
-        const error = err instanceof Error ? err.message : String(err);
+        const error = isTimeout(err)
+            ? `timed out after ${REQUEST_TIMEOUT_SEC}s`
+            : err instanceof Error
+              ? err.message
+              : String(err);
         const status =
             err instanceof Error &&
             typeof (err as Error & { status?: unknown }).status === 'number'
@@ -298,6 +323,10 @@ export function useMirrordUi() {
     const joinedValueRef = useRef<string | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
+    // A poll still in flight when the next tick arrives. Ticking regardless would stack one
+    // round-trip per interval against a server that is already too slow to keep up, and the browser
+    // allows only a handful of concurrent connections per origin.
+    const pollInFlight = useRef(false);
 
     // The context whose sessions we show: the user's pick, else the kubeconfig's current context.
     const effectiveContext = selectedContext ?? currentContext;
@@ -456,8 +485,12 @@ export function useMirrordUi() {
         }
         let cancelled = false;
         const refresh = () => {
-            void runPoll(backend, token, v2Available, effectiveContext).then(
-                (result) => {
+            if (pollInFlight.current) {
+                return;
+            }
+            pollInFlight.current = true;
+            void runPoll(backend, token, v2Available, effectiveContext)
+                .then((result) => {
                     if (cancelled) {
                         return;
                     }
@@ -469,8 +502,10 @@ export function useMirrordUi() {
                     } else {
                         setAuthFailed(isAuthFailureStatus(result.status));
                     }
-                }
-            );
+                })
+                .finally(() => {
+                    pollInFlight.current = false;
+                });
         };
         refresh();
         const interval = setInterval(refresh, OPERATOR_SESSIONS_POLL_MS);
