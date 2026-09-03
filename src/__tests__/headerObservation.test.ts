@@ -1,10 +1,22 @@
 import {
     RING_SECONDS,
+    armCanary,
+    cancelCanary,
     emptyObservation,
+    noteRequestSeen,
+    notifyHeaderObserved,
     recordRequest,
     rotateBuckets,
     setHeaderName,
 } from '../headerObservation';
+import { emitUserBlocked } from '../analytics';
+
+jest.mock('../analytics', () => ({
+    emitUserBlocked: jest.fn(),
+    emitUserSucceeded: jest.fn(),
+}));
+
+const blocked = emitUserBlocked as jest.MockedFunction<typeof emitUserBlocked>;
 
 describe('headerObservation', () => {
     test('emptyObservation seeds RING_SECONDS zero buckets', () => {
@@ -62,5 +74,80 @@ describe('headerObservation', () => {
         expect(obs.recent.length).toBe(3);
         expect(obs.recent[0]?.url).toBe('https://x.test/4');
         expect(obs.recent[2]?.url).toBe('https://x.test/2');
+    });
+});
+
+describe('header canary timeout context', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+        blocked.mockClear();
+        cancelCanary();
+    });
+
+    afterEach(() => {
+        cancelCanary();
+        jest.useRealTimers();
+    });
+
+    test('reports zero requests when the browser sent none', () => {
+        armCanary({
+            headerName: 'x-mirrord-user',
+            flow: 'header_injector',
+            scoped: false,
+        });
+        jest.advanceTimersByTime(60_000);
+        expect(blocked).toHaveBeenCalledWith('no_header_observed', 'health', {
+            headerName: 'x-mirrord-user',
+            flow: 'header_injector',
+            scoped: false,
+            requestsSeen: 0,
+        });
+    });
+
+    test('reports the request count when traffic flowed without the header', () => {
+        armCanary({
+            headerName: 'x-mirrord-user',
+            flow: 'session_monitor',
+            scoped: true,
+        });
+        noteRequestSeen();
+        noteRequestSeen();
+        noteRequestSeen();
+        jest.advanceTimersByTime(60_000);
+        expect(blocked).toHaveBeenCalledWith('no_header_observed', 'health', {
+            headerName: 'x-mirrord-user',
+            flow: 'session_monitor',
+            scoped: true,
+            requestsSeen: 3,
+        });
+    });
+
+    test('does not count requests seen while no canary is armed', () => {
+        noteRequestSeen();
+        noteRequestSeen();
+        armCanary({
+            headerName: 'x-mirrord-user',
+            flow: 'header_injector',
+            scoped: false,
+        });
+        noteRequestSeen();
+        jest.advanceTimersByTime(60_000);
+        expect(blocked).toHaveBeenCalledWith(
+            'no_header_observed',
+            'health',
+            expect.objectContaining({ requestsSeen: 1 })
+        );
+    });
+
+    test('observing the header cancels the timeout entirely', () => {
+        armCanary({
+            headerName: 'x-mirrord-user',
+            flow: 'header_injector',
+            scoped: false,
+        });
+        noteRequestSeen();
+        notifyHeaderObserved('X-Mirrord-User');
+        jest.advanceTimersByTime(60_000);
+        expect(blocked).not.toHaveBeenCalled();
     });
 });
