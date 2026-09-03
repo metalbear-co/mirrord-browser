@@ -21,9 +21,16 @@ import type { ThemePref } from './types';
 import { SessionsView, ManualSetup } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
-import { capture, captureBeacon, optOutReady } from './analytics';
+import {
+    capture,
+    captureBeacon,
+    optOutReady,
+    initErrorTracking,
+} from './analytics';
 import { STRINGS, TAB, type TabId } from './constants';
 import { STORAGE_KEYS } from './types';
+
+initErrorTracking('popup');
 
 const popupOpenedAt = Date.now();
 const surface: 'side_panel' | 'popup_fallback' =
