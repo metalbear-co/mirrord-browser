@@ -91,6 +91,7 @@ jest.mock('@metalbear/ui', () => ({
 }));
 
 import { SessionsView } from '../components/SessionsView';
+import { STRINGS } from '../constants';
 
 const s = (
     name: string,
@@ -405,18 +406,16 @@ describe('SessionsView', () => {
         ).toBeInTheDocument();
     });
 
-    test('shows an idle preview with how long it has been idling', () => {
+    test('shows how long an idle preview has been idling, in the footer', () => {
         render(
             <SessionsView
                 {...baseProps}
                 sessions={[previewSession('pk', 'idle', 330)]}
             />
         );
-        expect(screen.getByText('preview')).toBeInTheDocument();
-        expect(screen.getByText('idle 5m 30s')).toBeInTheDocument();
-        expect(screen.getByText(/wakes on traffic/i)).toBeInTheDocument();
+        expect(screen.getByText('Idle for 5m 30s')).toBeInTheDocument();
         // Idle is a normal state, not an error one.
-        expect(screen.queryByText('failed')).toBeNull();
+        expect(screen.queryByText(STRINGS.MSG_PREVIEW_FAILED)).toBeNull();
     });
 
     test('shows a failed preview and still offers Join', () => {
@@ -426,7 +425,9 @@ describe('SessionsView', () => {
                 sessions={[previewSession('pk', 'failed')]}
             />
         );
-        expect(screen.getByText('failed')).toBeInTheDocument();
+        expect(
+            screen.getByText(STRINGS.MSG_PREVIEW_FAILED)
+        ).toBeInTheDocument();
         expect(
             screen.getByRole('button', { name: /join pk/i })
         ).toBeInTheDocument();

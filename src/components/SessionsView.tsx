@@ -268,7 +268,6 @@ export function SessionsView({
                                 key={k}
                                 groupKey={k}
                                 sessions={groups[k] ?? []}
-                                joined={k === joinedKey}
                                 onJoin={onJoin}
                                 onShare={onShare}
                             />

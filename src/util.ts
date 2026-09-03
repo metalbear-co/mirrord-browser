@@ -277,7 +277,7 @@ function foldedAsPreviewSession(
     };
 }
 
-export type PreviewTone = 'live' | 'pending' | 'idle' | 'failed';
+export type PreviewTone = 'live' | 'pending' | 'idle' | 'paused' | 'failed';
 
 export function previewPhaseTone(preview: PreviewSession): PreviewTone | null {
     switch (preview.phase) {
@@ -289,8 +289,9 @@ export function previewPhaseTone(preview: PreviewSession): PreviewTone | null {
         case 'failed':
             return 'failed';
         case 'idle':
-        case 'paused':
             return 'idle';
+        case 'paused':
+            return 'paused';
         case 'unknown':
             return null;
     }
@@ -331,6 +332,11 @@ export function isPreviewLive(preview: PreviewSession): boolean {
 }
 
 // A key's group is live unless it is a preview environment that is not currently serving.
+export function groupTone(sessions: ClusterSession[]): PreviewTone {
+    const preview = sessions.find(isPreviewSession);
+    return (preview && previewPhaseTone(preview)) ?? 'live';
+}
+
 export function isGroupLive(sessions: ClusterSession[]): boolean {
     const preview = sessions.find(isPreviewSession);
     return preview ? isPreviewLive(preview) : true;
@@ -344,7 +350,11 @@ export function previewStatusLine(preview: PreviewSession): string {
         case 'ready':
             return STRINGS.MSG_PREVIEW_READY;
         case 'idle':
-            return STRINGS.MSG_PREVIEW_IDLE;
+            return STRINGS.MSG_PREVIEW_IDLE(
+                preview.idleSecs === undefined
+                    ? null
+                    : formatDurationSecs(preview.idleSecs)
+            );
         case 'paused':
             return STRINGS.MSG_PREVIEW_PAUSED;
         case 'failed':

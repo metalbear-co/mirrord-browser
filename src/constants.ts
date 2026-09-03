@@ -58,7 +58,6 @@ export const STRINGS = {
     MSG_SESSION_LIVE: 'Session live',
     MSG_SESSION_RECONNECTING: 'Waiting for session',
     MSG_SESSION_ENDED: 'Session ended',
-    MSG_ROUTING_TRAFFIC: 'Routing your traffic',
     MSG_AVAILABLE: 'Available',
     MSG_JOINED_TAG: 'Joined',
     MSG_ACTIVE: 'Active',
@@ -142,7 +141,8 @@ export const STRINGS = {
     },
     MSG_PREVIEW_STARTING: 'Starting up',
     MSG_PREVIEW_READY: 'Ready',
-    MSG_PREVIEW_IDLE: 'Idle — wakes on traffic',
+    MSG_PREVIEW_IDLE: (duration: string | null) =>
+        duration ? `Idle for ${duration}` : 'Idle',
     MSG_PREVIEW_PAUSED: 'Paused — will not wake on traffic',
     MSG_PREVIEW_FAILED: 'Failed',
     TERMINAL_PROMPT: '$',

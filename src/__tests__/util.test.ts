@@ -561,7 +561,7 @@ describe('previewPhaseTone', () => {
         ['waiting', 'pending'],
         ['failed', 'failed'],
         ['idle', 'idle'],
-        ['paused', 'idle'],
+        ['paused', 'paused'],
     ] as const)('maps %s to %s', (phase, tone) => {
         expect(previewPhaseTone(previewSession({ phase }))).toBe(tone);
     });
@@ -599,9 +599,21 @@ describe('previewPhaseLabel', () => {
 });
 
 describe('previewStatusLine', () => {
-    it('explains that an idle preview wakes on traffic', () => {
+    it('reports how long an idle preview has been idling', () => {
+        expect(
+            previewStatusLine(previewSession({ phase: 'idle', idleSecs: 330 }))
+        ).toBe('Idle for 5m 30s');
+    });
+
+    it('omits the duration when the operator did not report one', () => {
         expect(previewStatusLine(previewSession({ phase: 'idle' }))).toBe(
-            STRINGS.MSG_PREVIEW_IDLE
+            'Idle'
+        );
+    });
+
+    it('reports a paused preview', () => {
+        expect(previewStatusLine(previewSession({ phase: 'paused' }))).toBe(
+            STRINGS.MSG_PREVIEW_PAUSED
         );
     });
 
