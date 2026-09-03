@@ -116,6 +116,43 @@ describe('applied result page run()', () => {
         );
     });
 
+    it('returns open_url when it is https and inside inject_scope', async () => {
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'baggage: mirrord-session=pr1',
+                inject_scope: '*://shop.example.com/*',
+                open_url: 'https://shop.example.com/cart',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state).toMatchObject({
+            kind: 'done',
+            openUrl: 'https://shop.example.com/cart',
+        });
+    });
+
+    it('rejects open_url outside inject_scope without applying anything', async () => {
+        const payload = btoa(
+            JSON.stringify({
+                header_filter: 'X-Test: v',
+                inject_scope: '*://shop.example.com/*',
+                open_url: 'https://evil.example.net/',
+            })
+        );
+        setSearch(`?payload=${encodeURIComponent(payload)}`);
+
+        const state = await run();
+
+        expect(state).toMatchObject({
+            kind: 'error',
+            error: 'open_url must be inside inject_scope.',
+        });
+        expect(mockUpdateDynamicRules).not.toHaveBeenCalled();
+    });
+
     it('falls back to a transient override when no live session matches', async () => {
         mockJoinMatchingSession.mockResolvedValue(null);
         const payload = btoa(

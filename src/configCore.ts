@@ -65,6 +65,36 @@ export function decodeConfig(encoded: string): Config {
  * Prompt the user for an HTTP header value that matches the given pattern.
  * @param pattern a regex pattern for HTTP headers
  */
+/**
+ * Validate the page a config link wants to open once its header is applied. The link is served
+ * from metalbear.com, so an unconstrained redirect would let anyone dress up an arbitrary site
+ * as a mirrord preview: only https, and only a URL the injected header actually reaches.
+ */
+export function resolveOpenUrl(
+    openUrl: string | undefined,
+    scope: string | undefined
+): string | undefined {
+    if (openUrl === undefined) {
+        return undefined;
+    }
+    let parsed: URL;
+    try {
+        parsed = new URL(openUrl);
+    } catch {
+        throw new Error('open_url is not a valid URL.');
+    }
+    if (parsed.protocol !== 'https:') {
+        throw new Error('open_url must use https.');
+    }
+    if (!scope) {
+        throw new Error('open_url requires an inject_scope.');
+    }
+    if (!new URLPattern(scope.trim()).test(parsed.href)) {
+        throw new Error('open_url must be inside inject_scope.');
+    }
+    return parsed.href;
+}
+
 export function promptForValidHeader(pattern: string): string {
     const regex = new RegExp(pattern);
     let header: string | null = null;
