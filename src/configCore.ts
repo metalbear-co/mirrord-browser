@@ -62,10 +62,6 @@ export function decodeConfig(encoded: string): Config {
 }
 
 /**
- * Prompt the user for an HTTP header value that matches the given pattern.
- * @param pattern a regex pattern for HTTP headers
- */
-/**
  * Validate the page a config link wants to open once its header is applied. The link is served
  * from metalbear.com, so an unconstrained redirect would let anyone dress up an arbitrary site
  * as a mirrord preview: only https, and only a URL the injected header actually reaches.
@@ -95,6 +91,10 @@ export function resolveOpenUrl(
     return parsed.href;
 }
 
+/**
+ * Prompt the user for an HTTP header value that matches the given pattern.
+ * @param pattern a regex pattern for HTTP headers
+ */
 export function promptForValidHeader(pattern: string): string {
     const regex = new RegExp(pattern);
     let header: string | null = null;
