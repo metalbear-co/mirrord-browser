@@ -14,8 +14,15 @@ import {
 } from './configCore';
 import { applyHeaderConfig } from './applyConfig';
 import { joinMatchingSession } from './joinSession';
-import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    capture,
+    emitUserBlocked,
+    emitUserSucceeded,
+    initErrorTracking,
+} from './analytics';
 import { STRINGS } from './constants';
+
+initErrorTracking('applied');
 
 export type AppliedState =
     | { kind: 'loading' }

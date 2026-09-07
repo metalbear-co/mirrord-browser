@@ -3,6 +3,7 @@ jest.mock('../analytics', () => ({
     capture: jest.fn(),
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
+    initErrorTracking: jest.fn(),
 }));
 // joinMatchingSession's internals are covered by config.test; here we control its result to
 // exercise run()'s join-vs-static-override orchestration.

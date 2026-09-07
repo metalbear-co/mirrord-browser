@@ -3,6 +3,14 @@ import { STORAGE_KEYS } from './types';
 const POSTHOG_KEY = 'phc_wIZh92nyk4vu6HidiLFUzjW6piZlZszuWZZFBS7yHHe';
 const POSTHOG_HOST = 'https://hog.metalbear.com';
 
+const APP_VERSION = (() => {
+    try {
+        return chrome.runtime.getManifest().version;
+    } catch {
+        return 'unknown';
+    }
+})();
+
 let distinctId: string | null = null;
 let optedOut = false;
 
@@ -74,6 +82,7 @@ export function capture(
                 properties: {
                     ...properties,
                     $lib: 'mirrord-browser-extension',
+                    $app_version: APP_VERSION,
                 },
                 timestamp: new Date().toISOString(),
             }),
@@ -101,6 +110,7 @@ export function captureBeacon(
             properties: {
                 ...properties,
                 $lib: 'mirrord-browser-extension',
+                $app_version: APP_VERSION,
             },
             timestamp: new Date().toISOString(),
         });
@@ -108,6 +118,35 @@ export function captureBeacon(
     } catch {
         // Analytics should never break the extension
     }
+}
+
+export function captureException(
+    error: unknown,
+    properties: Record<string, unknown> = {},
+    handled = true
+): void {
+    const err = error instanceof Error ? error : new Error(String(error));
+    capture('$exception', {
+        $exception_list: [
+            {
+                type: err.name,
+                value: err.message,
+                mechanism: { handled, synthetic: false },
+            },
+        ],
+        $exception_stack_trace_raw: err.stack,
+        surface: 'extension',
+        ...properties,
+    });
+}
+
+export function initErrorTracking(page: string): void {
+    window.addEventListener('error', (event) => {
+        captureException(event.error ?? event.message, { page }, false);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        captureException(event.reason, { page }, false);
+    });
 }
 
 export type EventKind = 'user_action' | 'health';

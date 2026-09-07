@@ -12,7 +12,7 @@ import type {
     PreviewPhase,
     PreviewSession,
 } from './types';
-import { ALL_RESOURCE_TYPES, PREVIEW_PHASES } from './types';
+import { ALL_RESOURCE_TYPES, PREVIEW_PHASES, isPreviewSession } from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -186,8 +186,12 @@ export function normalizePreviewPhase(raw: unknown): PreviewPhase {
         : 'unknown';
 }
 
+// Check both markers set by mirrord CLI when folding a preview into the session list.
 function isFoldedPreview(session: OperatorSessionSummary): boolean {
-    return session.owner?.username === PREVIEW_OWNER_USERNAME;
+    return (
+        session.owner?.username === PREVIEW_OWNER_USERNAME &&
+        session.owner.k8sUsername === PREVIEW_OWNER_USERNAME
+    );
 }
 
 /**
@@ -263,7 +267,7 @@ function foldedAsPreviewSession(
     };
 }
 
-export type PreviewTone = 'live' | 'pending' | 'idle' | 'failed';
+export type PreviewTone = 'live' | 'pending' | 'idle' | 'paused' | 'failed';
 
 export function previewPhaseTone(preview: PreviewSession): PreviewTone | null {
     switch (preview.phase) {
@@ -275,8 +279,9 @@ export function previewPhaseTone(preview: PreviewSession): PreviewTone | null {
         case 'failed':
             return 'failed';
         case 'idle':
-        case 'paused':
             return 'idle';
+        case 'paused':
+            return 'paused';
         case 'unknown':
             return null;
     }
@@ -299,6 +304,34 @@ export function previewPhaseLabel(preview: PreviewSession): string | null {
     }
 }
 
+// Whether a preview environment is currently serving, or would on the next request. `idle` counts:
+// its pods are scaled to zero but traffic wakes them. `paused` does not — nothing wakes it.
+export function isPreviewLive(preview: PreviewSession): boolean {
+    switch (preview.phase) {
+        // `unknown` means the operator never told us, so assume up, as before phases existed.
+        case 'ready':
+        case 'idle':
+        case 'unknown':
+            return true;
+        case 'initializing':
+        case 'waiting':
+        case 'paused':
+        case 'failed':
+            return false;
+    }
+}
+
+// A key's group is live unless it is a preview environment that is not currently serving.
+export function groupTone(sessions: ClusterSession[]): PreviewTone {
+    const preview = sessions.find(isPreviewSession);
+    return (preview && previewPhaseTone(preview)) ?? 'live';
+}
+
+export function isGroupLive(sessions: ClusterSession[]): boolean {
+    const preview = sessions.find(isPreviewSession);
+    return preview ? isPreviewLive(preview) : true;
+}
+
 export function previewStatusLine(preview: PreviewSession): string {
     switch (preview.phase) {
         case 'initializing':
@@ -307,7 +340,11 @@ export function previewStatusLine(preview: PreviewSession): string {
         case 'ready':
             return STRINGS.MSG_PREVIEW_READY;
         case 'idle':
-            return STRINGS.MSG_PREVIEW_IDLE;
+            return STRINGS.MSG_PREVIEW_IDLE(
+                preview.idleSecs === undefined
+                    ? null
+                    : formatDurationSecs(preview.idleSecs)
+            );
         case 'paused':
             return STRINGS.MSG_PREVIEW_PAUSED;
         case 'failed':

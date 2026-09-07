@@ -129,6 +129,12 @@ export interface PreviewSession extends SessionBase {
 
 export type ClusterSession = ExecSession | PreviewSession;
 
+export function isPreviewSession(
+    session: ClusterSession
+): session is PreviewSession {
+    return session.kind === 'preview';
+}
+
 export type OperatorWatchStatus =
     | { status: 'not_started' }
     | { status: 'watching' }

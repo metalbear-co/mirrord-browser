@@ -91,6 +91,7 @@ jest.mock('@metalbear/ui', () => ({
 }));
 
 import { SessionsView } from '../components/SessionsView';
+import { STRINGS } from '../constants';
 
 const s = (
     name: string,
@@ -170,7 +171,43 @@ describe('SessionsView', () => {
         // k3 has two sessions; the count should treat that group as one.
         const withDup = [...sessions, s('d', 'k3', 'ns-a')];
         render(<SessionsView {...baseProps} sessions={withDup} />);
-        expect(screen.getByText(/3 live sessions/i)).toBeInTheDocument();
+        expect(screen.getByText('3 Live sessions')).toBeInTheDocument();
+    });
+
+    test('excludes a non-live preview from the live session count', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'failed')]}
+            />
+        );
+        // 4 cards listed, but the failed preview is not serving traffic.
+        expect(screen.getByText('3/4 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a ready or idle preview as live', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[
+                    ...sessions,
+                    previewSession('pk', 'idle', 30),
+                    previewSession('pk2', 'ready'),
+                ]}
+            />
+        );
+        // An idle preview still wakes on traffic, so no split is shown.
+        expect(screen.getByText('5 Live sessions')).toBeInTheDocument();
+    });
+
+    test('counts a phase-less preview as live, as before phases existed', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[...sessions, previewSession('pk', 'unknown')]}
+            />
+        );
+        expect(screen.getByText('4 Live sessions')).toBeInTheDocument();
     });
 
     test('clicking Join on a row calls onJoin with that session key', () => {
@@ -369,18 +406,16 @@ describe('SessionsView', () => {
         ).toBeInTheDocument();
     });
 
-    test('shows an idle preview with how long it has been idling', () => {
+    test('shows how long an idle preview has been idling, in the footer', () => {
         render(
             <SessionsView
                 {...baseProps}
                 sessions={[previewSession('pk', 'idle', 330)]}
             />
         );
-        expect(screen.getByText('preview')).toBeInTheDocument();
-        expect(screen.getByText('idle 5m 30s')).toBeInTheDocument();
-        expect(screen.getByText(/wakes on traffic/i)).toBeInTheDocument();
+        expect(screen.getByText('Idle for 5m 30s')).toBeInTheDocument();
         // Idle is a normal state, not an error one.
-        expect(screen.queryByText(/failed to start/i)).toBeNull();
+        expect(screen.queryByText(STRINGS.MSG_PREVIEW_FAILED)).toBeNull();
     });
 
     test('shows a failed preview and still offers Join', () => {
@@ -390,8 +425,9 @@ describe('SessionsView', () => {
                 sessions={[previewSession('pk', 'failed')]}
             />
         );
-        expect(screen.getByText('failed')).toBeInTheDocument();
-        expect(screen.getByText(/failed to start/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(STRINGS.MSG_PREVIEW_FAILED)
+        ).toBeInTheDocument();
         expect(
             screen.getByRole('button', { name: /join pk/i })
         ).toBeInTheDocument();

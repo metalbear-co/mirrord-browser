@@ -8,7 +8,7 @@ import { Card, CardContent } from '@metalbear/ui';
 
 initTheme();
 import { STORAGE_KEYS } from './types';
-import { capture } from './analytics';
+import { capture, initErrorTracking } from './analytics';
 import { fetchOperatorSessions } from './hooks/useMirrordUi';
 import {
     buildDnrRule,
@@ -22,6 +22,8 @@ import {
     STRINGS,
     type ConfigureStatusKind,
 } from './constants';
+
+initErrorTracking('configure');
 
 type Status =
     | { kind: typeof CONFIGURE_STATUS.LOADING }

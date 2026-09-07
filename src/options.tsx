@@ -6,8 +6,10 @@ import './tokens.css';
 import { initTheme } from './theme';
 import { Label, Switch } from '@metalbear/ui';
 import { STRINGS } from './constants';
-import { optOutReady, setOptOut } from './analytics';
+import { optOutReady, setOptOut, initErrorTracking } from './analytics';
 import { STORAGE_KEYS } from './types';
+
+initErrorTracking('options');
 
 initTheme();
 
