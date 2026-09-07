@@ -91,6 +91,7 @@ describe('handleJoin', () => {
         mockedFetchSessions.mockResolvedValue({
             sessions: [
                 {
+                    kind: 'exec',
                     id: 'sess-1',
                     key: 'k1',
                     namespace: 'ns',

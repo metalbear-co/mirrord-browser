@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from './types';
-import type { OperatorSessionSummary } from './types';
+import type { ClusterSession } from './types';
 import {
     buildDnrRule,
     getDynamicRules,
@@ -260,7 +260,7 @@ export async function handleJoin(key: string) {
                 error,
             };
         }
-        let target: OperatorSessionSummary | undefined;
+        let target: ClusterSession | undefined;
         try {
             const sessionsResp = await fetchOperatorSessions(backend, token);
             target = sessionsResp.sessions.find((s) => s.key === key);

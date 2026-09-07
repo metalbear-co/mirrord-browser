@@ -6,8 +6,23 @@ import {
     buildShareUrl,
     sessionInjectionPair,
     aggregateSessions,
+    toClusterSessions,
+    normalizePreviewPhase,
+    previewPhaseTone,
+    previewPhaseLabel,
+    previewStatusLine,
+    isPreviewLive,
+    isGroupLive,
+    formatDurationSecs,
 } from '../util';
-import type { OperatorSessionSummary } from '../types';
+import type {
+    ClusterSession,
+    ExecSession,
+    OperatorPreviewSession,
+    OperatorSessionSummary,
+    PreviewPhase,
+    PreviewSession,
+} from '../types';
 import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
 import { ALL_RESOURCE_TYPES } from '../types';
@@ -331,9 +346,8 @@ describe('sessionInjectionPair', () => {
 });
 
 describe('aggregateSessions', () => {
-    const session = (
-        over: Partial<OperatorSessionSummary>
-    ): OperatorSessionSummary => ({
+    const session = (over: Partial<ExecSession>): ClusterSession => ({
+        kind: 'exec',
         id: 'id-1',
         key: 'k',
         namespace: 'ns',
@@ -353,7 +367,7 @@ describe('aggregateSessions', () => {
         ]);
         expect(agg.owners.sort()).toEqual(['alice', 'bob']);
         expect(agg.targets).toEqual(['deployment/web']);
-        expect(agg.isPreview).toBe(false);
+        expect(agg.preview).toBeNull();
     });
 
     it('tolerates sessions with null owner, target, and createdAt', () => {
@@ -364,5 +378,309 @@ describe('aggregateSessions', () => {
         expect(agg.owners).toEqual(['alice']);
         expect(agg.targets.sort()).toEqual(['deployment/web', 'targetless']);
         expect(agg.earliestCreatedAt).toBe('2026-07-13T00:00:00Z');
+    });
+
+    it('surfaces the preview environment behind the key', () => {
+        const agg = aggregateSessions([
+            previewSession({ phase: 'idle', idleSecs: 90 }),
+        ]);
+        expect(agg.preview?.phase).toBe('idle');
+        // A preview has no owner to attribute it to.
+        expect(agg.owners).toEqual([]);
+    });
+});
+
+const wirePreview = (
+    over: Partial<OperatorPreviewSession> = {}
+): OperatorPreviewSession => ({
+    id: 'id-1',
+    key: 'k',
+    namespace: 'ns',
+    target: { kind: 'deployment', name: 'web', container: 'app' },
+    createdAt: '2026-07-13T00:00:00Z',
+    phase: 'ready',
+    ...over,
+});
+
+const previewSession = (
+    over: Partial<PreviewSession> = {}
+): PreviewSession => ({
+    kind: 'preview',
+    id: 'id-1',
+    key: 'k',
+    namespace: 'ns',
+    target: { kind: 'deployment', name: 'web', container: 'app' },
+    createdAt: '2026-07-13T00:00:00Z',
+    phase: 'ready',
+    ...over,
+});
+
+describe('toClusterSessions', () => {
+    // A preview as the operator folds it into the plain session list, for older clients.
+    const folded = (
+        over: Partial<OperatorSessionSummary> = {}
+    ): OperatorSessionSummary => ({
+        id: 'id-1',
+        key: 'k',
+        namespace: 'ns',
+        owner: { username: 'preview-env', k8sUsername: 'preview-env' },
+        target: { kind: 'deployment', name: 'web', container: 'app' },
+        createdAt: '2026-07-13T00:00:00Z',
+        ...over,
+    });
+
+    const exec = (
+        over: Partial<OperatorSessionSummary> = {}
+    ): OperatorSessionSummary => ({
+        id: 'exec-1',
+        key: 'k2',
+        namespace: 'ns',
+        owner: { username: 'alice', k8sUsername: 'alice@k8s' },
+        target: { kind: 'deployment', name: 'api', container: 'app' },
+        createdAt: '2026-07-13T00:00:00Z',
+        ...over,
+    });
+
+    it('classifies an ordinary session as exec', () => {
+        const [session] = toClusterSessions([exec()], undefined);
+        expect(session?.kind).toBe('exec');
+        expect(session?.kind === 'exec' && session.owner?.username).toBe(
+            'alice'
+        );
+    });
+
+    it('lists a preview once when it arrives in both lists', () => {
+        const sessions = toClusterSessions(
+            [exec(), folded()],
+            [wirePreview({ phase: 'idle', idleSecs: 30 })]
+        );
+        expect(sessions).toHaveLength(2);
+        const previews = sessions.filter((s) => s.kind === 'preview');
+        expect(previews).toHaveLength(1);
+        // The dedicated list wins, so the phase survives.
+        expect(previews[0]?.kind === 'preview' && previews[0].phase).toBe(
+            'idle'
+        );
+    });
+
+    it('prefers the dedicated list even when the folded entry has a different id', () => {
+        const sessions = toClusterSessions(
+            [folded({ id: 'stale-id' })],
+            [wirePreview({ id: 'fresh-id', phase: 'failed' })]
+        );
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0]?.kind === 'preview' && sessions[0].phase).toBe(
+            'failed'
+        );
+    });
+
+    it('falls back to the folded preview when the operator reports no preview list', () => {
+        const sessions = toClusterSessions([exec(), folded()], undefined);
+        expect(sessions.map((s) => s.kind).sort()).toEqual(['exec', 'preview']);
+        // Nothing told us the phase, so we claim nothing about it.
+        const preview = sessions.find((s) => s.kind === 'preview');
+        expect(preview?.kind === 'preview' && preview.phase).toBe('unknown');
+    });
+
+    it('keeps a folded preview the dedicated list never mentioned', () => {
+        const sessions = toClusterSessions(
+            [folded({ id: 'orphan', key: 'k-orphan' })],
+            [wirePreview({ id: 'other', key: 'k-other' })]
+        );
+        expect(sessions.map((s) => s.key).sort()).toEqual([
+            'k-orphan',
+            'k-other',
+        ]);
+    });
+
+    // A preview is reached by key, so the folded twin's filter is not consulted. The operator
+    // sends the bare key there, which never parses as a header line anyway.
+    it('routes a preview by key, ignoring the folded filter', () => {
+        const [session] = toClusterSessions(
+            [folded({ httpFilter: { headerFilter: 'x-tenant: alice' } })],
+            [wirePreview()]
+        );
+        expect(session).toBeDefined();
+        expect(session && sessionInjectionPair(session)).toEqual({
+            header: 'baggage',
+            value: 'mirrord-session=k',
+        });
+    });
+
+    it('takes a preview the operator never folded in', () => {
+        const sessions = toClusterSessions([], [wirePreview()]);
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0] && sessionInjectionPair(sessions[0])).toEqual({
+            header: 'baggage',
+            value: 'mirrord-session=k',
+        });
+    });
+
+    it('normalizes an unrecognized phase on the way in', () => {
+        const [session] = toClusterSessions(
+            [],
+            [wirePreview({ phase: 'hibernating' as PreviewPhase })]
+        );
+        expect(session?.kind === 'preview' && session.phase).toBe('unknown');
+    });
+
+    it('drops idleSecs for a phase that is not idle', () => {
+        const [session] = toClusterSessions(
+            [],
+            [wirePreview({ phase: 'ready', idleSecs: 90 })]
+        );
+        expect(session?.kind === 'preview' && session.idleSecs).toBeUndefined();
+    });
+});
+
+describe('normalizePreviewPhase', () => {
+    it.each([
+        'initializing',
+        'waiting',
+        'ready',
+        'failed',
+        'idle',
+        'paused',
+        'unknown',
+    ])('passes %s through', (phase) => {
+        expect(normalizePreviewPhase(phase)).toBe(phase);
+    });
+
+    it.each([['hibernating'], [''], [undefined], [null], [42]])(
+        'falls back to unknown for %p',
+        (raw) => {
+            expect(normalizePreviewPhase(raw)).toBe('unknown');
+        }
+    );
+});
+
+describe('previewPhaseTone', () => {
+    it.each([
+        ['ready', 'live'],
+        ['initializing', 'pending'],
+        ['waiting', 'pending'],
+        ['failed', 'failed'],
+        ['idle', 'idle'],
+        ['paused', 'paused'],
+    ] as const)('maps %s to %s', (phase, tone) => {
+        expect(previewPhaseTone(previewSession({ phase }))).toBe(tone);
+    });
+
+    it('gives an unreported phase no tone, so it renders as it always did', () => {
+        expect(
+            previewPhaseTone(previewSession({ phase: 'unknown' }))
+        ).toBeNull();
+    });
+});
+
+describe('previewPhaseLabel', () => {
+    it('annotates idle with how long it has been idling', () => {
+        expect(
+            previewPhaseLabel(previewSession({ phase: 'idle', idleSecs: 330 }))
+        ).toBe('idle 5m 30s');
+    });
+
+    it('omits the duration when the operator did not report one', () => {
+        expect(previewPhaseLabel(previewSession({ phase: 'idle' }))).toBe(
+            'idle'
+        );
+    });
+
+    it.each(['initializing', 'waiting', 'failed', 'paused'] as const)(
+        'labels %s with the phase word',
+        (phase) => {
+            expect(previewPhaseLabel(previewSession({ phase }))).toBe(phase);
+        }
+    );
+
+    it.each(['ready', 'unknown'] as const)('leaves %s unannotated', (phase) => {
+        expect(previewPhaseLabel(previewSession({ phase }))).toBeNull();
+    });
+});
+
+describe('previewStatusLine', () => {
+    it('reports how long an idle preview has been idling', () => {
+        expect(
+            previewStatusLine(previewSession({ phase: 'idle', idleSecs: 330 }))
+        ).toBe('Idle for 5m 30s');
+    });
+
+    it('omits the duration when the operator did not report one', () => {
+        expect(previewStatusLine(previewSession({ phase: 'idle' }))).toBe(
+            'Idle'
+        );
+    });
+
+    it('reports a paused preview', () => {
+        expect(previewStatusLine(previewSession({ phase: 'paused' }))).toBe(
+            STRINGS.MSG_PREVIEW_PAUSED
+        );
+    });
+
+    it('reports a failed preview', () => {
+        expect(previewStatusLine(previewSession({ phase: 'failed' }))).toBe(
+            STRINGS.MSG_PREVIEW_FAILED
+        );
+    });
+
+    it('falls back to the generic line for an unknown phase', () => {
+        expect(previewStatusLine(previewSession({ phase: 'unknown' }))).toBe(
+            STRINGS.MSG_AVAILABLE
+        );
+    });
+});
+
+describe('isPreviewLive', () => {
+    it.each(['ready', 'idle', 'unknown'] as const)(
+        'counts %s as live',
+        (phase) => {
+            expect(isPreviewLive(previewSession({ phase }))).toBe(true);
+        }
+    );
+
+    it.each(['initializing', 'waiting', 'paused', 'failed'] as const)(
+        'does not count %s as live',
+        (phase) => {
+            expect(isPreviewLive(previewSession({ phase }))).toBe(false);
+        }
+    );
+});
+
+describe('isGroupLive', () => {
+    const exec: ClusterSession = {
+        kind: 'exec',
+        id: 'e1',
+        key: 'k',
+        namespace: 'ns',
+        owner: { username: 'alice', k8sUsername: 'alice@k8s' },
+        target: null,
+        createdAt: null,
+    };
+
+    it('treats a group of exec sessions as live', () => {
+        expect(isGroupLive([exec])).toBe(true);
+    });
+
+    it('follows the preview phase when the group is a preview', () => {
+        expect(isGroupLive([previewSession({ phase: 'ready' })])).toBe(true);
+        expect(isGroupLive([previewSession({ phase: 'failed' })])).toBe(false);
+        expect(isGroupLive([previewSession({ phase: 'paused' })])).toBe(false);
+    });
+
+    it('treats an empty group as live', () => {
+        expect(isGroupLive([])).toBe(true);
+    });
+});
+
+describe('formatDurationSecs', () => {
+    it.each([
+        [0, '0s'],
+        [45, '45s'],
+        [90, '1m 30s'],
+        [3600, '1h 0m'],
+        [7860, '2h 11m'],
+        [-5, '0s'],
+    ])('formats %d as %s', (secs, expected) => {
+        expect(formatDurationSecs(secs)).toBe(expected);
     });
 });

@@ -4,9 +4,10 @@ import {
     fetchContexts,
     fetchOperatorSessionsV2,
 } from '../hooks/useMirrordUi';
-import type { OperatorSessionsResponse } from '../types';
+import type { OperatorSessionsV1Response } from '../types';
 import { STORAGE_KEYS } from '../types';
 import { decodeConfig } from '../config';
+import { sessionInjectionPair } from '../util';
 
 const urlToString = (url: RequestInfo | URL): string =>
     typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
@@ -14,7 +15,7 @@ const urlToString = (url: RequestInfo | URL): string =>
 const owner = { username: 'alice', k8sUsername: 'alice@ex' };
 const createdAt = '2026-01-01T00:00:00Z';
 
-const sampleResponse: OperatorSessionsResponse = {
+const sampleResponse: OperatorSessionsV1Response = {
     by_key: {
         k0: [
             {
@@ -380,7 +381,7 @@ test('session share builds a config link without backend or join params', async 
 });
 
 test('session share uses the operator HTTP filter when it can derive a header', async () => {
-    const responseWithFilter: OperatorSessionsResponse = {
+    const responseWithFilter: OperatorSessionsV1Response = {
         ...sampleResponse,
         sessions: sampleResponse.sessions.map((session) =>
             session.key === 'k0'
@@ -495,6 +496,97 @@ describe('v2 API', () => {
         expect(r.sessions).toHaveLength(2);
         expect(Object.keys(r.by_key)).toEqual(['k1']);
         expect(r.watch_status).toEqual({ status: 'watching' });
+    });
+
+    test('fetchOperatorSessionsV2 merges previewSessions over the folded entries', async () => {
+        const v2 = {
+            context: 'ctx-a',
+            status: 'available',
+            sessions: [
+                {
+                    id: 'a',
+                    key: 'k1',
+                    namespace: 'ns-a',
+                    owner,
+                    target: null,
+                    createdAt,
+                },
+                // The preview session the operator folds in for older clients; it shares its id
+                // with the previewSessions entry below.
+                {
+                    id: 'p1',
+                    key: 'preview-key',
+                    namespace: 'ns-a',
+                    owner: {
+                        username: 'preview-env',
+                        k8sUsername: 'preview-env',
+                    },
+                    target: null,
+                    createdAt,
+                    httpFilter: { headerFilter: 'preview-key' },
+                },
+            ],
+            previewSessions: [
+                {
+                    id: 'p1',
+                    key: 'preview-key',
+                    namespace: 'ns-a',
+                    target: null,
+                    createdAt,
+                    durationSecs: 600,
+                    phase: 'idle',
+                    idleSecs: 60,
+                },
+            ],
+        };
+        const f = mockFetch(() => makeResp(JSON.stringify(v2)));
+        const r = await fetchOperatorSessionsV2('http://b', 't', 'ctx-a', f);
+
+        // The preview is listed once, not twice.
+        expect(r.sessions).toHaveLength(2);
+        expect(r.by_key['preview-key']).toHaveLength(1);
+
+        const merged = r.sessions.find((s) => s.id === 'p1');
+        expect(merged).toMatchObject({
+            kind: 'preview',
+            phase: 'idle',
+            idleSecs: 60,
+        });
+        // Routed by key, so the folded entry's filter is not needed.
+        expect(merged && sessionInjectionPair(merged)).toEqual({
+            header: 'baggage',
+            value: 'mirrord-session=preview-key',
+        });
+        // A regular session is untouched.
+        expect(r.sessions.find((s) => s.id === 'a')?.kind).toBe('exec');
+    });
+
+    test('fetchOperatorSessionsV2 leaves sessions alone without previewSessions', async () => {
+        const v2 = {
+            context: 'ctx-a',
+            status: 'available',
+            sessions: [
+                {
+                    id: 'p1',
+                    key: 'preview-key',
+                    namespace: 'ns-a',
+                    owner: {
+                        username: 'preview-env',
+                        k8sUsername: 'preview-env',
+                    },
+                    target: null,
+                    createdAt,
+                },
+            ],
+        };
+        const f = mockFetch(() => makeResp(JSON.stringify(v2)));
+        const r = await fetchOperatorSessionsV2('http://b', 't', 'ctx-a', f);
+        expect(r.sessions).toHaveLength(1);
+        // Still recognised as a preview from the folded owner alone, just with no phase.
+        expect(r.sessions[0]).toMatchObject({
+            kind: 'preview',
+            phase: 'unknown',
+        });
     });
 
     test('fetchOperatorSessionsV2 maps an unavailable operator with its reason', async () => {
