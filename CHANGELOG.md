@@ -8,6 +8,13 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.7.0](https://github.com/metalbear-co/mirrord-browser/tree/0.7.0) - 2026-09-09
+
+
+### Changed
+
+- Display preview environments' state in session list.
+
 ## [0.6.0](https://github.com/metalbear-co/mirrord-browser/tree/0.6.0) - 2026-07-21
 
 
