@@ -1,0 +1,1 @@
+Events reported from the background service worker (session join failures, unhandled errors) now reach product analytics. They were silently dropped because the worker has no `localStorage` to hold the analytics id.
