@@ -143,7 +143,7 @@ export const STRINGS = {
     MSG_PREVIEW_READY: 'Ready',
     MSG_PREVIEW_IDLE: (duration: string | null) =>
         duration ? `Idle for ${duration}` : 'Idle',
-    MSG_PREVIEW_PAUSED: 'Paused — will not wake on traffic',
+    MSG_PREVIEW_PAUSED: 'Paused, will not wake on traffic',
     MSG_PREVIEW_FAILED: 'Failed',
     TERMINAL_PROMPT: '$',
     PUNCT_PLUS: '+',

@@ -533,7 +533,6 @@ describe('v2 API', () => {
                     namespace: 'ns-a',
                     target: null,
                     createdAt,
-                    durationSecs: 600,
                     phase: 'idle',
                     idleSecs: 60,
                 },
