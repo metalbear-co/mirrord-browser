@@ -95,26 +95,43 @@ export function setHeaderName(
 
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
 
+export type CanaryFlow = 'session_monitor' | 'header_injector';
+
 interface CanaryArm {
     headerName: string;
-    flow: 'session_monitor' | 'header_injector';
+    flow: CanaryFlow;
+    scoped: boolean;
 }
 
 let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let observed = false;
+let requestsSeen = 0;
 
 const CANARY_TIMEOUT_MS = 60_000;
+
+// A canary timeout means "the header never showed up", which has two very
+// different causes: the browser sent no requests at all, or requests flowed and
+// the rule failed to inject. Only the second is a real block, so the timeout
+// reports how much traffic it actually saw.
+export function noteRequestSeen(): void {
+    if (activeArm) {
+        requestsSeen += 1;
+    }
+}
 
 export function armCanary(arm: CanaryArm): void {
     cancelCanary();
     activeArm = arm;
     observed = false;
+    requestsSeen = 0;
     activeTimer = setTimeout(() => {
         if (activeArm) {
             emitUserBlocked('no_header_observed', 'health', {
                 headerName: activeArm.headerName,
                 flow: activeArm.flow,
+                scoped: activeArm.scoped,
+                requestsSeen,
             });
         }
         activeArm = null;
@@ -129,6 +146,7 @@ export function cancelCanary(): void {
     activeTimer = null;
     activeArm = null;
     observed = false;
+    requestsSeen = 0;
 }
 
 export function notifyHeaderObserved(headerName: string): void {

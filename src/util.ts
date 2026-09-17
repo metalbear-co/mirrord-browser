@@ -80,6 +80,8 @@ export function parseRules(
     }));
 }
 
+export const MATCH_ALL_URL_FILTER = '|';
+
 export function buildDnrRule(
     header: string,
     value: string,
@@ -90,7 +92,7 @@ export function buildDnrRule(
         : scope && scope.trim().length > 0
           ? [scope]
           : [];
-    const filters = patterns.length > 0 ? patterns : ['|'];
+    const filters = patterns.length > 0 ? patterns : [MATCH_ALL_URL_FILTER];
     return filters.map((urlFilter, idx) => ({
         id: idx + 1,
         priority: 1,
