@@ -119,7 +119,7 @@ The `live-real.spec.ts` spec auto-skips when `MIRRORD_UI_TOKEN` is unset, so CI 
 - Manifest V3 service worker (async, no DOM access)
 - All resource types must be explicitly listed in DNR rules (omitting excludes main_frame)
 - URL filter `|` matches all URLs; custom patterns for scoped rules
-- `chrome.storage.local` for configs (synced across browser), `localStorage` for PostHog distinct ID
+- `chrome.storage.local` for configs (synced across browser); the PostHog distinct ID lives in page `localStorage` and is mirrored to `chrome.storage.local` for the service worker, which has no `localStorage`
 
 ## CI/CD
 

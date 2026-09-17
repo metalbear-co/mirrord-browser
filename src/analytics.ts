@@ -11,21 +11,59 @@ const APP_VERSION = (() => {
     }
 })();
 
+const DISTINCT_ID_KEY = 'posthog_distinct_id';
+
 let distinctId: string | null = null;
+let distinctIdLoad: Promise<string> | null = null;
 let optedOut = false;
 
-function getDistinctId(): string {
-    if (distinctId) {
-        return distinctId;
+// The service worker has no `localStorage`, so pages mirror their id into chrome.storage.local
+// and the worker reads it from there.
+function pageDistinctId(): string | null {
+    try {
+        const stored = localStorage.getItem(DISTINCT_ID_KEY);
+        if (stored) {
+            return stored;
+        }
+        const id = crypto.randomUUID();
+        localStorage.setItem(DISTINCT_ID_KEY, id);
+        return id;
+    } catch {
+        return null;
     }
-    const stored = localStorage.getItem('posthog_distinct_id');
-    if (stored) {
-        distinctId = stored;
-        return distinctId;
+}
+
+async function loadDistinctId(): Promise<string> {
+    let stored: unknown;
+    try {
+        const result: Record<string, unknown> =
+            await chrome.storage.local.get(DISTINCT_ID_KEY);
+        stored = result[DISTINCT_ID_KEY];
+    } catch {
+        stored = undefined;
     }
-    distinctId = crypto.randomUUID();
-    localStorage.setItem('posthog_distinct_id', distinctId);
-    return distinctId;
+    const id =
+        pageDistinctId() ??
+        (typeof stored === 'string' && stored ? stored : crypto.randomUUID());
+    if (id !== stored) {
+        try {
+            await chrome.storage.local.set({ [DISTINCT_ID_KEY]: id });
+        } catch {
+            // Storage access can fail in certain contexts
+        }
+    }
+    distinctId = id;
+    return id;
+}
+
+function withDistinctId(send: (id: string) => void): void {
+    distinctIdLoad ??= loadDistinctId();
+    const known = distinctId ?? pageDistinctId();
+    if (known) {
+        send(known);
+        return;
+    }
+    void distinctIdLoad.then(send).catch(() => undefined);
 }
 
 /**
@@ -71,25 +109,28 @@ export function capture(
     if (optedOut) {
         return;
     }
-    try {
-        fetch(`${POSTHOG_HOST}/capture/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: POSTHOG_KEY,
-                event,
-                distinct_id: getDistinctId(),
-                properties: {
-                    ...properties,
-                    $lib: 'mirrord-browser-extension',
-                    $app_version: APP_VERSION,
-                },
-                timestamp: new Date().toISOString(),
-            }),
-        }).catch(() => undefined);
-    } catch {
-        // Analytics should never break the extension
-    }
+    const timestamp = new Date().toISOString();
+    withDistinctId((id) => {
+        try {
+            fetch(`${POSTHOG_HOST}/capture/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_key: POSTHOG_KEY,
+                    event,
+                    distinct_id: id,
+                    properties: {
+                        ...properties,
+                        $lib: 'mirrord-browser-extension',
+                        $app_version: APP_VERSION,
+                    },
+                    timestamp,
+                }),
+            }).catch(() => undefined);
+        } catch {
+            // Analytics should never break the extension
+        }
+    });
 }
 
 /**
@@ -102,22 +143,25 @@ export function captureBeacon(
     if (optedOut) {
         return;
     }
-    try {
-        const payload = JSON.stringify({
-            api_key: POSTHOG_KEY,
-            event,
-            distinct_id: getDistinctId(),
-            properties: {
-                ...properties,
-                $lib: 'mirrord-browser-extension',
-                $app_version: APP_VERSION,
-            },
-            timestamp: new Date().toISOString(),
-        });
-        navigator.sendBeacon(`${POSTHOG_HOST}/capture/`, payload);
-    } catch {
-        // Analytics should never break the extension
-    }
+    const timestamp = new Date().toISOString();
+    withDistinctId((id) => {
+        try {
+            const payload = JSON.stringify({
+                api_key: POSTHOG_KEY,
+                event,
+                distinct_id: id,
+                properties: {
+                    ...properties,
+                    $lib: 'mirrord-browser-extension',
+                    $app_version: APP_VERSION,
+                },
+                timestamp,
+            });
+            navigator.sendBeacon(`${POSTHOG_HOST}/capture/`, payload);
+        } catch {
+            // Analytics should never break the extension
+        }
+    });
 }
 
 export function captureException(
