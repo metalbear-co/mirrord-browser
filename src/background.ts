@@ -20,6 +20,7 @@ import {
     cancelCanary,
     emptyObservation,
     notifyHeaderObserved,
+    recordOverwrite,
     recordRequest,
     rotateBuckets,
     setHeaderName,
@@ -58,7 +59,10 @@ type BridgeMessage =
     | JoinMessage
     | LeaveMessage;
 
+const PENDING_ORIGINALS_LIMIT = 200;
+
 let observation: HeaderObservation = emptyObservation('');
+const pendingOriginals = new Map<string, string>();
 const subscribers = new Set<chrome.runtime.Port>();
 let rotationTimer: ReturnType<typeof setInterval> | null = null;
 let observationLoaded = false;
@@ -117,11 +121,39 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
 });
 
+// Runs before the declarativeNetRequest rule applies, so it is the only place
+// the page's own value for the injected header is still visible.
+chrome.webRequest.onBeforeSendHeaders.addListener(
+    (details) => {
+        if (!observation.headerName) {
+            return;
+        }
+        const target = observation.headerName.toLowerCase();
+        const existing = (details.requestHeaders ?? []).find(
+            (h) => h.name.toLowerCase() === target
+        );
+        if (existing?.value === undefined) {
+            return;
+        }
+        if (pendingOriginals.size >= PENDING_ORIGINALS_LIMIT) {
+            const oldest = pendingOriginals.keys().next().value;
+            if (oldest !== undefined) {
+                pendingOriginals.delete(oldest);
+            }
+        }
+        pendingOriginals.set(details.requestId, existing.value);
+    },
+    { urls: ['<all_urls>'] },
+    ['requestHeaders', 'extraHeaders']
+);
+
 chrome.webRequest.onSendHeaders.addListener(
     (details) => {
         if (!observation.headerName) {
             return;
         }
+        const original = pendingOriginals.get(details.requestId);
+        pendingOriginals.delete(details.requestId);
         const target = observation.headerName.toLowerCase();
         const headers = details.requestHeaders ?? [];
         if (!headers.some((h) => h.name.toLowerCase() === target)) {
@@ -138,6 +170,9 @@ chrome.webRequest.onSendHeaders.addListener(
         );
         if (matchedHeader) {
             notifyHeaderObserved(matchedHeader.name);
+            if (original !== undefined && original !== matchedHeader.value) {
+                observation = recordOverwrite(observation);
+            }
         }
         persistObservation();
         broadcast();
@@ -427,7 +462,10 @@ async function restoreObservation(): Promise<void> {
             | HeaderObservation
             | undefined;
         if (value && Array.isArray(value.buckets)) {
-            observation = rotateBuckets(value, Date.now());
+            observation = rotateBuckets(
+                { ...emptyObservation(value.headerName), ...value },
+                Date.now()
+            );
         }
     } catch {}
 }

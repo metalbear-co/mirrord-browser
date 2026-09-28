@@ -1,6 +1,7 @@
 import {
     RING_SECONDS,
     emptyObservation,
+    recordOverwrite,
     recordRequest,
     rotateBuckets,
     setHeaderName,
@@ -50,6 +51,16 @@ describe('headerObservation', () => {
         const changed = setHeaderName(obs, 'x-other');
         expect(changed.totalLast60s).toBe(0);
         expect(changed.headerName).toBe('x-other');
+    });
+
+    test('recordOverwrite counts up and survives rotation, setHeaderName resets it', () => {
+        const t0 = 1_700_000_000_000;
+        let obs = emptyObservation('baggage', t0);
+        expect(obs.overwrites).toBe(0);
+        obs = recordOverwrite(recordOverwrite(obs));
+        expect(obs.overwrites).toBe(2);
+        expect(rotateBuckets(obs, t0 + 5_000).overwrites).toBe(2);
+        expect(setHeaderName(obs, 'x-other').overwrites).toBe(0);
     });
 
     test('recent ring caps at three entries with newest first', () => {
