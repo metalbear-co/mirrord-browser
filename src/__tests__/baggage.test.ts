@@ -24,6 +24,16 @@ describe('urlFilterToRegExp', () => {
         ['example.com^', 'https://example.com:8080/', true],
         ['example.com^', 'https://example.community/', false],
         ['api*/v1', 'https://API.host/v1', true],
+        [
+            '||api.example.com/search?ids=1|2',
+            'https://unrelated.example/v2',
+            false,
+        ],
+        [
+            '||api.example.com/search?ids=1|2',
+            'https://api.example.com/search?ids=1|2',
+            true,
+        ],
     ])('%s matches %s: %s', (filter, url, expected) => {
         expect(urlFilterToRegExp(filter).test(url)).toBe(expected);
     });

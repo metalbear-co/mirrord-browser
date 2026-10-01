@@ -9,7 +9,7 @@ const SEPARATOR = '(?:[^A-Za-z0-9_\\-.%]|$)';
 const DOMAIN_ANCHOR = '^[a-z][a-z0-9+.-]*://(?:[^/?#]*\\.)?';
 
 function escapeRegExp(text: string): string {
-    return text.replace(/[.+?${}()[\]\\/]/g, '\\$&');
+    return text.replace(/[.+?${}()[\]\\/|]/g, '\\$&');
 }
 
 /** Mirrors DNR `urlFilter` syntax, which matches case-insensitively by default. */
