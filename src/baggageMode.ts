@@ -2,10 +2,12 @@ import bridgeScript from './content/baggageBridge.ts?script';
 import mergeScript from './content/baggageMerge.ts?script';
 import { STORAGE_KEYS } from './types';
 import {
+    applyDynamicRules,
     baggageMergeEnabled,
     getDynamicRules,
+    isBaggageRule,
     publishBaggageConfig,
-    updateDynamicRules,
+    withBaggageMerge,
 } from './util';
 
 export const BAGGAGE_CONFIG_REQUEST = 'mirrord-baggage-config-request';
@@ -48,10 +50,17 @@ async function reconcile(): Promise<void> {
     const enabled = await baggageMergeEnabled();
     await syncScripts(enabled);
     const rules = await getDynamicRules();
-    if (rules.length > 0) {
-        await updateDynamicRules({
+    const stale = rules.some(
+        (rule) =>
+            isBaggageRule(rule) &&
+            (rule.condition.resourceTypes ?? []).includes(
+                'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType
+            ) === enabled
+    );
+    if (stale) {
+        await applyDynamicRules({
             removeRuleIds: rules.map((rule) => rule.id),
-            addRules: rules,
+            addRules: rules.map((rule) => withBaggageMerge(rule, enabled)),
         });
     } else {
         await publishBaggageConfig();

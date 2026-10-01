@@ -130,14 +130,19 @@ const XHR_RESOURCE_TYPE =
     'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType;
 
 /** In baggage merge mode, the page script owns fetch/XHR baggage so DNR must not overwrite it. */
+export function isBaggageRule(rule: chrome.declarativeNetRequest.Rule) {
+    return (
+        rule.action.requestHeaders?.some(
+            (header) => header.header.toLowerCase() === 'baggage'
+        ) ?? false
+    );
+}
+
 export function withBaggageMerge(
     rule: chrome.declarativeNetRequest.Rule,
     merge: boolean
 ): chrome.declarativeNetRequest.Rule {
-    const isBaggage = rule.action.requestHeaders?.some(
-        (header) => header.header.toLowerCase() === 'baggage'
-    );
-    if (!isBaggage) {
+    if (!isBaggageRule(rule)) {
         return rule;
     }
     const others = (rule.condition.resourceTypes ?? ALL_RESOURCE_TYPES).filter(
@@ -208,11 +213,9 @@ export async function publishBaggageConfig(): Promise<void> {
 export async function updateDynamicRules(
     opts: chrome.declarativeNetRequest.UpdateRuleOptions
 ): Promise<void> {
-    const hasBaggage = opts.addRules?.some(
-        (rule) => withBaggageMerge(rule, true) !== rule
-    );
+    const hasBaggage = opts.addRules?.some(isBaggageRule);
     const merge = hasBaggage ? await baggageMergeEnabled() : false;
-    const update =
+    await applyDynamicRules(
         opts.addRules && hasBaggage
             ? {
                   ...opts,
@@ -220,7 +223,14 @@ export async function updateDynamicRules(
                       withBaggageMerge(rule, merge)
                   ),
               }
-            : opts;
+            : opts
+    );
+}
+
+/** Writes rules as given, without reading anything first, then refreshes open pages. */
+export async function applyDynamicRules(
+    update: chrome.declarativeNetRequest.UpdateRuleOptions
+): Promise<void> {
     await new Promise<void>((resolve, reject) => {
         chrome.declarativeNetRequest.updateDynamicRules(update, () => {
             if (chrome.runtime.lastError) {

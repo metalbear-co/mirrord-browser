@@ -1,27 +1,36 @@
 import { syncBaggageMode } from '../baggageMode';
 
-describe('syncBaggageMode', () => {
-    it('ends in the latest mode when toggles overlap', async () => {
-        const store: Record<string, unknown> = { baggage_merge: true };
-        const registered = new Set<string>();
-        let rules: chrome.declarativeNetRequest.Rule[] = [
+const baggageRule: chrome.declarativeNetRequest.Rule = {
+    id: 1,
+    priority: 1,
+    action: {
+        type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
+        requestHeaders: [
             {
-                id: 1,
-                priority: 1,
-                action: {
-                    type: 'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,
-                    requestHeaders: [
-                        {
-                            header: 'baggage',
-                            operation:
-                                'set' as chrome.declarativeNetRequest.HeaderOperation,
-                            value: 'mirrord-session=k1',
-                        },
-                    ],
-                },
-                condition: { urlFilter: '|', resourceTypes: [] },
+                header: 'baggage',
+                operation:
+                    'set' as chrome.declarativeNetRequest.HeaderOperation,
+                value: 'mirrord-session=k1',
             },
-        ];
+        ],
+    },
+    condition: {
+        urlFilter: '|',
+        resourceTypes: [
+            'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType,
+        ],
+    },
+};
+
+describe('syncBaggageMode', () => {
+    const store: Record<string, unknown> = {};
+    const registered = new Set<string>();
+    let rules: chrome.declarativeNetRequest.Rule[];
+
+    beforeEach(() => {
+        store['baggage_merge'] = true;
+        registered.clear();
+        rules = [baggageRule];
         globalThis.chrome = {
             runtime: { lastError: undefined },
             storage: {
@@ -53,17 +62,25 @@ describe('syncBaggageMode', () => {
                 },
             },
             declarativeNetRequest: {
-                getDynamicRules: (cb: (r: typeof rules) => void) => cb(rules),
+                getDynamicRules: (cb: (r: typeof rules) => void) => {
+                    cb(rules);
+                },
                 updateDynamicRules: (
                     opts: chrome.declarativeNetRequest.UpdateRuleOptions,
                     cb: () => void
                 ) => {
-                    rules = opts.addRules ?? [];
+                    const removed = new Set(opts.removeRuleIds ?? []);
+                    rules = [
+                        ...rules.filter(({ id }) => !removed.has(id)),
+                        ...(opts.addRules ?? []),
+                    ];
                     cb();
                 },
             },
         } as unknown as typeof chrome;
+    });
 
+    it('ends in the latest mode when toggles overlap', async () => {
         await syncBaggageMode();
         store['baggage_merge'] = false;
         const off = syncBaggageMode();
