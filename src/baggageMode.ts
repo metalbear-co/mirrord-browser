@@ -4,40 +4,13 @@ import { STORAGE_KEYS } from './types';
 import {
     baggageMergeEnabled,
     getDynamicRules,
+    publishBaggageConfig,
     updateDynamicRules,
 } from './util';
 
 export const BAGGAGE_CONFIG_REQUEST = 'mirrord-baggage-config-request';
 
 const SCRIPT_IDS = ['baggage-bridge', 'baggage-merge'];
-
-export interface BaggageConfigEntry {
-    value: string;
-    filters: string[];
-}
-
-export async function baggageConfig(): Promise<BaggageConfigEntry[]> {
-    if (!(await baggageMergeEnabled())) {
-        return [];
-    }
-    const entries: BaggageConfigEntry[] = [];
-    for (const rule of await getDynamicRules()) {
-        const header = rule.action.requestHeaders?.find(
-            (h) => h.header.toLowerCase() === 'baggage'
-        );
-        if (header?.value === undefined) {
-            continue;
-        }
-        const filter = rule.condition.urlFilter ?? '|';
-        const existing = entries.find((e) => e.value === header.value);
-        if (existing) {
-            existing.filters.push(filter);
-        } else {
-            entries.push({ value: header.value, filters: [filter] });
-        }
-    }
-    return entries;
-}
 
 async function syncScripts(enabled: boolean) {
     const registered = await chrome.scripting.getRegisteredContentScripts({
@@ -72,6 +45,8 @@ export async function syncBaggageMode(): Promise<void> {
             removeRuleIds: rules.map((rule) => rule.id),
             addRules: rules,
         });
+    } else {
+        await publishBaggageConfig();
     }
 }
 

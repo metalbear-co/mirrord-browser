@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from './types';
 import type { ClusterSession } from './types';
 import {
+    baggageConfig,
     buildDnrRule,
     getDynamicRules,
     refreshIconIndicator,
@@ -28,7 +29,6 @@ import {
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     BAGGAGE_CONFIG_REQUEST,
-    baggageConfig,
     isBaggageModeChange,
     syncBaggageMode,
 } from './baggageMode';

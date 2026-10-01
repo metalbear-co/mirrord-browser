@@ -1,11 +1,21 @@
 const CONFIG_EVENT = 'mirrord-baggage-config';
 const CONFIG_REQUEST = 'mirrord-baggage-config-request';
+const CONFIG_UPDATE = 'mirrord-baggage-config-update';
 
-function publish(detail: string) {
-    document.dispatchEvent(new CustomEvent(CONFIG_EVENT, { detail }));
+function publish(entries: unknown) {
+    document.dispatchEvent(
+        new CustomEvent(CONFIG_EVENT, { detail: JSON.stringify(entries ?? []) })
+    );
 }
+
+chrome.runtime.onMessage.addListener((message: unknown) => {
+    const update = message as { type?: unknown; entries?: unknown } | null;
+    if (update?.type === CONFIG_UPDATE) {
+        publish(update.entries);
+    }
+});
 
 chrome.runtime
     .sendMessage({ type: CONFIG_REQUEST })
-    .then((entries: unknown) => publish(JSON.stringify(entries ?? [])))
-    .catch(() => publish('[]'));
+    .then(publish)
+    .catch(() => publish([]));

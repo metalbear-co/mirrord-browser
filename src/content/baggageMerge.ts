@@ -17,10 +17,8 @@ const ready = new Promise<void>((resolve) => {
 setTimeout(markReady, CONFIG_TIMEOUT_MS);
 
 document.addEventListener(CONFIG_EVENT, (event) => {
-    if (entries === null) {
-        entries = parseEntries((event as CustomEvent<unknown>).detail);
-        markReady();
-    }
+    entries = parseEntries((event as CustomEvent<unknown>).detail);
+    markReady();
 });
 
 function resolveUrl(url: string | URL): string | undefined {
@@ -68,19 +66,31 @@ type OpenArgs = [
 
 class MergingXMLHttpRequest extends XMLHttpRequest {
     private requestUrl: string | undefined;
-    private isAsync = true;
     private pageBaggage: string[] = [];
-    private generation = 0;
     private sent = false;
+    private isAsync = true;
+    private pendingSend: (() => void) | null = null;
 
     override open(...args: OpenArgs) {
-        super.open(...(args as Parameters<XMLHttpRequest['open']>));
         const [, url, async = true] = args;
+        const previous = {
+            requestUrl: this.requestUrl,
+            pageBaggage: this.pageBaggage,
+            sent: this.sent,
+            isAsync: this.isAsync,
+            pendingSend: this.pendingSend,
+        };
         this.requestUrl = resolveUrl(url);
-        this.isAsync = async;
         this.pageBaggage = [];
-        this.generation += 1;
         this.sent = false;
+        this.pendingSend = null;
+        this.isAsync = async;
+        try {
+            super.open(...(args as Parameters<XMLHttpRequest['open']>));
+        } catch (error) {
+            Object.assign(this, previous);
+            throw error;
+        }
     }
 
     override setRequestHeader(name: string, value: string) {
@@ -103,6 +113,7 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
         this.sent = true;
 
         const finish = () => {
+            this.pendingSend = null;
             const page =
                 this.pageBaggage.length > 0
                     ? this.pageBaggage.join(', ')
@@ -121,15 +132,17 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
             return;
         }
 
-        const generation = this.generation;
+        this.pendingSend = finish;
         void ready.then(() => {
-            if (
-                this.generation === generation &&
-                this.readyState === XMLHttpRequest.OPENED
-            ) {
+            if (this.pendingSend === finish) {
                 finish();
             }
         });
+    }
+
+    override abort() {
+        this.pendingSend?.();
+        super.abort();
     }
 }
 

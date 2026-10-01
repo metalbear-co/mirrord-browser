@@ -101,6 +101,41 @@ test.describe('mirrord browser extension', () => {
             xhr: 'sentry-trace_id=def,mirrord-session=k1',
         });
 
+        const reentrant = await page.evaluate(
+            () =>
+                new Promise<string | undefined>((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === XMLHttpRequest.OPENED) {
+                            xhr.setRequestHeader('baggage', 'early=1');
+                        }
+                    };
+                    xhr.onload = () =>
+                        resolve(
+                            (JSON.parse(xhr.responseText) as HeadersMap)[
+                                'baggage'
+                            ]
+                        );
+                    xhr.open('GET', '/headers');
+                    xhr.send();
+                })
+        );
+        expect(reentrant).toBe('early=1,mirrord-session=k1');
+
+        await popupPage.getByLabel('Toggle header injection').click();
+        await expect(popupPage.getByText('Inactive')).toBeVisible();
+        await expect
+            .poll(async () => (await pageRequests()).fetch)
+            .toBe('sentry-trace_id=abc');
+
+        await popupPage.getByLabel('Toggle header injection').click();
+        await expect(
+            popupPage.getByText('Active', { exact: true })
+        ).toBeVisible();
+        await expect
+            .poll(async () => (await pageRequests()).fetch)
+            .toBe('sentry-trace_id=abc,mirrord-session=k1');
+
         await page.goto(`${TEST_SERVER}/headers`);
         const navigation = JSON.parse(
             await page.locator('body').innerText()

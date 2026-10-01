@@ -157,6 +157,54 @@ export async function baggageMergeEnabled(): Promise<boolean> {
     return result[STORAGE_KEYS.BAGGAGE_MERGE] === true;
 }
 
+export const BAGGAGE_CONFIG_UPDATE = 'mirrord-baggage-config-update';
+
+export interface BaggageConfigEntry {
+    value: string;
+    filters: string[];
+}
+
+export async function baggageConfig(): Promise<BaggageConfigEntry[]> {
+    if (!(await baggageMergeEnabled())) {
+        return [];
+    }
+    const entries: BaggageConfigEntry[] = [];
+    for (const rule of await getDynamicRules()) {
+        const header = rule.action.requestHeaders?.find(
+            (h) => h.header.toLowerCase() === 'baggage'
+        );
+        if (header?.value === undefined) {
+            continue;
+        }
+        const filter = rule.condition.urlFilter ?? '|';
+        const existing = entries.find((e) => e.value === header.value);
+        if (existing) {
+            existing.filters.push(filter);
+        } else {
+            entries.push({ value: header.value, filters: [filter] });
+        }
+    }
+    return entries;
+}
+
+/** Pushes the current baggage config to pages that already run the merge script. */
+export async function publishBaggageConfig(): Promise<void> {
+    const entries = await baggageConfig();
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+        tabs.map((tab) =>
+            tab.id === undefined
+                ? Promise.resolve()
+                : chrome.tabs
+                      .sendMessage(tab.id, {
+                          type: BAGGAGE_CONFIG_UPDATE,
+                          entries,
+                      })
+                      .catch(() => undefined)
+        )
+    );
+}
+
 export async function updateDynamicRules(
     opts: chrome.declarativeNetRequest.UpdateRuleOptions
 ): Promise<void> {
@@ -173,7 +221,7 @@ export async function updateDynamicRules(
                   ),
               }
             : opts;
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         chrome.declarativeNetRequest.updateDynamicRules(update, () => {
             if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
@@ -182,6 +230,7 @@ export async function updateDynamicRules(
             }
         });
     });
+    void publishBaggageConfig().catch(() => undefined);
 }
 
 export function storageGet(keys: string[]): Promise<Record<string, unknown>> {
