@@ -91,4 +91,21 @@ describe('baggage merge XHR wrapper', () => {
         const [, sent] = calls.find(([name]) => name === 'send') ?? [];
         expect(String(sent)).toBe('credential=first');
     });
+
+    it('waits for fresh config after a back/forward cache restore', async () => {
+        publish([{ value: 'mirrord-session=k1', filters: ['|'] }]);
+        window.dispatchEvent(
+            new PageTransitionEvent('pageshow', { persisted: true })
+        );
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://api.example.com/x');
+        xhr.send();
+        expect(calls.map(([name]) => name)).toEqual(['open']);
+
+        publish([]);
+        await Promise.resolve();
+
+        expect(calls.slice(1)).toEqual([['send']]);
+    });
 });

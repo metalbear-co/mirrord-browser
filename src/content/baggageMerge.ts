@@ -11,14 +11,27 @@ const CONFIG_TIMEOUT_MS = 1000;
 
 let entries: BaggageEntry[] | null = null;
 let markReady: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => {
-    markReady = resolve;
-});
-setTimeout(markReady, CONFIG_TIMEOUT_MS);
+let ready: Promise<void> = Promise.resolve();
+
+function awaitConfig() {
+    entries = null;
+    ready = new Promise<void>((resolve) => {
+        markReady = resolve;
+        setTimeout(resolve, CONFIG_TIMEOUT_MS);
+    });
+}
+
+awaitConfig();
 
 document.addEventListener(CONFIG_EVENT, (event) => {
     entries = parseEntries((event as CustomEvent<unknown>).detail);
     markReady();
+});
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        awaitConfig();
+    }
 });
 
 function resolveUrl(url: string | URL): string | undefined {

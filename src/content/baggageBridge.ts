@@ -15,7 +15,17 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     }
 });
 
-chrome.runtime
-    .sendMessage({ type: CONFIG_REQUEST })
-    .then(publish)
-    .catch(() => publish([]));
+function requestConfig() {
+    chrome.runtime
+        .sendMessage({ type: CONFIG_REQUEST })
+        .then(publish)
+        .catch(() => publish([]));
+}
+
+requestConfig();
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        requestConfig();
+    }
+});
