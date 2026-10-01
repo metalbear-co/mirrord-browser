@@ -126,7 +126,16 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
             super.setRequestHeader(name, value);
             return;
         }
-        this.pageBaggage.push(value);
+        const validated = new Headers();
+        try {
+            validated.set(BAGGAGE_HEADER, value);
+        } catch {
+            throw new DOMException(
+                `Failed to execute setRequestHeader on XMLHttpRequest: '${value}' is not a valid HTTP header field value.`,
+                'SyntaxError'
+            );
+        }
+        this.pageBaggage.push(validated.get(BAGGAGE_HEADER) ?? '');
     }
 
     override send(body?: XhrBody) {

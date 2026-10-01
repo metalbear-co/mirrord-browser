@@ -147,6 +147,34 @@ test.describe('mirrord browser extension', () => {
                 invalid,
             };
         });
+        const invalidBaggage = await page.evaluate(
+            () =>
+                new Promise<{ thrown: string; baggage: string | undefined }>(
+                    (resolve) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', '/headers');
+                        let thrown = 'none';
+                        try {
+                            xhr.setRequestHeader('baggage', 'a=1\r\nb=2');
+                        } catch (error) {
+                            thrown = (error as DOMException).name;
+                        }
+                        xhr.onload = () =>
+                            resolve({
+                                thrown,
+                                baggage: (
+                                    JSON.parse(xhr.responseText) as HeadersMap
+                                )['baggage'],
+                            });
+                        xhr.send();
+                    }
+                )
+        );
+        expect(invalidBaggage).toEqual({
+            thrown: 'SyntaxError',
+            baggage: 'mirrord-session=k1',
+        });
+
         expect(fetchSemantics).toEqual({
             referer: null,
             baggage: 'a=1,mirrord-session=k1',

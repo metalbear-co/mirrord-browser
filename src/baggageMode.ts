@@ -36,8 +36,15 @@ async function syncScripts(enabled: boolean) {
     ]);
 }
 
-/** Re-applies rules and page scripts to match the stored merge mode. */
-export async function syncBaggageMode(): Promise<void> {
+let reconciling: Promise<void> = Promise.resolve();
+
+/** Re-applies rules and page scripts to match the stored merge mode, one run at a time. */
+export function syncBaggageMode(): Promise<void> {
+    reconciling = reconciling.then(reconcile, reconcile);
+    return reconciling;
+}
+
+async function reconcile(): Promise<void> {
     const enabled = await baggageMergeEnabled();
     await syncScripts(enabled);
     const rules = await getDynamicRules();
