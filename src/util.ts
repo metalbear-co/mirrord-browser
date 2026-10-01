@@ -193,7 +193,10 @@ export async function baggageConfig(): Promise<BaggageConfigEntry[]> {
 }
 
 /** Pushes the current baggage config to pages that already run the merge script. */
-export async function publishBaggageConfig(): Promise<void> {
+export async function publishBaggageConfig(force = false): Promise<void> {
+    if (!force && !(await baggageMergeEnabled())) {
+        return;
+    }
     const entries = await baggageConfig();
     const tabs = await chrome.tabs.query({});
     await Promise.all(

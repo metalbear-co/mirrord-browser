@@ -14,7 +14,7 @@ export const BAGGAGE_CONFIG_REQUEST = 'mirrord-baggage-config-request';
 
 const SCRIPT_IDS = ['baggage-bridge', 'baggage-merge'];
 
-async function syncScripts(enabled: boolean) {
+async function syncScripts(enabled: boolean): Promise<boolean> {
     const registered = await chrome.scripting.getRegisteredContentScripts({
         ids: SCRIPT_IDS,
     });
@@ -24,7 +24,7 @@ async function syncScripts(enabled: boolean) {
         });
     }
     if (!enabled) {
-        return;
+        return registered.length > 0;
     }
     const common = {
         matches: ['<all_urls>'],
@@ -36,6 +36,7 @@ async function syncScripts(enabled: boolean) {
         { id: 'baggage-bridge', js: [bridgeScript], ...common },
         { id: 'baggage-merge', js: [mergeScript], world: 'MAIN', ...common },
     ]);
+    return true;
 }
 
 let reconciling: Promise<void> = Promise.resolve();
@@ -48,7 +49,7 @@ export function syncBaggageMode(): Promise<void> {
 
 async function reconcile(): Promise<void> {
     const enabled = await baggageMergeEnabled();
-    await syncScripts(enabled);
+    const hadScripts = await syncScripts(enabled);
     const rules = await getDynamicRules();
     const stale = rules.some(
         (rule) =>
@@ -62,8 +63,9 @@ async function reconcile(): Promise<void> {
             removeRuleIds: rules.map((rule) => rule.id),
             addRules: rules.map((rule) => withBaggageMerge(rule, enabled)),
         });
-    } else {
-        await publishBaggageConfig();
+    }
+    if (hadScripts) {
+        await publishBaggageConfig(true);
     }
 }
 
