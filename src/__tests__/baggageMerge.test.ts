@@ -5,24 +5,25 @@ describe('baggage merge XHR wrapper', () => {
 
     beforeEach(async () => {
         jest.resetModules();
-        calls = [];
+        const log: Call[] = [];
+        calls = log;
         class FakeXhr extends EventTarget {
             static readonly OPENED = 1;
             readyState = 0;
             onreadystatechange: (() => void) | null = null;
             open(...args: unknown[]) {
-                calls.push(['open', ...args]);
+                log.push(['open', ...args]);
                 this.readyState = 1;
                 this.onreadystatechange?.();
             }
             setRequestHeader(name: string, value: string) {
-                calls.push(['setRequestHeader', name, value]);
+                log.push(['setRequestHeader', name, value]);
             }
-            send() {
-                calls.push(['send']);
+            send(body?: unknown) {
+                log.push(body === undefined ? ['send'] : ['send', body]);
             }
             abort() {
-                calls.push(['abort']);
+                log.push(['abort']);
             }
         }
         window.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest;
@@ -75,5 +76,19 @@ describe('baggage merge XHR wrapper', () => {
         xhr.send();
 
         expect(() => xhr.send()).toThrow('already being sent');
+    });
+
+    it('sends the body as it was when send() was called', async () => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://api.example.com/x');
+        const params = new URLSearchParams({ credential: 'first' });
+        xhr.send(params);
+        params.set('credential', 'second');
+
+        publish([{ value: 'mirrord-session=k1', filters: ['|'] }]);
+        await Promise.resolve();
+
+        const [, sent] = calls.find(([name]) => name === 'send') ?? [];
+        expect(String(sent)).toBe('credential=first');
     });
 });

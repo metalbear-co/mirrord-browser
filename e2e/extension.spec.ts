@@ -131,6 +131,28 @@ test.describe('mirrord browser extension', () => {
         });
         expect(snapshot).toBe('first');
 
+        const fetchSemantics = await page.evaluate(async () => {
+            const response = await fetch('/headers', {
+                referrerPolicy: 'no-referrer',
+                headers: { baggage: 'a=1' },
+            });
+            const echoed = (await response.json()) as HeadersMap;
+            const invalid = await fetch('http://[').then(
+                () => 'resolved',
+                () => 'rejected'
+            );
+            return {
+                referer: echoed['referer'] ?? null,
+                baggage: echoed['baggage'],
+                invalid,
+            };
+        });
+        expect(fetchSemantics).toEqual({
+            referer: null,
+            baggage: 'a=1,mirrord-session=k1',
+            invalid: 'rejected',
+        });
+
         const fromSrcdoc = await page.evaluate(
             () =>
                 new Promise<string | undefined>((resolve) => {

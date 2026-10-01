@@ -35,23 +35,50 @@ function entryFor(url: string | undefined): string | undefined {
 
 const nativeFetch = window.fetch.bind(window);
 
-window.fetch = (input, init) => {
+window.fetch = async (input, init) => {
     const request = new Request(input, init);
+    await ready;
 
-    return ready.then(() => {
-        const entry = entryFor(request.url);
-        if (entry === undefined) {
-            return nativeFetch(request);
-        }
-
-        const headers = new Headers(request.headers);
-        headers.set(
+    const entry = entryFor(request.url);
+    if (entry !== undefined) {
+        request.headers.set(
             BAGGAGE_HEADER,
-            mergeBaggage(headers.get(BAGGAGE_HEADER), entry)
+            mergeBaggage(request.headers.get(BAGGAGE_HEADER), entry)
         );
-        return nativeFetch(new Request(request, { headers }));
-    });
+    }
+    return nativeFetch(request);
 };
+
+type XhrBody = Document | XMLHttpRequestBodyInit | null | undefined;
+
+/** Native XHR reads the body at `send()`, so a deferred send must not see later mutations. */
+function snapshotBody(body: XhrBody): XhrBody {
+    if (body instanceof URLSearchParams) {
+        return new URLSearchParams(body);
+    }
+    if (body instanceof FormData) {
+        const copy = new FormData();
+        body.forEach((value, key) => {
+            copy.append(key, value);
+        });
+        return copy;
+    }
+    if (body instanceof ArrayBuffer) {
+        return body.slice(0);
+    }
+    if (ArrayBuffer.isView(body)) {
+        return new Uint8Array(
+            body.buffer.slice(
+                body.byteOffset,
+                body.byteOffset + body.byteLength
+            )
+        );
+    }
+    if (body instanceof Document) {
+        return body.cloneNode(true) as Document;
+    }
+    return body;
+}
 
 type OpenArgs = [
     method: string,
@@ -102,7 +129,7 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
         this.pageBaggage.push(value);
     }
 
-    override send(body?: Document | XMLHttpRequestBodyInit | null) {
+    override send(body?: XhrBody) {
         if (this.pendingSend !== null) {
             throw new DOMException(
                 'Failed to execute send on XMLHttpRequest: the request is already being sent.',
@@ -115,7 +142,7 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
         }
         this.sent = true;
 
-        const finish = () => {
+        const finish = (payload: XhrBody) => {
             this.pendingSend = null;
             const page =
                 this.pageBaggage.length > 0
@@ -127,18 +154,20 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
             if (baggage !== null) {
                 super.setRequestHeader(BAGGAGE_HEADER, baggage);
             }
-            super.send(body);
+            super.send(payload);
         };
 
         if (entries !== null || !this.isAsync) {
-            finish();
+            finish(body);
             return;
         }
 
-        this.pendingSend = finish;
+        const payload = snapshotBody(body);
+        const pending = () => finish(payload);
+        this.pendingSend = pending;
         void ready.then(() => {
-            if (this.pendingSend === finish) {
-                finish();
+            if (this.pendingSend === pending) {
+                pending();
             }
         });
     }
