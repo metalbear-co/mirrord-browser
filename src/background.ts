@@ -30,6 +30,7 @@ import { emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     BAGGAGE_CONFIG_REQUEST,
     isBaggageModeChange,
+    reconnectBaggageBridges,
     syncBaggageMode,
 } from './baggageMode';
 
@@ -107,8 +108,12 @@ chrome.runtime.onInstalled.addListener(() => {
     void restoreObservation().then(loadHeaderName);
 });
 
-chrome.runtime.onInstalled.addListener(() => {
-    void syncBaggageMode();
+chrome.runtime.onInstalled.addListener((details) => {
+    void syncBaggageMode().then(() =>
+        (details.reason as string) === 'update'
+            ? reconnectBaggageBridges()
+            : undefined
+    );
 });
 
 chrome.runtime.onMessage.addListener(

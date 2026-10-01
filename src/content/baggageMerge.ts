@@ -35,25 +35,22 @@ function entryFor(url: string | undefined): string | undefined {
 
 const nativeFetch = window.fetch.bind(window);
 
-window.fetch = async (input, init) => {
-    await ready;
+window.fetch = (input, init) => {
+    const request = new Request(input, init);
 
-    const url = input instanceof Request ? input.url : resolveUrl(input);
-    const entry = entryFor(url);
+    return ready.then(() => {
+        const entry = entryFor(request.url);
+        if (entry === undefined) {
+            return nativeFetch(request);
+        }
 
-    if (entry === undefined) {
-        return nativeFetch(input, init);
-    }
-
-    const headers = new Headers(
-        init?.headers ?? (input instanceof Request ? input.headers : undefined)
-    );
-    headers.set(
-        BAGGAGE_HEADER,
-        mergeBaggage(headers.get(BAGGAGE_HEADER), entry)
-    );
-
-    return nativeFetch(input, { ...init, headers });
+        const headers = new Headers(request.headers);
+        headers.set(
+            BAGGAGE_HEADER,
+            mergeBaggage(headers.get(BAGGAGE_HEADER), entry)
+        );
+        return nativeFetch(new Request(request, { headers }));
+    });
 };
 
 type OpenArgs = [
@@ -106,6 +103,12 @@ class MergingXMLHttpRequest extends XMLHttpRequest {
     }
 
     override send(body?: Document | XMLHttpRequestBodyInit | null) {
+        if (this.pendingSend !== null) {
+            throw new DOMException(
+                'Failed to execute send on XMLHttpRequest: the request is already being sent.',
+                'InvalidStateError'
+            );
+        }
         if (this.sent || this.readyState !== XMLHttpRequest.OPENED) {
             super.send(body);
             return;

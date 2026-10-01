@@ -122,6 +122,34 @@ test.describe('mirrord browser extension', () => {
         );
         expect(reentrant).toBe('early=1,mirrord-session=k1');
 
+        const snapshot = await page.evaluate(async () => {
+            const headers = new Headers({ 'x-credential': 'first' });
+            const first = fetch('/headers', { headers });
+            headers.set('x-credential', 'second');
+            const response = await first;
+            return ((await response.json()) as HeadersMap)['x-credential'];
+        });
+        expect(snapshot).toBe('first');
+
+        const fromSrcdoc = await page.evaluate(
+            () =>
+                new Promise<string | undefined>((resolve) => {
+                    window.addEventListener('message', (event) =>
+                        resolve(event.data as string | undefined)
+                    );
+                    const frame = document.createElement('iframe');
+                    frame.srcdoc = `<script>
+                        fetch('${location.origin}/headers', {
+                            headers: { baggage: 'frame=1' },
+                        })
+                            .then((r) => r.json())
+                            .then((h) => parent.postMessage(h.baggage, '*'));
+                    </script>`;
+                    document.body.append(frame);
+                })
+        );
+        expect(fromSrcdoc).toBe('frame=1,mirrord-session=k1');
+
         await popupPage.getByLabel('Toggle header injection').click();
         await expect(popupPage.getByText('Inactive')).toBeVisible();
         await expect

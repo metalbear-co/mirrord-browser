@@ -27,6 +27,7 @@ async function syncScripts(enabled: boolean) {
     const common = {
         matches: ['<all_urls>'],
         allFrames: true,
+        matchOriginAsFallback: true,
         runAt: 'document_start' as const,
     };
     await chrome.scripting.registerContentScripts([
@@ -48,6 +49,26 @@ export async function syncBaggageMode(): Promise<void> {
     } else {
         await publishBaggageConfig();
     }
+}
+
+/** Open pages keep the merge script across an extension update but lose its bridge. */
+export async function reconnectBaggageBridges(): Promise<void> {
+    if (!(await baggageMergeEnabled())) {
+        return;
+    }
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+        tabs.map((tab) =>
+            tab.id === undefined
+                ? Promise.resolve()
+                : chrome.scripting
+                      .executeScript({
+                          target: { tabId: tab.id, allFrames: true },
+                          files: [bridgeScript],
+                      })
+                      .catch(() => undefined)
+        )
+    );
 }
 
 export function isBaggageModeChange(

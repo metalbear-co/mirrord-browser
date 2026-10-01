@@ -68,4 +68,12 @@ describe('baggage merge XHR wrapper', () => {
 
         expect(calls.slice(1)).toEqual([['send'], ['abort']]);
     });
+
+    it('rejects a second send while the first is waiting for config', () => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://api.example.com/x');
+        xhr.send();
+
+        expect(() => xhr.send()).toThrow('already being sent');
+    });
 });
