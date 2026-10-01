@@ -30,6 +30,7 @@ export const STORAGE_KEYS = {
     ACTIVE_TAB: 'active_tab',
     THEME: 'theme',
     SELECTED_CONTEXT: 'selected_context',
+    BAGGAGE_MERGE: 'baggage_merge',
 } as const;
 
 export type ThemePref = 'system' | 'light' | 'dark';

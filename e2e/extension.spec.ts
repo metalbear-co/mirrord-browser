@@ -42,6 +42,72 @@ test.describe('mirrord browser extension', () => {
         await expect(popupPage.getByText('All URLs')).toBeVisible();
     });
 
+    test('baggage merge mode keeps the page baggage in fetch and XHR', async ({
+        context,
+        popupPage,
+    }) => {
+        await addHeader(popupPage, 'baggage', 'mirrord-session=k1');
+        const page = await context.newPage();
+
+        const pageRequests = () =>
+            page.evaluate(async () => {
+                const viaFetch = (headers?: HeadersInit) =>
+                    fetch('/headers', headers ? { headers } : undefined)
+                        .then((r) => r.json() as Promise<HeadersMap>)
+                        .then((h) => h['baggage']);
+                const viaXhr = new Promise<string | undefined>((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/headers');
+                    xhr.setRequestHeader('baggage', 'sentry-trace_id=def');
+                    xhr.onload = () =>
+                        resolve(
+                            (JSON.parse(xhr.responseText) as HeadersMap)[
+                                'baggage'
+                            ]
+                        );
+                    xhr.send();
+                });
+                return {
+                    fetch: await viaFetch({ baggage: 'sentry-trace_id=abc' }),
+                    plain: await viaFetch(),
+                    xhr: await viaXhr,
+                };
+            });
+
+        await page.goto(`${TEST_SERVER}/asset-page`);
+        expect(await pageRequests()).toEqual({
+            fetch: 'mirrord-session=k1',
+            plain: 'mirrord-session=k1',
+            xhr: 'mirrord-session=k1',
+        });
+
+        await popupPage.evaluate(() =>
+            chrome.storage.local.set({ baggage_merge: true })
+        );
+        await expect
+            .poll(() =>
+                popupPage.evaluate(
+                    async () =>
+                        (await chrome.scripting.getRegisteredContentScripts())
+                            .length
+                )
+            )
+            .toBe(2);
+
+        await page.reload();
+        expect(await pageRequests()).toEqual({
+            fetch: 'sentry-trace_id=abc,mirrord-session=k1',
+            plain: 'mirrord-session=k1',
+            xhr: 'sentry-trace_id=def,mirrord-session=k1',
+        });
+
+        await page.goto(`${TEST_SERVER}/headers`);
+        const navigation = JSON.parse(
+            await page.locator('body').innerText()
+        ) as HeadersMap;
+        expect(navigation['baggage']).toBe('mirrord-session=k1');
+    });
+
     test('header is injected into real HTTP requests', async ({
         context,
         popupPage,

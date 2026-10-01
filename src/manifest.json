@@ -11,7 +11,8 @@
         "declarativeNetRequest",
         "storage",
         "webRequest",
-        "sidePanel"
+        "sidePanel",
+        "scripting"
     ],
     "incognito": "spanning",
     "host_permissions": ["<all_urls>"],

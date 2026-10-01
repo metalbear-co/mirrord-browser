@@ -12,7 +12,12 @@ import type {
     PreviewPhase,
     PreviewSession,
 } from './types';
-import { ALL_RESOURCE_TYPES, PREVIEW_PHASES, isPreviewSession } from './types';
+import {
+    ALL_RESOURCE_TYPES,
+    PREVIEW_PHASES,
+    STORAGE_KEYS,
+    isPreviewSession,
+} from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -121,11 +126,55 @@ export function getDynamicRules(): Promise<
     });
 }
 
-export function updateDynamicRules(
+const XHR_RESOURCE_TYPE =
+    'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType;
+
+/** In baggage merge mode, the page script owns fetch/XHR baggage so DNR must not overwrite it. */
+export function withBaggageMerge(
+    rule: chrome.declarativeNetRequest.Rule,
+    merge: boolean
+): chrome.declarativeNetRequest.Rule {
+    const isBaggage = rule.action.requestHeaders?.some(
+        (header) => header.header.toLowerCase() === 'baggage'
+    );
+    if (!isBaggage) {
+        return rule;
+    }
+    const others = (rule.condition.resourceTypes ?? ALL_RESOURCE_TYPES).filter(
+        (type) => type !== XHR_RESOURCE_TYPE
+    );
+    return {
+        ...rule,
+        condition: {
+            ...rule.condition,
+            resourceTypes: merge ? others : [...others, XHR_RESOURCE_TYPE],
+        },
+    };
+}
+
+export async function baggageMergeEnabled(): Promise<boolean> {
+    const result = await storageGet([STORAGE_KEYS.BAGGAGE_MERGE]);
+    return result[STORAGE_KEYS.BAGGAGE_MERGE] === true;
+}
+
+export async function updateDynamicRules(
     opts: chrome.declarativeNetRequest.UpdateRuleOptions
 ): Promise<void> {
+    const hasBaggage = opts.addRules?.some(
+        (rule) => withBaggageMerge(rule, true) !== rule
+    );
+    const merge = hasBaggage ? await baggageMergeEnabled() : false;
+    const update =
+        opts.addRules && hasBaggage
+            ? {
+                  ...opts,
+                  addRules: opts.addRules.map((rule) =>
+                      withBaggageMerge(rule, merge)
+                  ),
+              }
+            : opts;
     return new Promise((resolve, reject) => {
-        chrome.declarativeNetRequest.updateDynamicRules(opts, () => {
+        chrome.declarativeNetRequest.updateDynamicRules(update, () => {
             if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
             } else {
