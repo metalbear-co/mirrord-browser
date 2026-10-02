@@ -14,6 +14,7 @@ import {
     isPreviewLive,
     isGroupLive,
     formatDurationSecs,
+    withBaggageMerge,
 } from '../util';
 import type {
     ClusterSession,
@@ -248,6 +249,25 @@ describe('buildDnrRule', () => {
         const rules = buildDnrRule('X-Test', 'value');
 
         expect(rules[0]?.condition.resourceTypes).toBe(ALL_RESOURCE_TYPES);
+    });
+
+    it('leaves fetch/XHR baggage to the page script only in merge mode', () => {
+        const [baggage] = buildDnrRule('Baggage', 'mirrord-session=k1');
+        const [other] = buildDnrRule('X-Test', 'value');
+        if (!baggage || !other) {
+            throw new Error('expected rules');
+        }
+
+        const merged = withBaggageMerge(baggage, true);
+
+        expect(merged.condition.resourceTypes).not.toContain('xmlhttprequest');
+        expect(merged.condition.resourceTypes).toHaveLength(
+            ALL_RESOURCE_TYPES.length - 1
+        );
+        expect(
+            withBaggageMerge(merged, false).condition.resourceTypes
+        ).toContain('xmlhttprequest');
+        expect(withBaggageMerge(other, true)).toBe(other);
     });
 });
 
