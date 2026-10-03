@@ -189,6 +189,31 @@ describe('analytics', () => {
             expect(body1.distinct_id).toBeTruthy();
             expect(body1.distinct_id).toBe(body2.distinct_id);
         });
+
+        it('sends events from the service worker, which has no localStorage', async () => {
+            chromeStore['posthog_distinct_id'] = 'stored-id';
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: undefined,
+                writable: true,
+            });
+            try {
+                await jest.isolateModulesAsync(async () => {
+                    const worker = await import('../analytics');
+                    worker.capture('worker_event');
+                });
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 0);
+                });
+
+                expect(fetchBody(0).event).toBe('worker_event');
+                expect(fetchBody(0).distinct_id).toBe('stored-id');
+            } finally {
+                Object.defineProperty(globalThis, 'localStorage', {
+                    value: mockLocalStorage,
+                    writable: true,
+                });
+            }
+        });
     });
 
     describe('opt-out', () => {
