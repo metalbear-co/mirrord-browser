@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
     Activity,
+    AlertTriangle,
     Box,
     Check,
     Copy,
@@ -14,6 +15,7 @@ import type { ClusterSession } from '../types';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { RING_SECONDS } from '../headerObservation';
+import { emitUserBlocked } from '../analytics';
 import { useHeaderObservation } from '../hooks/useHeaderObservation';
 import type { JoinLiveness } from '../hooks/useJoinLiveness';
 import { StatusDot } from './StatusDot';
@@ -98,6 +100,18 @@ export function ConnectedBanner({
     const showInput = composing || scopePatterns.length === 0;
     const observation = useHeaderObservation();
     const observed = observation.totalLast60s;
+    const overwrites = observation.overwrites;
+    const reportedOverwrite = useRef(false);
+
+    useEffect(() => {
+        if (overwrites > 0 && !reportedOverwrite.current) {
+            reportedOverwrite.current = true;
+            emitUserBlocked('header_overwritten', 'health', {
+                headerName: observation.headerName,
+                flow: 'session_monitor',
+            });
+        }
+    }, [overwrites, observation.headerName]);
 
     const copyHeader = async () => {
         if (!joinedHeader || !joinedValue) {
@@ -419,6 +433,26 @@ export function ConnectedBanner({
                             {STRINGS.LABEL_SECONDS_SUFFIX}
                         </span>
                     </div>
+                    {overwrites > 0 && (
+                        <div
+                            className="flex items-start"
+                            style={{
+                                gap: 6,
+                                fontSize: 10.5,
+                                color: COLORS.warning.solid,
+                            }}
+                        >
+                            <AlertTriangle
+                                className="shrink-0"
+                                style={{ height: 12, width: 12, marginTop: 1 }}
+                            />
+                            <span>
+                                {STRINGS.MSG_HEADER_OVERWRITTEN(
+                                    observation.headerName
+                                )}
+                            </span>
+                        </div>
+                    )}
                     {joinedHeader && joinedValue && (
                         <button
                             type="button"

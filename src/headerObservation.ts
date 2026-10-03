@@ -17,6 +17,7 @@ export interface HeaderObservation {
     buckets: number[];
     recent: RecentUrl[];
     totalLast60s: number;
+    overwrites: number;
 }
 
 export function emptyObservation(
@@ -29,6 +30,7 @@ export function emptyObservation(
         buckets: new Array<number>(RING_SECONDS).fill(0),
         recent: [],
         totalLast60s: 0,
+        overwrites: 0,
     };
 }
 
@@ -81,6 +83,10 @@ export function recordRequest(
         recent,
         totalLast60s: buckets.reduce((a, b) => a + b, 0),
     };
+}
+
+export function recordOverwrite(obs: HeaderObservation): HeaderObservation {
+    return { ...obs, overwrites: obs.overwrites + 1 };
 }
 
 export function setHeaderName(

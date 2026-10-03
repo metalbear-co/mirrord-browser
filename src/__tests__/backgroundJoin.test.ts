@@ -41,6 +41,7 @@ function installChrome() {
             onChanged: noopEvent,
         },
         webRequest: {
+            onBeforeSendHeaders: noopEvent,
             onSendHeaders: noopEvent,
         },
         declarativeNetRequest: {

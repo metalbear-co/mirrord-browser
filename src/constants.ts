@@ -133,6 +133,8 @@ export const STRINGS = {
     LABEL_KEY: 'Key',
     LABEL_MORE_TARGET: 'more target',
     LABEL_REQ_LAST: 'req · last',
+    MSG_HEADER_OVERWRITTEN: (header: string) =>
+        `Replacing a ${header} this page already sets. Scope the rule to keep the page's own value.`,
     LABEL_SECONDS_SUFFIX: 's',
     LABEL_PREVIEW: 'preview',
     PREVIEW_PHASE_LABEL: {

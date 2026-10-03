@@ -48,6 +48,22 @@ jest.mock('@metalbear/ui', () => ({
     ),
 }));
 
+jest.mock('../analytics', () => ({
+    emitUserBlocked: jest.fn(),
+}));
+
+jest.mock('../hooks/useHeaderObservation', () => ({
+    useHeaderObservation: () => ({
+        headerName: 'baggage',
+        bucketStartMs: 0,
+        buckets: [],
+        recent: [],
+        totalLast60s: 4,
+        overwrites: 2,
+    }),
+}));
+
+import { ConnectedBanner } from '../components/ConnectedBanner';
 import { RuleItem } from '../components/RuleItem';
 import { RulesList } from '../components/RulesList';
 import { HeaderForm } from '../components/HeaderForm';
@@ -196,5 +212,28 @@ describe('HeaderForm', () => {
 
         // The tooltip trigger is the ⓘ icon
         expect(screen.getByText('ⓘ')).toBeInTheDocument();
+    });
+});
+
+describe('ConnectedBanner', () => {
+    test('warns when the injected header replaced a value the page set', () => {
+        render(
+            <ConnectedBanner
+                joinedKey="my-key"
+                sessions={[]}
+                liveness="live"
+                onLeave={() => undefined}
+                onShare={() => undefined}
+                scopePatterns={[]}
+                onAddScopePattern={() => undefined}
+                onRemoveScopePattern={() => undefined}
+                joinedHeader="baggage"
+                joinedValue="mirrord-session=my-key"
+            />
+        );
+
+        expect(
+            screen.getByText(/Replacing a baggage this page already sets/)
+        ).toBeInTheDocument();
     });
 });
