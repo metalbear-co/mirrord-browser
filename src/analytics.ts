@@ -14,17 +14,60 @@ const APP_VERSION = (() => {
 let distinctId: string | null = null;
 let optedOut = false;
 
+const DISTINCT_ID_KEY = 'posthog_distinct_id';
+
+// The service worker has no `localStorage`, so reading it there throws and takes
+// the whole capture down with it. Both contexts mirror the id into
+// chrome.storage.local so a profile keeps one identity across popup and worker.
+function localStore(): Storage | null {
+    try {
+        return typeof localStorage === 'undefined' ? null : localStorage;
+    } catch {
+        return null;
+    }
+}
+
+function rememberDistinctId(id: string): void {
+    try {
+        void chrome.storage.local
+            .set({ [DISTINCT_ID_KEY]: id })
+            .catch(() => undefined);
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+}
+
+export async function loadDistinctId(): Promise<void> {
+    let stored: unknown;
+    try {
+        const result: Record<string, unknown> =
+            await chrome.storage.local.get(DISTINCT_ID_KEY);
+        stored = result[DISTINCT_ID_KEY];
+    } catch {
+        return;
+    }
+    if (!distinctId && typeof stored === 'string' && stored.length > 0) {
+        distinctId = stored;
+    }
+}
+
+/** Resolves once the persisted distinct id has been read from storage. */
+export const distinctIdReady = loadDistinctId();
+
 function getDistinctId(): string {
     if (distinctId) {
         return distinctId;
     }
-    const stored = localStorage.getItem('posthog_distinct_id');
+    const local = localStore();
+    const stored = local?.getItem(DISTINCT_ID_KEY);
     if (stored) {
         distinctId = stored;
+        rememberDistinctId(distinctId);
         return distinctId;
     }
     distinctId = crypto.randomUUID();
-    localStorage.setItem('posthog_distinct_id', distinctId);
+    local?.setItem(DISTINCT_ID_KEY, distinctId);
+    rememberDistinctId(distinctId);
     return distinctId;
 }
 
