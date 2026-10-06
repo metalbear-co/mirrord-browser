@@ -26,6 +26,7 @@ function installChrome() {
             onInstalled: noopEvent,
             onConnect: noopEvent,
             onMessageExternal: noopEvent,
+            onMessage: noopEvent,
         },
         storage: {
             local: {

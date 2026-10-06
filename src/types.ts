@@ -30,6 +30,7 @@ export const STORAGE_KEYS = {
     ACTIVE_TAB: 'active_tab',
     THEME: 'theme',
     SELECTED_CONTEXT: 'selected_context',
+    BAGGAGE_MERGE: 'baggage_merge',
 } as const;
 
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -81,14 +82,17 @@ export interface OperatorSessionSummary {
     httpFilter?: OperatorSessionHttpFilter | null;
 }
 
-export type PreviewPhase =
-    | 'initializing'
-    | 'waiting'
-    | 'ready'
-    | 'failed'
-    | 'idle'
-    | 'paused'
-    | 'unknown';
+export const PREVIEW_PHASES = [
+    'initializing',
+    'waiting',
+    'ready',
+    'failed',
+    'idle',
+    'paused',
+    'unknown',
+] as const;
+
+export type PreviewPhase = (typeof PREVIEW_PHASES)[number];
 
 export interface OperatorPreviewSession {
     id: string;
@@ -96,7 +100,6 @@ export interface OperatorPreviewSession {
     namespace: string;
     target: OperatorSessionTarget | null;
     createdAt: string | null;
-    durationSecs?: number;
     phase: PreviewPhase;
     // Only set while `phase` is `idle`.
     idleSecs?: number;

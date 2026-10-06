@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from './types';
 import type { ClusterSession } from './types';
 import {
+    baggageConfig,
     buildDnrRule,
     getDynamicRules,
     refreshIconIndicator,
@@ -26,6 +27,12 @@ import {
     type HeaderObservation,
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    BAGGAGE_CONFIG_REQUEST,
+    isBaggageModeChange,
+    reconnectBaggageBridges,
+    syncBaggageMode,
+} from './baggageMode';
 
 const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
@@ -101,6 +108,32 @@ chrome.runtime.onInstalled.addListener(() => {
     void restoreObservation().then(loadHeaderName);
 });
 
+chrome.runtime.onInstalled.addListener((details) => {
+    void syncBaggageMode().then(() =>
+        (details.reason as string) === 'update'
+            ? reconnectBaggageBridges()
+            : undefined
+    );
+});
+
+chrome.runtime.onMessage.addListener(
+    (
+        message: unknown,
+        sender: chrome.runtime.MessageSender,
+        sendResponse: (response: unknown) => void
+    ) => {
+        if (
+            sender.id !== chrome.runtime.id ||
+            (message as { type?: unknown } | null)?.type !==
+                BAGGAGE_CONFIG_REQUEST
+        ) {
+            return;
+        }
+        void baggageConfig().then(sendResponse, () => sendResponse([]));
+        return true;
+    }
+);
+
 const RULE_TRIGGERING_KEYS: readonly string[] = [
     STORAGE_KEYS.OVERRIDE,
     STORAGE_KEYS.DEFAULTS,
@@ -114,6 +147,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     if (RULE_TRIGGERING_KEYS.some((key) => key in changes)) {
         loadHeaderName();
+    }
+    if (isBaggageModeChange(changes)) {
+        void syncBaggageMode();
     }
 });
 
