@@ -12,7 +12,12 @@ import type {
     PreviewPhase,
     PreviewSession,
 } from './types';
-import { ALL_RESOURCE_TYPES, PREVIEW_PHASES, isPreviewSession } from './types';
+import {
+    ALL_RESOURCE_TYPES,
+    PREVIEW_PHASES,
+    STORAGE_KEYS,
+    isPreviewSession,
+} from './types';
 import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
@@ -121,11 +126,116 @@ export function getDynamicRules(): Promise<
     });
 }
 
-export function updateDynamicRules(
+const XHR_RESOURCE_TYPE =
+    'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType;
+
+/** In baggage merge mode, the page script owns fetch/XHR baggage so DNR must not overwrite it. */
+export function isBaggageRule(rule: chrome.declarativeNetRequest.Rule) {
+    return (
+        rule.action.requestHeaders?.some(
+            (header) => header.header.toLowerCase() === 'baggage'
+        ) ?? false
+    );
+}
+
+export function withBaggageMerge(
+    rule: chrome.declarativeNetRequest.Rule,
+    merge: boolean
+): chrome.declarativeNetRequest.Rule {
+    if (!isBaggageRule(rule)) {
+        return rule;
+    }
+    const others = (rule.condition.resourceTypes ?? ALL_RESOURCE_TYPES).filter(
+        (type) => type !== XHR_RESOURCE_TYPE
+    );
+    return {
+        ...rule,
+        condition: {
+            ...rule.condition,
+            resourceTypes: merge ? others : [...others, XHR_RESOURCE_TYPE],
+        },
+    };
+}
+
+export async function baggageMergeEnabled(): Promise<boolean> {
+    const result = await storageGet([STORAGE_KEYS.BAGGAGE_MERGE]);
+    return result[STORAGE_KEYS.BAGGAGE_MERGE] === true;
+}
+
+export const BAGGAGE_CONFIG_UPDATE = 'mirrord-baggage-config-update';
+
+export interface BaggageConfigEntry {
+    value: string;
+    filters: string[];
+}
+
+export async function baggageConfig(): Promise<BaggageConfigEntry[]> {
+    if (!(await baggageMergeEnabled())) {
+        return [];
+    }
+    const entries: BaggageConfigEntry[] = [];
+    for (const rule of await getDynamicRules()) {
+        const header = rule.action.requestHeaders?.find(
+            (h) => h.header.toLowerCase() === 'baggage'
+        );
+        if (header?.value === undefined) {
+            continue;
+        }
+        const filter = rule.condition.urlFilter ?? '|';
+        const existing = entries.find((e) => e.value === header.value);
+        if (existing) {
+            existing.filters.push(filter);
+        } else {
+            entries.push({ value: header.value, filters: [filter] });
+        }
+    }
+    return entries;
+}
+
+/** Pushes the current baggage config to pages that already run the merge script. */
+export async function publishBaggageConfig(force = false): Promise<void> {
+    if (!force && !(await baggageMergeEnabled())) {
+        return;
+    }
+    const entries = await baggageConfig();
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+        tabs.map((tab) =>
+            tab.id === undefined
+                ? Promise.resolve()
+                : chrome.tabs
+                      .sendMessage(tab.id, {
+                          type: BAGGAGE_CONFIG_UPDATE,
+                          entries,
+                      })
+                      .catch(() => undefined)
+        )
+    );
+}
+
+export async function updateDynamicRules(
     opts: chrome.declarativeNetRequest.UpdateRuleOptions
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        chrome.declarativeNetRequest.updateDynamicRules(opts, () => {
+    const hasBaggage = opts.addRules?.some(isBaggageRule);
+    const merge = hasBaggage ? await baggageMergeEnabled() : false;
+    await applyDynamicRules(
+        opts.addRules && hasBaggage
+            ? {
+                  ...opts,
+                  addRules: opts.addRules.map((rule) =>
+                      withBaggageMerge(rule, merge)
+                  ),
+              }
+            : opts
+    );
+}
+
+/** Writes rules as given, without reading anything first, then refreshes open pages. */
+export async function applyDynamicRules(
+    update: chrome.declarativeNetRequest.UpdateRuleOptions
+): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+        chrome.declarativeNetRequest.updateDynamicRules(update, () => {
             if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
             } else {
@@ -133,6 +243,7 @@ export function updateDynamicRules(
             }
         });
     });
+    void publishBaggageConfig().catch(() => undefined);
 }
 
 export function storageGet(keys: string[]): Promise<Record<string, unknown>> {

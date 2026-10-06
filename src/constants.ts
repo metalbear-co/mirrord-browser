@@ -114,6 +114,9 @@ export const STRINGS = {
     SETTINGS_ANALYTICS_LABEL: 'Usage analytics',
     SETTINGS_ANALYTICS_DESCRIPTION:
         'Help improve mirrord by sending anonymous usage data.',
+    SETTINGS_BAGGAGE_MERGE_LABEL: 'Merge into existing baggage header',
+    SETTINGS_BAGGAGE_MERGE_DESCRIPTION:
+        'Adds the mirrord entry to the baggage header a page already sends from fetch and XHR, instead of replacing it. Reload open tabs after changing this.',
 
     MSG_APPLYING_CONFIG: 'Applying mirrord config…',
     MSG_JOINED_LIVE_SESSION: 'Joined live session',
