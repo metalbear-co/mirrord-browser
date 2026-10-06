@@ -1,5 +1,9 @@
 import '@metalbear/ui/styles.css';
-import { refreshIconIndicator } from './util';
+import {
+    getDynamicRules,
+    refreshIconIndicator,
+    updateDynamicRules,
+} from './util';
 import type { Config, StoredConfig } from './types';
 import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
@@ -137,47 +141,46 @@ function setHeaderRule(
         ];
 
         // remove all existing rules and add new ones
-        chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
-            chrome.declarativeNetRequest.updateDynamicRules(
-                {
+        void getDynamicRules()
+            .then((existingRules) =>
+                updateDynamicRules({
                     removeRuleIds: rules
                         .map(({ id }) => id)
                         .concat(existingRules.map((rule) => rule.id)),
                     addRules: rules,
-                },
+                })
+            )
+            .then(
                 () => {
-                    if (chrome.runtime.lastError) {
-                        console.error(
-                            'Failed to set header:',
-                            chrome.runtime.lastError.message
-                        );
-                        emitUserBlocked('configure_failed', 'user_action', {
-                            error:
-                                chrome.runtime.lastError.message ??
-                                'DNR update failed',
-                        });
-                        reject(new Error(chrome.runtime.lastError.message));
-                    } else {
-                        console.warn('Header rule set successfully.');
-                        refreshIconIndicator(rules.length);
+                    console.warn('Header rule set successfully.');
+                    refreshIconIndicator(rules.length);
 
-                        const storeConfig =
-                            storageKey === STORAGE_KEYS.OVERRIDE
-                                ? storeOverride
-                                : storeDefaults;
-                        const clearSession =
-                            storageKey === STORAGE_KEYS.OVERRIDE
-                                ? clearJoinedSession()
-                                : Promise.resolve();
-                        void clearSession
-                            .then(() =>
-                                storeConfig(key.trim(), value.trim(), scope)
-                            )
-                            .then(resolve);
-                    }
+                    const storeConfig =
+                        storageKey === STORAGE_KEYS.OVERRIDE
+                            ? storeOverride
+                            : storeDefaults;
+                    const clearSession =
+                        storageKey === STORAGE_KEYS.OVERRIDE
+                            ? clearJoinedSession()
+                            : Promise.resolve();
+                    void clearSession
+                        .then(() =>
+                            storeConfig(key.trim(), value.trim(), scope)
+                        )
+                        .then(resolve);
+                },
+                (error: unknown) => {
+                    const failure =
+                        error instanceof Error
+                            ? error
+                            : new Error(String(error));
+                    console.error('Failed to set header:', failure.message);
+                    emitUserBlocked('configure_failed', 'user_action', {
+                        error: failure.message || 'DNR update failed',
+                    });
+                    reject(failure);
                 }
             );
-        });
     });
 }
 

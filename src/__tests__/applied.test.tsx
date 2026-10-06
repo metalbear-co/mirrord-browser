@@ -28,7 +28,13 @@ beforeEach(() => {
     mockStorageSet.mockClear();
     mockStorageRemove.mockClear();
     globalThis.chrome = {
-        storage: { local: { set: mockStorageSet, remove: mockStorageRemove } },
+        storage: {
+            local: {
+                get: (_keys: string[], cb: (r: object) => void) => cb({}),
+                set: mockStorageSet,
+                remove: mockStorageRemove,
+            },
+        },
         runtime: { lastError: null },
         declarativeNetRequest: {
             getDynamicRules: mockGetDynamicRules,

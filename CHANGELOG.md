@@ -8,6 +8,21 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.8.0](https://github.com/metalbear-co/mirrord-browser/tree/0.8.0) - 2026-10-02
+
+
+### Added
+
+- Added a setting that keeps a page's own `baggage` header and adds the mirrord
+  entry to it in fetch and XHR requests, instead of replacing it.
+
+## [0.7.0](https://github.com/metalbear-co/mirrord-browser/tree/0.7.0) - 2026-09-09
+
+
+### Changed
+
+- Display preview environments' state in session list.
+
 ## [0.6.0](https://github.com/metalbear-co/mirrord-browser/tree/0.6.0) - 2026-07-21
 
 

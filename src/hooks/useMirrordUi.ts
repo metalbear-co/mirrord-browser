@@ -80,12 +80,7 @@ export async function fetchOperatorSessions(
 function mapV1ToInternal(
     v1: OperatorSessionsV1Response
 ): OperatorSessionsResponse {
-    const sessions = toClusterSessions(v1.sessions, undefined);
-    return {
-        sessions,
-        by_key: groupByKey(sessions),
-        watch_status: v1.watch_status,
-    };
+    return rebuild(toClusterSessions(v1.sessions, undefined), v1.watch_status);
 }
 
 /**
@@ -122,12 +117,10 @@ function mapV2ToInternal(
         v2.status === 'available'
             ? { status: 'watching' }
             : { status: 'unavailable', reason: v2.reason ?? '' };
-    const sessions = toClusterSessions(v2.sessions, v2.previewSessions);
-    return {
-        sessions,
-        by_key: groupByKey(sessions),
-        watch_status,
-    };
+    return rebuild(
+        toClusterSessions(v2.sessions, v2.previewSessions),
+        watch_status
+    );
 }
 
 /**
