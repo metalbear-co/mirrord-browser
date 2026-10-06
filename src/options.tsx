@@ -15,15 +15,22 @@ initTheme();
 
 export function Options() {
     const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+    const [baggageMerge, setBaggageMerge] = useState(false);
     const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
         void optOutReady.then(() =>
             chrome.storage.local
-                .get(STORAGE_KEYS.ANALYTICS_OPT_OUT)
+                .get([
+                    STORAGE_KEYS.ANALYTICS_OPT_OUT,
+                    STORAGE_KEYS.BAGGAGE_MERGE,
+                ])
                 .then((result) => {
                     setAnalyticsEnabled(
                         result[STORAGE_KEYS.ANALYTICS_OPT_OUT] !== true
+                    );
+                    setBaggageMerge(
+                        result[STORAGE_KEYS.BAGGAGE_MERGE] === true
                     );
                     setLoaded(true);
                 })
@@ -33,6 +40,13 @@ export function Options() {
     const handleAnalyticsToggle = (checked: boolean) => {
         setAnalyticsEnabled(checked);
         void setOptOut(!checked);
+    };
+
+    const handleBaggageMergeToggle = (checked: boolean) => {
+        setBaggageMerge(checked);
+        void chrome.storage.local.set({
+            [STORAGE_KEYS.BAGGAGE_MERGE]: checked,
+        });
     };
 
     if (!loaded) {
@@ -63,6 +77,25 @@ export function Options() {
                     id="analytics-toggle"
                     checked={analyticsEnabled}
                     onCheckedChange={handleAnalyticsToggle}
+                />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                    <Label
+                        htmlFor="baggage-merge-toggle"
+                        className="text-section"
+                    >
+                        {STRINGS.SETTINGS_BAGGAGE_MERGE_LABEL}
+                    </Label>
+                    <p className="text-meta text-muted-foreground">
+                        {STRINGS.SETTINGS_BAGGAGE_MERGE_DESCRIPTION}
+                    </p>
+                </div>
+                <Switch
+                    id="baggage-merge-toggle"
+                    checked={baggageMerge}
+                    onCheckedChange={handleBaggageMergeToggle}
                 />
             </div>
         </div>

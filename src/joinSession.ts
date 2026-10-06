@@ -10,7 +10,7 @@ import {
     storageSet,
     updateDynamicRules,
 } from './util';
-import type { OperatorSessionSummary } from './types';
+import type { ClusterSession } from './types';
 import { STORAGE_KEYS } from './types';
 import { fetchOperatorSessions } from './hooks/useMirrordUi';
 
@@ -39,7 +39,7 @@ export async function joinMatchingSession(
         return null;
     }
 
-    let sessions: OperatorSessionSummary[];
+    let sessions: ClusterSession[];
     try {
         ({ sessions } = await fetchOperatorSessions(backend, token));
     } catch {
