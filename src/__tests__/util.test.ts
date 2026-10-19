@@ -513,17 +513,15 @@ describe('toClusterSessions', () => {
         ]);
     });
 
-    // A preview is reached by key, so the folded twin's filter is not consulted. The operator
-    // sends the bare key there, which never parses as a header line anyway.
-    it('routes a preview by key, ignoring the folded filter', () => {
+    it('routes a preview with the header filter of its folded twin', () => {
         const [session] = toClusterSessions(
             [folded({ httpFilter: { headerFilter: 'x-tenant: alice' } })],
             [wirePreview()]
         );
         expect(session).toBeDefined();
         expect(session && sessionInjectionPair(session)).toEqual({
-            header: 'baggage',
-            value: 'mirrord-session=k',
+            header: 'x-tenant',
+            value: 'alice',
         });
     });
 
