@@ -55,6 +55,13 @@ export interface MirrordUiConfig {
     token: string;
 }
 
+export interface LocalSessionSummary {
+    session_id: string;
+    key?: string | null;
+    context?: string | null;
+    config?: unknown;
+}
+
 export interface OperatorSessionHttpFilter {
     headerFilter: string | null;
 }
