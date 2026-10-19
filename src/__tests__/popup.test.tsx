@@ -854,6 +854,13 @@ describe('Popup', () => {
         mockGetDynamicRules.mockImplementation(
             (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
         );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    override: { headerName: '', headerValue: '' },
+                    popup_tab: 'manual',
+                })
+        );
 
         render(<Popup />);
 
@@ -870,7 +877,10 @@ describe('Popup', () => {
         );
         mockStorageGet.mockImplementation(
             (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
-                cb({ override: { headerName: '', headerValue: '' } })
+                cb({
+                    override: { headerName: '', headerValue: '' },
+                    popup_tab: 'manual',
+                })
         );
 
         render(<Popup />);
@@ -894,6 +904,7 @@ describe('Popup', () => {
                         headerName: 'X-Test',
                         headerValue: 'value',
                     },
+                    popup_tab: 'manual',
                 })
         );
 

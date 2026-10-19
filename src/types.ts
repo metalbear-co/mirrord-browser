@@ -27,7 +27,7 @@ export const STORAGE_KEYS = {
     JOINED_HEADER: 'joined_header',
     JOINED_VALUE: 'joined_value',
     SCOPE_PATTERNS: 'scope_patterns',
-    ACTIVE_TAB: 'active_tab',
+    ACTIVE_TAB: 'popup_tab',
     THEME: 'theme',
     SELECTED_CONTEXT: 'selected_context',
     BAGGAGE_MERGE: 'baggage_merge',
