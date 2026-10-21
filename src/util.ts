@@ -559,6 +559,7 @@ export interface InjectionHint {
 }
 
 const HEADER_LINE_PATTERN = /^([A-Za-z0-9_-]+):\s?(.+)$/;
+const NON_DOT_REGEX_SYNTAX = /[\\^$*+?()[\]{}|]/;
 
 function generateLowestMatch(pattern: string): string | null {
     try {
@@ -593,6 +594,9 @@ export function deriveInjectionHint(
     const trimmed = headerFilter.trim();
     if (!trimmed) {
         return null;
+    }
+    if (!NON_DOT_REGEX_SYNTAX.test(trimmed)) {
+        return parseHeaderLine(trimmed);
     }
     const generated = generateLowestMatch(trimmed);
     if (!generated) {

@@ -1,20 +1,19 @@
 import { STORAGE_KEYS } from './types';
-import type { ClusterSession } from './types';
 import {
     baggageConfig,
     buildDnrRule,
     getDynamicRules,
     refreshIconIndicator,
-    sessionInjectionPair,
     storageGet,
     storageRemove,
     storageSet,
     updateDynamicRules,
 } from './util';
 import {
-    fetchOperatorSessions,
-    isAuthFailureStatus,
-} from './hooks/useMirrordUi';
+    isMirrordUiAuthError,
+    resolveJoinTarget,
+    type JoinTarget,
+} from './joinSession';
 import {
     HEADER_OBSERVATION_PORT,
     armCanary,
@@ -55,6 +54,7 @@ interface PingMessage {
 interface JoinMessage {
     type: 'join';
     key: string;
+    context?: string;
 }
 interface LeaveMessage {
     type: 'leave';
@@ -227,7 +227,10 @@ chrome.runtime.onMessageExternal.addListener(
             return true;
         }
         if (m?.type === 'join' && typeof m.key === 'string') {
-            void handleJoin(m.key).then(sendResponse);
+            void handleJoin(
+                m.key,
+                typeof m.context === 'string' ? m.context : null
+            ).then(sendResponse);
             return true;
         }
         if (m?.type === 'leave') {
@@ -274,7 +277,7 @@ async function handlePing() {
     };
 }
 
-export async function handleJoin(key: string) {
+export async function handleJoin(key: string, context: string | null = null) {
     try {
         const stored = await storageGet([
             STORAGE_KEYS.MIRRORD_UI_BACKEND,
@@ -296,29 +299,21 @@ export async function handleJoin(key: string) {
                 error,
             };
         }
-        let target: ClusterSession | undefined;
+        let target: JoinTarget;
         try {
-            const sessionsResp = await fetchOperatorSessions(backend, token);
-            target = sessionsResp.sessions.find((s) => s.key === key);
+            target = await resolveJoinTarget(backend, token, key, context);
         } catch (err) {
-            const status =
-                err instanceof Error &&
-                typeof (err as Error & { status?: unknown }).status === 'number'
-                    ? (err as Error & { status: number }).status
-                    : undefined;
-            if (isAuthFailureStatus(status)) {
-                const error = 'mirrord ui token rejected';
-                emitUserBlocked('join_auth_failed', 'user_action', {
-                    error,
-                    key,
-                });
-                return { type: JOIN_RESULT_TYPE, ok: false, error };
+            if (!isMirrordUiAuthError(err)) {
+                throw err;
             }
-            target = undefined;
+            const error = 'mirrord ui token rejected';
+            emitUserBlocked('join_auth_failed', 'user_action', {
+                error,
+                key,
+            });
+            return { type: JOIN_RESULT_TYPE, ok: false, error };
         }
-        const { header, value } = sessionInjectionPair(
-            target ?? { key, httpFilter: null }
-        );
+        const { header, value } = target;
         const scope =
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
@@ -328,14 +323,17 @@ export async function handleJoin(key: string) {
         });
         await storageSet({
             [STORAGE_KEYS.JOINED_KEY]: key,
-            [STORAGE_KEYS.JOINED_SESSION_NAME]: target?.id ?? key,
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
+            ...(target.context && {
+                [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
+            }),
         });
         armCanary({ headerName: header, flow: 'session_monitor' });
         emitUserSucceeded('joined', 'user_action', {
             key,
-            resolved: target ? 'operator' : 'key_convention',
+            resolved: target.resolved,
         });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {

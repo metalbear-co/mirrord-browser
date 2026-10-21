@@ -59,7 +59,7 @@ export function Popup() {
         (mirrordUi.sessions?.sessions ?? []).map((s) => s.key)
     ).size;
 
-    const [tab, setTab] = useState<TabId>(TAB.MANUAL);
+    const [tab, setTab] = useState<TabId>(TAB.SESSIONS);
     const [tabRestored, setTabRestored] = useState(false);
     const [themePref, setThemeState] = useState<ThemePref>('system');
     const isDark = resolveDark(themePref);
