@@ -4,12 +4,19 @@ import type { handleJoin as HandleJoinFn } from '../background';
 jest.mock('../hooks/useMirrordUi', () => ({
     ...jest.requireActual<object>('../hooks/useMirrordUi'),
     fetchOperatorSessions: jest.fn(),
+    fetchLocalSessions: jest.fn(),
 }));
 
-import { fetchOperatorSessions } from '../hooks/useMirrordUi';
+import {
+    fetchLocalSessions,
+    fetchOperatorSessions,
+} from '../hooks/useMirrordUi';
 
 const mockedFetchSessions = fetchOperatorSessions as jest.MockedFunction<
     typeof fetchOperatorSessions
+>;
+const mockedFetchLocalSessions = fetchLocalSessions as jest.MockedFunction<
+    typeof fetchLocalSessions
 >;
 
 let store: Record<string, unknown> = {};
@@ -86,6 +93,7 @@ describe('handleJoin', () => {
         };
         dynamicRules = [];
         mockedFetchSessions.mockReset();
+        mockedFetchLocalSessions.mockResolvedValue([]);
     });
 
     it('uses the operator session filter when the key is visible', async () => {

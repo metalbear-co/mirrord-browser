@@ -100,6 +100,7 @@ async function openPopupWithSpy(
         })
     );
     await page.reload();
+    await page.getByRole('tab', { name: 'Override' }).click();
     return page;
 }
 

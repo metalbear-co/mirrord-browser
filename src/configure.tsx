@@ -9,7 +9,7 @@ import { Card, CardContent } from '@metalbear/ui';
 initTheme();
 import { STORAGE_KEYS } from './types';
 import { capture, initErrorTracking } from './analytics';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import { resolveJoinTarget } from './joinSession';
 import {
     buildDnrRule,
     getDynamicRules,
@@ -46,15 +46,14 @@ async function storeBackendAndToken(
 async function joinKey(
     key: string,
     backend: string,
-    token: string
+    token: string,
+    context: string | null
 ): Promise<Status> {
-    const resp = await fetchOperatorSessions(backend, token);
-    const target = resp.sessions.find((s) => s.key === key);
-    if (!target) {
+    const target = await resolveJoinTarget(backend, token, key, context);
+    if (target.resolved === 'key_convention') {
         return { kind: CONFIGURE_STATUS.KEY_NOT_VISIBLE, key };
     }
-    const header = 'baggage';
-    const value = `mirrord-session=${key}`;
+    const { header, value } = target;
     const existing = await getDynamicRules();
     await updateDynamicRules({
         removeRuleIds: existing.map((r) => r.id),
@@ -62,7 +61,12 @@ async function joinKey(
     });
     await storageSet({
         [STORAGE_KEYS.JOINED_KEY]: key,
-        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
+        [STORAGE_KEYS.JOINED_HEADER]: header,
+        [STORAGE_KEYS.JOINED_VALUE]: value,
+        ...(target.context && {
+            [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
+        }),
     });
     return { kind: CONFIGURE_STATUS.JOINED, header, value };
 }
@@ -71,6 +75,7 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
     const backendParam = params.get('backend');
     const tokenParam = params.get('token');
     const joinParam = params.get('join');
+    const contextParam = params.get('context');
 
     if (backendParam && tokenParam) {
         await storeBackendAndToken(backendParam, tokenParam);
@@ -78,7 +83,7 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
         if (!joinParam) {
             return { kind: CONFIGURE_STATUS.CONNECTED };
         }
-        return joinKey(joinParam, backendParam, tokenParam);
+        return joinKey(joinParam, backendParam, tokenParam, contextParam);
     }
 
     if (joinParam) {
@@ -95,7 +100,7 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
         if (!backend || !token) {
             return { kind: CONFIGURE_STATUS.NOT_CONFIGURED };
         }
-        return joinKey(joinParam, backend, token);
+        return joinKey(joinParam, backend, token, contextParam);
     }
 
     return { kind: CONFIGURE_STATUS.MISSING_CONFIG };
