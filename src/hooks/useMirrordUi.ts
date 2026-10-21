@@ -641,10 +641,7 @@ export function useMirrordUi() {
             const target = sessions?.sessions.find((s) => s.key === key);
             const { header, value } = sessionInjectionPair({
                 key,
-                httpFilter:
-                    target?.kind === 'exec'
-                        ? (target.httpFilter ?? null)
-                        : null,
+                httpFilter: target?.httpFilter ?? null,
             });
             const config: Config = {
                 header_filter: `${header}: ${value}`,

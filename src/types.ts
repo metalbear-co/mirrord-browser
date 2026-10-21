@@ -133,6 +133,7 @@ export interface PreviewSession extends SessionBase {
     phase: PreviewPhase;
     // Only set while `phase` is `idle`.
     idleSecs?: number;
+    httpFilter?: OperatorSessionHttpFilter | null;
 }
 
 export type ClusterSession = ExecSession | PreviewSession;
