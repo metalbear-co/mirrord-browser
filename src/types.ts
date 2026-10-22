@@ -1,6 +1,7 @@
 export interface Config {
     header_filter: string;
     inject_scope?: string;
+    open_url?: string;
 }
 
 export interface StoredConfig {
