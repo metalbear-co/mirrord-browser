@@ -94,6 +94,7 @@ export function setHeaderName(
 }
 
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import { getDynamicRules } from './util';
 
 interface CanaryArm {
     headerName: string;
@@ -114,16 +115,30 @@ export function armCanary(arm: CanaryArm): void {
     observed = false;
     requestsWhileArmed = 0;
     activeTimer = setTimeout(() => {
-        if (activeArm) {
-            emitUserBlocked('no_header_observed', 'health', {
-                headerName: activeArm.headerName,
-                flow: activeArm.flow,
-                scoped: activeArm.scoped,
-                requestsWhileArmed,
-            });
-        }
+        const expired = activeArm;
+        const requests = requestsWhileArmed;
         activeArm = null;
         activeTimer = null;
+        if (!expired) {
+            return;
+        }
+        void getDynamicRules().then((rules) => {
+            const stillInstalled = rules.some((rule) =>
+                rule.action.requestHeaders?.some(
+                    (h) =>
+                        h.header.toLowerCase() ===
+                        expired.headerName.toLowerCase()
+                )
+            );
+            if (stillInstalled) {
+                emitUserBlocked('no_header_observed', 'health', {
+                    headerName: expired.headerName,
+                    flow: expired.flow,
+                    scoped: expired.scoped,
+                    requestsWhileArmed: requests,
+                });
+            }
+        });
     }, CANARY_TIMEOUT_MS);
 }
 
