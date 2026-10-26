@@ -98,11 +98,13 @@ import { emitUserBlocked, emitUserSucceeded } from './analytics';
 interface CanaryArm {
     headerName: string;
     flow: 'session_monitor' | 'header_injector';
+    scoped: boolean;
 }
 
 let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let observed = false;
+let requestsWhileArmed = 0;
 
 const CANARY_TIMEOUT_MS = 60_000;
 
@@ -110,16 +112,25 @@ export function armCanary(arm: CanaryArm): void {
     cancelCanary();
     activeArm = arm;
     observed = false;
+    requestsWhileArmed = 0;
     activeTimer = setTimeout(() => {
         if (activeArm) {
             emitUserBlocked('no_header_observed', 'health', {
                 headerName: activeArm.headerName,
                 flow: activeArm.flow,
+                scoped: activeArm.scoped,
+                requestsWhileArmed,
             });
         }
         activeArm = null;
         activeTimer = null;
     }, CANARY_TIMEOUT_MS);
+}
+
+export function countRequestWhileArmed(): void {
+    if (activeArm) {
+        requestsWhileArmed += 1;
+    }
 }
 
 export function cancelCanary(): void {
@@ -129,6 +140,7 @@ export function cancelCanary(): void {
     activeTimer = null;
     activeArm = null;
     observed = false;
+    requestsWhileArmed = 0;
 }
 
 export function notifyHeaderObserved(headerName: string): void {

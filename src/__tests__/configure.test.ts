@@ -55,8 +55,15 @@ describe('configure.tsx (entry)', () => {
     test('stores backend+token when query params are present', async () => {
         await jest.isolateModulesAsync(async () => {
             await import('../configure');
+            const storedBackend = () =>
+                mockStorageSet.mock.calls.some(
+                    ([items]) =>
+                        typeof items === 'object' &&
+                        items !== null &&
+                        STORAGE_KEYS.MIRRORD_UI_BACKEND in items
+                );
             for (let i = 0; i < 20; i++) {
-                if (mockStorageSet.mock.calls.length > 0) {
+                if (storedBackend()) {
                     break;
                 }
                 await new Promise((r) => {
