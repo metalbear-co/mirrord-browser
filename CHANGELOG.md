@@ -8,6 +8,23 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.9.0](https://github.com/metalbear-co/mirrord-browser/tree/0.9.0) - 2026-10-21
+
+
+### Changed
+
+- The popup opens on the Sessions tab instead of Override. A tab you pick is
+  still remembered.
+
+
+### Fixed
+
+- Joining a preview environment that filters on a custom header, such as a
+  renamed `baggage` header, injects that header instead of `baggage`.
+- Joining a session from mirrord ui injects that session's own header even when
+  it runs in a kube context other than the current one, instead of falling back
+  to `baggage`.
+
 ## [0.8.0](https://github.com/metalbear-co/mirrord-browser/tree/0.8.0) - 2026-10-02
 
 

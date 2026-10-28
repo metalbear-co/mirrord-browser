@@ -28,7 +28,7 @@ export const STORAGE_KEYS = {
     JOINED_HEADER: 'joined_header',
     JOINED_VALUE: 'joined_value',
     SCOPE_PATTERNS: 'scope_patterns',
-    ACTIVE_TAB: 'active_tab',
+    ACTIVE_TAB: 'popup_tab',
     THEME: 'theme',
     SELECTED_CONTEXT: 'selected_context',
     BAGGAGE_MERGE: 'baggage_merge',
@@ -54,6 +54,13 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
 export interface MirrordUiConfig {
     backend: string;
     token: string;
+}
+
+export interface LocalSessionSummary {
+    session_id: string;
+    key?: string | null;
+    context?: string | null;
+    config?: unknown;
 }
 
 export interface OperatorSessionHttpFilter {
@@ -127,6 +134,7 @@ export interface PreviewSession extends SessionBase {
     phase: PreviewPhase;
     // Only set while `phase` is `idle`.
     idleSecs?: number;
+    httpFilter?: OperatorSessionHttpFilter | null;
 }
 
 export type ClusterSession = ExecSession | PreviewSession;

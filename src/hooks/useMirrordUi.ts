@@ -6,6 +6,7 @@ import type {
     Config,
     ContextsResponse,
     KubeContext,
+    LocalSessionSummary,
     OperatorSessionsResponse,
     OperatorSessionsV1Response,
     OperatorSessionsV2Response,
@@ -81,6 +82,28 @@ function mapV1ToInternal(
     v1: OperatorSessionsV1Response
 ): OperatorSessionsResponse {
     return rebuild(toClusterSessions(v1.sessions, undefined), v1.watch_status);
+}
+
+export async function fetchLocalSessions(
+    backend: string,
+    token: string,
+    fetchImpl: typeof fetch = fetch
+): Promise<LocalSessionSummary[]> {
+    const headers = { 'x-auth-token': token };
+    let resp = await fetchImpl(`${backend}/api/v2/local/sessions`, {
+        headers,
+    });
+    if (resp.status === HTTP_NOT_FOUND) {
+        resp = await fetchImpl(`${backend}/api/sessions`, { headers });
+    }
+    if (!resp.ok) {
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
+    }
+    return (await resp.json()) as LocalSessionSummary[];
 }
 
 /**
@@ -618,10 +641,7 @@ export function useMirrordUi() {
             const target = sessions?.sessions.find((s) => s.key === key);
             const { header, value } = sessionInjectionPair({
                 key,
-                httpFilter:
-                    target?.kind === 'exec'
-                        ? (target.httpFilter ?? null)
-                        : null,
+                httpFilter: target?.httpFilter ?? null,
             });
             const config: Config = {
                 header_filter: `${header}: ${value}`,

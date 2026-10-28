@@ -324,10 +324,15 @@ export function toClusterSessions(
     const reportedKeys = new Set(reported.map((p) => p.key));
 
     const folded = sessions.filter(isFoldedPreview);
+    const foldedFilter = (preview: OperatorPreviewSession) =>
+        folded.find((s) => s.id === preview.id || s.key === preview.key)
+            ?.httpFilter;
 
     return [
         ...sessions.filter((s) => !isFoldedPreview(s)).map(asExecSession),
-        ...reported.map(asPreviewSession),
+        ...reported.map((preview) =>
+            asPreviewSession(preview, foldedFilter(preview))
+        ),
         // Fallback only: previews the dedicated list never mentioned.
         ...folded
             .filter((s) => !reportedIds.has(s.id) && !reportedKeys.has(s.key))
@@ -348,7 +353,10 @@ function asExecSession(session: OperatorSessionSummary): ExecSession {
     };
 }
 
-function asPreviewSession(preview: OperatorPreviewSession): PreviewSession {
+function asPreviewSession(
+    preview: OperatorPreviewSession,
+    httpFilter: OperatorSessionHttpFilter | null | undefined
+): PreviewSession {
     const phase = normalizePreviewPhase(preview.phase);
     return {
         kind: 'preview',
@@ -361,6 +369,7 @@ function asPreviewSession(preview: OperatorPreviewSession): PreviewSession {
         ...(phase === 'idle' && preview.idleSecs !== undefined
             ? { idleSecs: preview.idleSecs }
             : {}),
+        ...(httpFilter ? { httpFilter } : {}),
     };
 }
 
@@ -375,6 +384,7 @@ function foldedAsPreviewSession(
         target: session.target,
         createdAt: session.createdAt,
         phase: 'unknown',
+        ...(session.httpFilter ? { httpFilter: session.httpFilter } : {}),
     };
 }
 
@@ -549,6 +559,7 @@ export interface InjectionHint {
 }
 
 const HEADER_LINE_PATTERN = /^([A-Za-z0-9_-]+):\s?(.+)$/;
+const NON_DOT_REGEX_SYNTAX = /[\\^$*+?()[\]{}|]/;
 
 function generateLowestMatch(pattern: string): string | null {
     try {
@@ -583,6 +594,9 @@ export function deriveInjectionHint(
     const trimmed = headerFilter.trim();
     if (!trimmed) {
         return null;
+    }
+    if (!NON_DOT_REGEX_SYNTAX.test(trimmed)) {
+        return parseHeaderLine(trimmed);
     }
     const generated = generateLowestMatch(trimmed);
     if (!generated) {

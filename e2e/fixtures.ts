@@ -63,6 +63,7 @@ export const test = base.extend<ExtensionFixtures>({
             })
         );
         await page.reload();
+        await page.getByRole('tab', { name: 'Override' }).click();
         await use(page);
     },
 });
