@@ -93,7 +93,11 @@ export function setHeaderName(
     return emptyObservation(headerName);
 }
 
-import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    captureException,
+    emitUserBlocked,
+    emitUserSucceeded,
+} from './analytics';
 import { getDynamicRules } from './util';
 
 interface CanaryArm {
@@ -122,23 +126,27 @@ export function armCanary(arm: CanaryArm): void {
         if (!expired) {
             return;
         }
-        void getDynamicRules().then((rules) => {
-            const stillInstalled = rules.some((rule) =>
-                rule.action.requestHeaders?.some(
-                    (h) =>
-                        h.header.toLowerCase() ===
-                        expired.headerName.toLowerCase()
-                )
-            );
-            if (stillInstalled) {
-                emitUserBlocked('no_header_observed', 'health', {
-                    headerName: expired.headerName,
-                    flow: expired.flow,
-                    scoped: expired.scoped,
-                    requestsWhileArmed: requests,
-                });
-            }
-        });
+        void getDynamicRules()
+            .then((rules) => {
+                const stillInstalled = rules.some((rule) =>
+                    rule.action.requestHeaders?.some(
+                        (h) =>
+                            h.header.toLowerCase() ===
+                            expired.headerName.toLowerCase()
+                    )
+                );
+                if (stillInstalled) {
+                    emitUserBlocked('no_header_observed', 'health', {
+                        headerName: expired.headerName,
+                        flow: expired.flow,
+                        scoped: expired.scoped,
+                        requestsWhileArmed: requests,
+                    });
+                }
+            })
+            .catch((error: unknown) => {
+                captureException(error, { reason: 'canary_rule_check' });
+            });
     }, CANARY_TIMEOUT_MS);
 }
 
