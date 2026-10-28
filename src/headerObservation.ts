@@ -93,16 +93,23 @@ export function setHeaderName(
     return emptyObservation(headerName);
 }
 
-import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    captureException,
+    emitUserBlocked,
+    emitUserSucceeded,
+} from './analytics';
+import { getDynamicRules } from './util';
 
 interface CanaryArm {
     headerName: string;
     flow: 'session_monitor' | 'header_injector';
+    scoped: boolean;
 }
 
 let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let observed = false;
+let requestsWhileArmed = 0;
 
 const CANARY_TIMEOUT_MS = 60_000;
 
@@ -110,16 +117,43 @@ export function armCanary(arm: CanaryArm): void {
     cancelCanary();
     activeArm = arm;
     observed = false;
+    requestsWhileArmed = 0;
     activeTimer = setTimeout(() => {
-        if (activeArm) {
-            emitUserBlocked('no_header_observed', 'health', {
-                headerName: activeArm.headerName,
-                flow: activeArm.flow,
-            });
-        }
+        const expired = activeArm;
+        const requests = requestsWhileArmed;
         activeArm = null;
         activeTimer = null;
+        if (!expired) {
+            return;
+        }
+        void getDynamicRules()
+            .then((rules) => {
+                const stillInstalled = rules.some((rule) =>
+                    rule.action.requestHeaders?.some(
+                        (h) =>
+                            h.header.toLowerCase() ===
+                            expired.headerName.toLowerCase()
+                    )
+                );
+                if (stillInstalled) {
+                    emitUserBlocked('no_header_observed', 'health', {
+                        headerName: expired.headerName,
+                        flow: expired.flow,
+                        scoped: expired.scoped,
+                        requestsWhileArmed: requests,
+                    });
+                }
+            })
+            .catch((error: unknown) => {
+                captureException(error, { reason: 'canary_rule_check' });
+            });
     }, CANARY_TIMEOUT_MS);
+}
+
+export function countRequestWhileArmed(): void {
+    if (activeArm) {
+        requestsWhileArmed += 1;
+    }
 }
 
 export function cancelCanary(): void {
@@ -129,6 +163,7 @@ export function cancelCanary(): void {
     activeTimer = null;
     activeArm = null;
     observed = false;
+    requestsWhileArmed = 0;
 }
 
 export function notifyHeaderObserved(headerName: string): void {

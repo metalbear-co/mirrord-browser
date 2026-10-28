@@ -11,21 +11,79 @@ const APP_VERSION = (() => {
     }
 })();
 
+const DISTINCT_ID_KEY = 'posthog_distinct_id';
+
 let distinctId: string | null = null;
 let optedOut = false;
+
+function pageStorage(): Storage | null {
+    try {
+        return typeof localStorage === 'undefined' ? null : localStorage;
+    } catch {
+        return null;
+    }
+}
+
+function rememberDistinctId(value: string): void {
+    distinctId = value;
+    try {
+        pageStorage()?.setItem(DISTINCT_ID_KEY, value);
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    try {
+        void chrome.storage.local
+            .set({ [DISTINCT_ID_KEY]: value })
+            .catch(() => undefined);
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+}
+
+/**
+ * Adopt the identity shared through chrome.storage.local, since a Manifest V3
+ * service worker has no localStorage to read it from.
+ */
+async function loadDistinctId(): Promise<void> {
+    let own: string | null = null;
+    try {
+        own = pageStorage()?.getItem(DISTINCT_ID_KEY) ?? null;
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    if (own) {
+        rememberDistinctId(own);
+        return;
+    }
+    try {
+        const stored = await chrome.storage.local.get(DISTINCT_ID_KEY);
+        const shared: unknown = stored[DISTINCT_ID_KEY];
+        if (typeof shared === 'string' && shared.length > 0) {
+            rememberDistinctId(shared);
+            return;
+        }
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    rememberDistinctId(distinctId ?? crypto.randomUUID());
+}
+
+/** Resolves once this context knows which analytics identity to send. */
+export const identityReady = loadDistinctId();
 
 function getDistinctId(): string {
     if (distinctId) {
         return distinctId;
     }
-    const stored = localStorage.getItem('posthog_distinct_id');
-    if (stored) {
-        distinctId = stored;
-        return distinctId;
+    let stored: string | null = null;
+    try {
+        stored = pageStorage()?.getItem(DISTINCT_ID_KEY) ?? null;
+    } catch {
+        // Storage access can fail in certain contexts
     }
-    distinctId = crypto.randomUUID();
-    localStorage.setItem('posthog_distinct_id', distinctId);
-    return distinctId;
+    const value = stored ?? crypto.randomUUID();
+    rememberDistinctId(value);
+    return value;
 }
 
 /**
