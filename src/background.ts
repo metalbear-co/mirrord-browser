@@ -18,6 +18,7 @@ import {
     HEADER_OBSERVATION_PORT,
     armCanary,
     cancelCanary,
+    countRequestWhileArmed,
     emptyObservation,
     notifyHeaderObserved,
     recordRequest,
@@ -100,12 +101,12 @@ chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
 
-void restoreObservation().then(loadHeaderName);
+void restoreObservation().then(() => loadHeaderName());
 chrome.runtime.onStartup.addListener(() => {
-    void restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
 chrome.runtime.onInstalled.addListener(() => {
-    void restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -146,7 +147,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
         return;
     }
     if (RULE_TRIGGERING_KEYS.some((key) => key in changes)) {
-        loadHeaderName();
+        loadHeaderName({ arm: true });
     }
     if (isBaggageModeChange(changes)) {
         void syncBaggageMode();
@@ -155,6 +156,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 chrome.webRequest.onSendHeaders.addListener(
     (details) => {
+        countRequestWhileArmed();
         if (!observation.headerName) {
             return;
         }
@@ -330,7 +332,6 @@ export async function handleJoin(key: string, context: string | null = null) {
                 [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
             }),
         });
-        armCanary({ headerName: header, flow: 'session_monitor' });
         emitUserSucceeded('joined', 'user_action', {
             key,
             resolved: target.resolved,
@@ -361,7 +362,6 @@ export async function handleLeave() {
             STORAGE_KEYS.JOINED_VALUE,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
-        cancelCanary();
         emitUserSucceeded('left', 'user_action');
         return { type: LEAVE_RESULT_TYPE, ok: true };
     } catch (err) {
@@ -420,9 +420,36 @@ function refreshIcon() {
     });
 }
 
-function loadHeaderName() {
+/** `buildDnrRule` uses the `|` url filter as its match-all sentinel. */
+function isScopedCondition(
+    condition: chrome.declarativeNetRequest.RuleCondition
+): boolean {
+    const filter = condition.urlFilter ?? condition.regexFilter ?? '';
+    return filter.length > 0 && filter !== '|';
+}
+
+function syncCanary(headerName: string, scoped: boolean) {
+    if (!headerName) {
+        cancelCanary();
+        return;
+    }
+    void storageGet([STORAGE_KEYS.JOINED_KEY]).then(
+        (stored) =>
+            armCanary({
+                headerName,
+                flow: stored[STORAGE_KEYS.JOINED_KEY]
+                    ? 'session_monitor'
+                    : 'header_injector',
+                scoped,
+            }),
+        () => undefined
+    );
+}
+
+function loadHeaderName(options: { arm?: boolean } = {}) {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
         let headerName = '';
+        let scoped = false;
         for (const rule of rules) {
             if (
                 rule.action.type ===
@@ -431,14 +458,19 @@ function loadHeaderName() {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;
+                    scoped = isScopedCondition(rule.condition);
                     break;
                 }
             }
         }
         const next = setHeaderName(observation, headerName);
-        if (next !== observation) {
+        const changed = next !== observation;
+        if (changed) {
             observation = next;
             persistObservation();
+        }
+        if (options.arm === true && changed) {
+            syncCanary(headerName, scoped);
         }
         broadcast();
     });
