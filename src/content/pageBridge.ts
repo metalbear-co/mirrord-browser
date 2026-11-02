@@ -4,6 +4,8 @@ import {
     PAGE_RESPONSE_SOURCE,
 } from './pageBridgeProtocol';
 
+const seenIds = new Set<string>();
+
 window.addEventListener('message', (event: MessageEvent) => {
     if (event.source !== window || event.origin !== window.location.origin) {
         return;
@@ -17,6 +19,10 @@ window.addEventListener('message', (event: MessageEvent) => {
         return;
     }
     const id = data.id;
+    if (seenIds.has(id)) {
+        return;
+    }
+    seenIds.add(id);
     const reply = (response: unknown) =>
         window.postMessage(
             { source: PAGE_RESPONSE_SOURCE, id, response },
