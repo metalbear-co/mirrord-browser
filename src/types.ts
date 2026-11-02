@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
     ANALYTICS_OPT_OUT: 'analytics_opt_out',
     MIRRORD_UI_BACKEND: 'mirrord_ui_backend',
     MIRRORD_UI_TOKEN: 'mirrord_ui_token',
+    MIRRORD_UI_DISCOVERED: 'mirrord_ui_discovered',
     JOINED_KEY: 'joined_key',
     JOINED_SESSION_NAME: 'joined_session_name',
     JOINED_HEADER: 'joined_header',

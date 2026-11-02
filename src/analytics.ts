@@ -15,6 +15,7 @@ const DISTINCT_ID_KEY = 'posthog_distinct_id';
 
 let distinctId: string | null = null;
 let optedOut = false;
+let preferenceLoaded = false;
 
 function pageStorage(): Storage | null {
     try {
@@ -95,10 +96,14 @@ export async function loadOptOutState(): Promise<void> {
         const result = await chrome.storage.local.get(
             STORAGE_KEYS.ANALYTICS_OPT_OUT
         );
+        const storedOptOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true;
+        optedOut = storedOptOut;
         const consent = await hasDataCollectionConsent();
-        optedOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true || !consent;
+        optedOut = storedOptOut || !consent;
     } catch {
         // Storage access can fail in certain contexts; default to not opted out
+    } finally {
+        preferenceLoaded = true;
     }
 }
 
@@ -169,6 +174,10 @@ export function capture(
     event: string,
     properties?: Record<string, unknown>
 ): void {
+    if (!preferenceLoaded) {
+        void optOutReady.then(() => capture(event, properties));
+        return;
+    }
     if (optedOut) {
         return;
     }
@@ -200,7 +209,7 @@ export function captureBeacon(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) {
+    if (optedOut || !preferenceLoaded) {
         return;
     }
     try {

@@ -247,6 +247,43 @@ export async function applyDynamicRules(
     void publishBaggageConfig().catch(() => undefined);
 }
 
+export const MIRRORD_UI_CREDENTIAL_KEYS: readonly string[] = [
+    STORAGE_KEYS.MIRRORD_UI_BACKEND,
+    STORAGE_KEYS.MIRRORD_UI_TOKEN,
+    STORAGE_KEYS.MIRRORD_UI_DISCOVERED,
+];
+
+/**
+ * Explicitly configured credentials win; the popup's cookie discovery lives under its own key so it
+ * can never overwrite them.
+ */
+export function mirrordUiCredentials(stored: Record<string, unknown>): {
+    backend: string | null;
+    token: string | null;
+    discovered: boolean;
+} {
+    const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND];
+    const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN];
+    if (typeof token === 'string' && token) {
+        return {
+            backend: typeof backend === 'string' ? backend : null,
+            token,
+            discovered: false,
+        };
+    }
+    const found = stored[STORAGE_KEYS.MIRRORD_UI_DISCOVERED] as
+        | { backend?: unknown; token?: unknown }
+        | undefined;
+    if (typeof found?.backend === 'string' && typeof found.token === 'string') {
+        return { backend: found.backend, token: found.token, discovered: true };
+    }
+    return {
+        backend: typeof backend === 'string' ? backend : null,
+        token: null,
+        discovered: false,
+    };
+}
+
 export function storageGet(keys: string[]): Promise<Record<string, unknown>> {
     return new Promise((resolve) => {
         chrome.storage.local.get(keys, (result) => {

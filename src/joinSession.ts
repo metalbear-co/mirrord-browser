@@ -5,6 +5,8 @@ import {
     buildDnrRule,
     deriveInjectionHint,
     getDynamicRules,
+    MIRRORD_UI_CREDENTIAL_KEYS,
+    mirrordUiCredentials,
     refreshIconIndicator,
     sessionInjectionPair,
     storageGet,
@@ -143,14 +145,10 @@ export async function joinMatchingSession(
     headerValue: string
 ): Promise<string | null> {
     const stored = await storageGet([
-        STORAGE_KEYS.MIRRORD_UI_BACKEND,
-        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+        ...MIRRORD_UI_CREDENTIAL_KEYS,
         STORAGE_KEYS.SCOPE_PATTERNS,
     ]);
-    const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-        | string
-        | undefined;
-    const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined;
+    const { backend, token } = mirrordUiCredentials(stored);
     if (!backend || !token) {
         return null;
     }

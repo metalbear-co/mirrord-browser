@@ -3,6 +3,8 @@ import {
     baggageConfig,
     buildDnrRule,
     getDynamicRules,
+    MIRRORD_UI_CREDENTIAL_KEYS,
+    mirrordUiCredentials,
     refreshIconIndicator,
     storageGet,
     storageRemove,
@@ -291,32 +293,26 @@ chrome.runtime.onMessage.addListener(
 async function handlePing() {
     const stored = await storageGet([
         STORAGE_KEYS.JOINED_KEY,
-        STORAGE_KEYS.MIRRORD_UI_BACKEND,
-        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+        ...MIRRORD_UI_CREDENTIAL_KEYS,
     ]);
+    const credentials = mirrordUiCredentials(stored);
     return {
         type: PONG_TYPE,
         version: EXTENSION_VERSION,
         joinedKey:
             (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ?? null,
-        hasBackend: !!stored[STORAGE_KEYS.MIRRORD_UI_BACKEND],
-        watching: !!stored[STORAGE_KEYS.MIRRORD_UI_TOKEN],
+        hasBackend: !!credentials.backend,
+        watching: !!credentials.token,
     };
 }
 
 export async function handleJoin(key: string, context: string | null = null) {
     try {
         const stored = await storageGet([
-            STORAGE_KEYS.MIRRORD_UI_BACKEND,
-            STORAGE_KEYS.MIRRORD_UI_TOKEN,
+            ...MIRRORD_UI_CREDENTIAL_KEYS,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
-        const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-            | string
-            | undefined;
-        const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
-            | string
-            | undefined;
+        const { backend, token } = mirrordUiCredentials(stored);
         if (!backend || !token) {
             const error = 'mirrord ui not configured in extension';
             emitUserBlocked('join_misconfigured', 'user_action', { error });
