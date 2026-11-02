@@ -8,8 +8,8 @@ import { Card, CardContent } from '@metalbear/ui';
 
 initTheme();
 import { STORAGE_KEYS } from './types';
-import { capture } from './analytics';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import { capture, initErrorTracking } from './analytics';
+import { resolveJoinTarget } from './joinSession';
 import {
     buildDnrRule,
     getDynamicRules,
@@ -22,6 +22,8 @@ import {
     STRINGS,
     type ConfigureStatusKind,
 } from './constants';
+
+initErrorTracking('configure');
 
 type Status =
     | { kind: typeof CONFIGURE_STATUS.LOADING }
@@ -44,13 +46,14 @@ async function storeBackendAndToken(
 async function joinKey(
     key: string,
     backend: string,
-    token: string
+    token: string,
+    context: string | null
 ): Promise<Status> {
-    const resp = await fetchOperatorSessions(backend, token);
-    const target = resp.sessions.find((s) => s.key === key);
-    if (!target) return { kind: CONFIGURE_STATUS.KEY_NOT_VISIBLE, key };
-    const header = 'baggage';
-    const value = `mirrord-session=${key}`;
+    const target = await resolveJoinTarget(backend, token, key, context);
+    if (target.resolved === 'key_convention') {
+        return { kind: CONFIGURE_STATUS.KEY_NOT_VISIBLE, key };
+    }
+    const { header, value } = target;
     const existing = await getDynamicRules();
     await updateDynamicRules({
         removeRuleIds: existing.map((r) => r.id),
@@ -58,7 +61,12 @@ async function joinKey(
     });
     await storageSet({
         [STORAGE_KEYS.JOINED_KEY]: key,
-        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+        [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
+        [STORAGE_KEYS.JOINED_HEADER]: header,
+        [STORAGE_KEYS.JOINED_VALUE]: value,
+        ...(target.context && {
+            [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
+        }),
     });
     return { kind: CONFIGURE_STATUS.JOINED, header, value };
 }
@@ -67,12 +75,15 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
     const backendParam = params.get('backend');
     const tokenParam = params.get('token');
     const joinParam = params.get('join');
+    const contextParam = params.get('context');
 
     if (backendParam && tokenParam) {
         await storeBackendAndToken(backendParam, tokenParam);
         capture('extension_configured', { hasJoinParam: !!joinParam });
-        if (!joinParam) return { kind: CONFIGURE_STATUS.CONNECTED };
-        return joinKey(joinParam, backendParam, tokenParam);
+        if (!joinParam) {
+            return { kind: CONFIGURE_STATUS.CONNECTED };
+        }
+        return joinKey(joinParam, backendParam, tokenParam, contextParam);
     }
 
     if (joinParam) {
@@ -86,9 +97,10 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
         const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
             | string
             | undefined;
-        if (!backend || !token)
+        if (!backend || !token) {
             return { kind: CONFIGURE_STATUS.NOT_CONFIGURED };
-        return joinKey(joinParam, backend, token);
+        }
+        return joinKey(joinParam, backend, token, contextParam);
     }
 
     return { kind: CONFIGURE_STATUS.MISSING_CONFIG };
@@ -145,19 +157,19 @@ function StatusBody({ status }: { status: Status }) {
     return (
         <>
             <h2 className="text-lg font-semibold">{copy.title}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
                 {status.kind === CONFIGURE_STATUS.JOINED ? (
                     <>
                         {copy.hint}{' '}
-                        <code className="font-mono bg-muted px-1 py-0.5 rounded">
+                        <code className="bg-muted rounded px-1 py-0.5 font-mono">
                             {status.header}: {status.value}
                         </code>{' '}
-                        on all requests.
+                        {STRINGS.MSG_ON_ALL_REQUESTS}
                     </>
                 ) : status.kind === CONFIGURE_STATUS.KEY_NOT_VISIBLE ? (
                     <>
-                        Key{' '}
-                        <code className="font-mono bg-muted px-1 py-0.5 rounded">
+                        {STRINGS.LABEL_KEY}{' '}
+                        <code className="bg-muted rounded px-1 py-0.5 font-mono">
                             {status.key}
                         </code>{' '}
                         {copy.hint}
@@ -177,7 +189,7 @@ export function ConfigurePage() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        resolveStatus(params).then(setStatus);
+        void resolveStatus(params).then(setStatus);
     }, []);
 
     return (
