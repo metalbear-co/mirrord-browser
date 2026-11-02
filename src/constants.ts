@@ -47,6 +47,10 @@ export const STRINGS = {
     MSG_LOCAL_SESSIONS_ONLY: 'Showing local sessions only.',
     MSG_INSTALL_OPERATOR: 'Install the operator',
     MSG_INSTALL_OPERATOR_TO_VIEW_REMOTE: 'to view your teammates’ sessions.',
+    MSG_KUBE_AUTH_EXPIRED:
+        'Kubernetes credentials for this cluster look expired, so remote sessions can’t be loaded.',
+    MSG_KUBE_AUTH_EXPIRED_HINT:
+        'Re-authenticate with your cluster provider (e.g. gcloud auth login). Sessions will load again automatically.',
     MSG_ALL_NAMESPACES: 'All',
     MSG_LIVE_SESSIONS: 'Live sessions',
     MSG_SHOW_MORE: (n: number) => `Show ${n} more session${n === 1 ? '' : 's'}`,

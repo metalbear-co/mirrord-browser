@@ -346,4 +346,25 @@ describe('SessionsView', () => {
             screen.getByRole('link', { name: /install the operator/i })
         ).toBeInTheDocument();
     });
+
+    test('shows a re-auth hint instead of the install note on kube auth failure', () => {
+        render(
+            <SessionsView
+                {...baseProps}
+                sessions={[]}
+                sessionsLoaded={true}
+                status={{
+                    status: 'unavailable',
+                    reason: 'kube client init failed: auth error: auth exec command \'gke-gcloud-auth-plugin\' failed',
+                }}
+            />
+        );
+        expect(screen.getByText(/credentials .* expired/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/re-authenticate with your cluster provider/i)
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole('link', { name: /install the operator/i })
+        ).not.toBeInTheDocument();
+    });
 });

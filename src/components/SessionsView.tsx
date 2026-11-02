@@ -166,7 +166,15 @@ export function SessionsView({
                 />
             )}
 
-            {operatorUnavailable && <OperatorUnavailableNote />}
+            {operatorUnavailable && (
+                <OperatorUnavailableNote
+                    reason={
+                        status?.status === 'unavailable'
+                            ? status.reason
+                            : undefined
+                    }
+                />
+            )}
 
             {(contexts.length > 1 ||
                 namespaces.filter((ns) => ns !== '').length > 1) && (
