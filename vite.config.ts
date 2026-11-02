@@ -14,15 +14,21 @@ function firefoxManifest(): ManifestV3Export {
         background,
         ...rest
     } = chromeManifest;
+    const icons = {
+        '48': 'images/mirrord-48.png',
+        '96': 'images/mirrord-96.png',
+        '128': 'images/mirrord-128.png',
+    };
     const manifest = {
         ...rest,
+        icons,
         permissions: rest.permissions.filter((p) => p !== 'sidePanel'),
         background: { scripts: [background.service_worker], type: 'module' },
         action: { default_title: rest.name },
         sidebar_action: {
             default_panel: sidePanel.default_path,
             default_title: rest.name,
-            default_icon: rest.icons,
+            default_icon: icons,
             open_at_install: false,
         },
         content_scripts: [
