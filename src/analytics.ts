@@ -95,9 +95,8 @@ export async function loadOptOutState(): Promise<void> {
         const result = await chrome.storage.local.get(
             STORAGE_KEYS.ANALYTICS_OPT_OUT
         );
-        optedOut =
-            result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true ||
-            !(await hasDataCollectionConsent());
+        const consent = await hasDataCollectionConsent();
+        optedOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true || !consent;
     } catch {
         // Storage access can fail in certain contexts; default to not opted out
     }

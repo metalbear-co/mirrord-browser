@@ -440,17 +440,25 @@ export function useMirrordUi() {
             return;
         }
         let cancelled = false;
+        const isCancelled = () => cancelled;
         const probe = () => {
             pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
                 .then(async (ok) => {
-                    if (cancelled) {
+                    if (isCancelled()) {
                         return;
                     }
                     setUiDetectedNoToken(ok);
                     const cookieToken = ok
                         ? await fetchCookieToken(MIRRORD_UI_DEFAULT_BACKEND)
                         : null;
-                    if (cookieToken) {
+                    if (!cookieToken || isCancelled()) {
+                        return;
+                    }
+                    // Never replace a token that explicit configuration stored meanwhile.
+                    const current = await storageGet([
+                        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+                    ]);
+                    if (!current[STORAGE_KEYS.MIRRORD_UI_TOKEN]) {
                         await storageSet({
                             [STORAGE_KEYS.MIRRORD_UI_BACKEND]:
                                 MIRRORD_UI_DEFAULT_BACKEND,
@@ -459,7 +467,7 @@ export function useMirrordUi() {
                     }
                 })
                 .catch(() => {
-                    if (!cancelled) {
+                    if (!isCancelled()) {
                         setUiDetectedNoToken(false);
                     }
                 });

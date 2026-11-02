@@ -28,7 +28,36 @@ window.addEventListener('message', (event: MessageEvent) => {
             { source: PAGE_RESPONSE_SOURCE, id, response },
             window.location.origin
         );
-    chrome.runtime
-        .sendMessage({ type: PAGE_BRIDGE_TYPE, payload: data.message })
+    void toExtensionMessage(data.message)
+        .then((payload) =>
+            payload
+                ? chrome.runtime.sendMessage({
+                      type: PAGE_BRIDGE_TYPE,
+                      payload,
+                  })
+                : { ok: false, error: 'mirrord ui token unavailable' }
+        )
         .then(reply, () => reply(null));
 });
+
+const CONFIGURE_TYPE = 'mirrord-ui-configure';
+
+// The token never travels through page messages: read it from the page's own server instead.
+async function toExtensionMessage(message: unknown): Promise<unknown> {
+    if ((message as { type?: unknown } | null)?.type !== CONFIGURE_TYPE) {
+        return message;
+    }
+    try {
+        const response = await fetch(`${window.location.origin}/api/token`, {
+            credentials: 'same-origin',
+        });
+        const token = response.ok
+            ? ((await response.json()) as { token?: unknown }).token
+            : null;
+        return typeof token === 'string' && token
+            ? { type: CONFIGURE_TYPE, backend: window.location.origin, token }
+            : null;
+    } catch {
+        return null;
+    }
+}

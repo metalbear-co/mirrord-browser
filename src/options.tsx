@@ -32,9 +32,10 @@ export function Options() {
                     STORAGE_KEYS.BAGGAGE_MERGE,
                 ])
                 .then(async (result) => {
+                    const consent = await hasDataCollectionConsent();
                     setAnalyticsEnabled(
                         result[STORAGE_KEYS.ANALYTICS_OPT_OUT] !== true &&
-                            (await hasDataCollectionConsent())
+                            consent
                     );
                     setBaggageMerge(
                         result[STORAGE_KEYS.BAGGAGE_MERGE] === true
