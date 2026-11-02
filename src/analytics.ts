@@ -97,7 +97,10 @@ export async function loadOptOutState(): Promise<void> {
             STORAGE_KEYS.ANALYTICS_OPT_OUT
         );
         const storedOptOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true;
-        optedOut = storedOptOut;
+        // Only ever tighten before the consent lookup finishes, so a refresh never reopens sending.
+        if (storedOptOut) {
+            optedOut = true;
+        }
         const consent = await hasDataCollectionConsent();
         optedOut = storedOptOut || !consent;
     } catch {

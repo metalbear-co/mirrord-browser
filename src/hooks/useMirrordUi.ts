@@ -427,12 +427,19 @@ export function useMirrordUi() {
             .catch(() => setHealthy(false));
     }, [backend]);
 
+    // A rejection belongs to the credentials that failed; new credentials start clean.
+    useEffect(() => {
+        setAuthFailed(false);
+    }, [backend, token]);
+
     // A discovered token goes stale when the daemon restarts; drop it so discovery runs again.
     useEffect(() => {
-        if (authFailed && tokenDiscovered) {
-            void storageRemove([STORAGE_KEYS.MIRRORD_UI_DISCOVERED]);
+        if (authFailed && tokenDiscovered && backend) {
+            void storageSet({
+                [STORAGE_KEYS.MIRRORD_UI_DISCOVERED]: { backend },
+            });
         }
-    }, [authFailed, tokenDiscovered]);
+    }, [authFailed, tokenDiscovered, backend]);
 
     // When the extension has no token, poll the default `mirrord ui` port so we can tell the
     // user it's already running and just needs configuring (instead of the generic "run mirrord

@@ -262,23 +262,31 @@ export function mirrordUiCredentials(stored: Record<string, unknown>): {
     token: string | null;
     discovered: boolean;
 } {
-    const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND];
+    const explicitBackend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND];
     const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN];
+    const found = stored[STORAGE_KEYS.MIRRORD_UI_DISCOVERED] as
+        | { backend?: unknown; token?: unknown }
+        | undefined;
+    const discoveredBackend =
+        typeof found?.backend === 'string' ? found.backend : null;
+    const backend =
+        typeof explicitBackend === 'string' ? explicitBackend : null;
     if (typeof token === 'string' && token) {
         return {
-            backend: typeof backend === 'string' ? backend : null,
+            backend: backend ?? discoveredBackend,
             token,
             discovered: false,
         };
     }
-    const found = stored[STORAGE_KEYS.MIRRORD_UI_DISCOVERED] as
-        | { backend?: unknown; token?: unknown }
-        | undefined;
-    if (typeof found?.backend === 'string' && typeof found.token === 'string') {
-        return { backend: found.backend, token: found.token, discovered: true };
+    if (discoveredBackend && typeof found?.token === 'string') {
+        return {
+            backend: discoveredBackend,
+            token: found.token,
+            discovered: true,
+        };
     }
     return {
-        backend: typeof backend === 'string' ? backend : null,
+        backend: backend ?? discoveredBackend,
         token: null,
         discovered: false,
     };
