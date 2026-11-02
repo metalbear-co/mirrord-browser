@@ -248,6 +248,35 @@ async function pingHealth(
     }
 }
 
+/**
+ * Reads the token from a `mirrord ui` the user already opened in this browser, using its login
+ * cookie. Covers browsers the page cannot message directly (Firefox) and monitors that predate the
+ * page relay.
+ */
+export async function fetchCookieToken(
+    backend: string,
+    timeoutMs = 1500,
+    fetchImpl: typeof fetch = fetch
+): Promise<string | null> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        const r = await fetchImpl(`${backend}/api/token`, {
+            credentials: 'include',
+            signal: ctrl.signal,
+        });
+        if (!r.ok) {
+            return null;
+        }
+        const data = (await r.json()) as { token?: unknown };
+        return typeof data.token === 'string' && data.token ? data.token : null;
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 const OPERATOR_SESSIONS_POLL_MS = 5000;
 
 const WATCHED_STORAGE_KEYS: readonly string[] = [
@@ -413,9 +442,20 @@ export function useMirrordUi() {
         let cancelled = false;
         const probe = () => {
             pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
-                .then((ok) => {
-                    if (!cancelled) {
-                        setUiDetectedNoToken(ok);
+                .then(async (ok) => {
+                    if (cancelled) {
+                        return;
+                    }
+                    setUiDetectedNoToken(ok);
+                    const cookieToken = ok
+                        ? await fetchCookieToken(MIRRORD_UI_DEFAULT_BACKEND)
+                        : null;
+                    if (cookieToken) {
+                        await storageSet({
+                            [STORAGE_KEYS.MIRRORD_UI_BACKEND]:
+                                MIRRORD_UI_DEFAULT_BACKEND,
+                            [STORAGE_KEYS.MIRRORD_UI_TOKEN]: cookieToken,
+                        });
                     }
                 })
                 .catch(() => {
