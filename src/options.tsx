@@ -6,7 +6,13 @@ import './tokens.css';
 import { initTheme } from './theme';
 import { Label, Switch } from '@metalbear/ui';
 import { STRINGS } from './constants';
-import { optOutReady, setOptOut, initErrorTracking } from './analytics';
+import {
+    hasDataCollectionConsent,
+    optOutReady,
+    requestDataCollectionConsent,
+    setOptOut,
+    initErrorTracking,
+} from './analytics';
 import { STORAGE_KEYS } from './types';
 
 initErrorTracking('options');
@@ -25,9 +31,10 @@ export function Options() {
                     STORAGE_KEYS.ANALYTICS_OPT_OUT,
                     STORAGE_KEYS.BAGGAGE_MERGE,
                 ])
-                .then((result) => {
+                .then(async (result) => {
                     setAnalyticsEnabled(
-                        result[STORAGE_KEYS.ANALYTICS_OPT_OUT] !== true
+                        result[STORAGE_KEYS.ANALYTICS_OPT_OUT] !== true &&
+                            (await hasDataCollectionConsent())
                     );
                     setBaggageMerge(
                         result[STORAGE_KEYS.BAGGAGE_MERGE] === true
@@ -38,8 +45,15 @@ export function Options() {
     }, []);
 
     const handleAnalyticsToggle = (checked: boolean) => {
-        setAnalyticsEnabled(checked);
-        void setOptOut(!checked);
+        if (!checked) {
+            setAnalyticsEnabled(false);
+            void setOptOut(true);
+            return;
+        }
+        void requestDataCollectionConsent().then((granted) => {
+            setAnalyticsEnabled(granted);
+            void setOptOut(!granted);
+        });
     };
 
     const handleBaggageMergeToggle = (checked: boolean) => {

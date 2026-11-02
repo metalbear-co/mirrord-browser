@@ -95,10 +95,54 @@ export async function loadOptOutState(): Promise<void> {
         const result = await chrome.storage.local.get(
             STORAGE_KEYS.ANALYTICS_OPT_OUT
         );
-        optedOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true;
+        optedOut =
+            result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true ||
+            !(await hasDataCollectionConsent());
     } catch {
         // Storage access can fail in certain contexts; default to not opted out
     }
+}
+
+const DATA_COLLECTION = 'technicalAndInteraction';
+
+type DataCollectionPermissions = chrome.permissions.Permissions & {
+    data_collection?: string[];
+};
+
+let consentPromptSupported = false;
+
+/** Firefox asks for usage-data consent at install; other browsers have no such grant. */
+export async function hasDataCollectionConsent(): Promise<boolean> {
+    try {
+        const granted =
+            (await chrome.permissions.getAll()) as DataCollectionPermissions;
+        consentPromptSupported = Array.isArray(granted.data_collection);
+        return (
+            !granted.data_collection ||
+            granted.data_collection.includes(DATA_COLLECTION)
+        );
+    } catch {
+        return true;
+    }
+}
+
+/** Call synchronously from a user gesture: Firefox only shows the prompt on user input. */
+export function requestDataCollectionConsent(): Promise<boolean> {
+    if (!consentPromptSupported) {
+        return Promise.resolve(true);
+    }
+    return chrome.permissions
+        .request({
+            data_collection: [DATA_COLLECTION],
+        } as DataCollectionPermissions)
+        .catch(() => false);
+}
+
+try {
+    chrome.permissions.onAdded.addListener(() => void loadOptOutState());
+    chrome.permissions.onRemoved.addListener(() => void loadOptOutState());
+} catch {
+    // Not every context (or test environment) exposes the permissions API.
 }
 
 /** Resolves once the opt-out preference has been read from storage. */

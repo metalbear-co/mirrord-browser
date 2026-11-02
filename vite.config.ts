@@ -34,7 +34,14 @@ function firefoxManifest(): ManifestV3Export {
             },
         ],
         browser_specific_settings: {
-            gecko: { id: 'mirrord@metalbear.com', strict_min_version: '128.0' },
+            gecko: {
+                id: 'mirrord@metalbear.com',
+                strict_min_version: '140.0',
+                data_collection_permissions: {
+                    required: ['none' as const],
+                    optional: ['technicalAndInteraction' as const],
+                },
+            },
         },
     };
     return manifest;
