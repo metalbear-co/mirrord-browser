@@ -1,11 +1,11 @@
 import '@metalbear/ui/styles.css';
-import { refreshIconIndicator } from './util';
 import {
-    Config,
-    StoredConfig,
-    STORAGE_KEYS,
-    ALL_RESOURCE_TYPES,
-} from './types';
+    getDynamicRules,
+    refreshIconIndicator,
+    updateDynamicRules,
+} from './util';
+import type { Config, StoredConfig } from './types';
+import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     isRegex,
@@ -62,7 +62,7 @@ function storeHeaderConfig(
         const config: StoredConfig = {
             headerName,
             headerValue,
-            scope,
+            ...(scope !== undefined ? { scope } : {}),
         };
         chrome.storage.local.set({ [storageKey]: config }, () => {
             if (chrome.runtime.lastError) {
@@ -70,8 +70,6 @@ function storeHeaderConfig(
                     `Failed to store ${storageKey}:`,
                     chrome.runtime.lastError.message
                 );
-            } else {
-                console.log(`${storageKey} stored successfully.`);
             }
             resolve();
         });
@@ -106,8 +104,9 @@ function setHeaderRule(
         try {
             ({ key, value } = parseHeader(header));
         } catch (err) {
-            alert((err as Error).message);
-            reject(err);
+            const error = err instanceof Error ? err : new Error(String(err));
+            alert(error.message);
+            reject(error);
             return;
         }
 
@@ -115,7 +114,7 @@ function setHeaderRule(
         // '|' is a left anchor in Chrome DNR urlFilter syntax meaning "start of URL",
         // so '|' alone matches all URLs.
         // See: https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest#type-RuleCondition
-        const urlFilter = scope || '|';
+        const urlFilter = scope && scope.length > 0 ? scope : '|';
 
         const rules = [
             {
@@ -142,52 +141,51 @@ function setHeaderRule(
         ];
 
         // remove all existing rules and add new ones
-        chrome.declarativeNetRequest.getDynamicRules((existingRules) => {
-            chrome.declarativeNetRequest.updateDynamicRules(
-                {
+        void getDynamicRules()
+            .then((existingRules) =>
+                updateDynamicRules({
                     removeRuleIds: rules
                         .map(({ id }) => id)
                         .concat(existingRules.map((rule) => rule.id)),
                     addRules: rules,
-                },
+                })
+            )
+            .then(
                 () => {
-                    if (chrome.runtime.lastError) {
-                        console.error(
-                            'Failed to set header:',
-                            chrome.runtime.lastError.message
-                        );
-                        emitUserBlocked('configure_failed', 'user_action', {
-                            error:
-                                chrome.runtime.lastError.message ??
-                                'DNR update failed',
-                        });
-                        reject(new Error(chrome.runtime.lastError.message));
-                    } else {
-                        console.log('Header rule set successfully.');
-                        refreshIconIndicator(rules.length);
+                    console.warn('Header rule set successfully.');
+                    refreshIconIndicator(rules.length);
 
-                        const storeConfig =
-                            storageKey === STORAGE_KEYS.OVERRIDE
-                                ? storeOverride
-                                : storeDefaults;
-                        const clearSession =
-                            storageKey === STORAGE_KEYS.OVERRIDE
-                                ? clearJoinedSession()
-                                : Promise.resolve();
-                        clearSession
-                            .then(() =>
-                                storeConfig(key.trim(), value.trim(), scope)
-                            )
-                            .then(resolve);
-                    }
+                    const storeConfig =
+                        storageKey === STORAGE_KEYS.OVERRIDE
+                            ? storeOverride
+                            : storeDefaults;
+                    const clearSession =
+                        storageKey === STORAGE_KEYS.OVERRIDE
+                            ? clearJoinedSession()
+                            : Promise.resolve();
+                    void clearSession
+                        .then(() =>
+                            storeConfig(key.trim(), value.trim(), scope)
+                        )
+                        .then(resolve);
+                },
+                (error: unknown) => {
+                    const failure =
+                        error instanceof Error
+                            ? error
+                            : new Error(String(error));
+                    console.error('Failed to set header:', failure.message);
+                    emitUserBlocked('configure_failed', 'user_action', {
+                        error: failure.message || 'DNR update failed',
+                    });
+                    reject(failure);
                 }
             );
-        });
     });
 }
 
 // Listener for the configuration link page
-document.addEventListener('DOMContentLoaded', async () => {
+async function handleConfigLink(): Promise<void> {
     const params = new URLSearchParams(location.search);
     const encoded = params.get('payload');
     const storageKey =
@@ -203,7 +201,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const contentDiv = document.getElementById('content');
-    if (!contentDiv) return;
+    if (!contentDiv) {
+        return;
+    }
 
     let config: Config;
     try {
@@ -256,4 +256,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         emitUserBlocked('configure_failed', 'user_action', { error: errMsg });
         alert('Failed to set header: ' + errMsg);
     }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    void handleConfigLink();
 });

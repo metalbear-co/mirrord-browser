@@ -9,10 +9,13 @@ jest.mock('../analytics', () => ({
     optOutReady: Promise.resolve(),
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
+    initErrorTracking: jest.fn(),
 }));
 
 jest.mock('../headerObservation', () => {
-    const actual = jest.requireActual('../headerObservation');
+    const actual = jest.requireActual(
+        '../headerObservation'
+    ) as unknown as Record<string, unknown>;
     return {
         ...actual,
         armCanary: jest.fn(),
@@ -23,6 +26,7 @@ jest.mock('../headerObservation', () => {
 
 // Mock @metalbear/ui components to avoid ts-jest type resolution issues with VariantProps
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Button: ({
         children,
         onClick,
@@ -212,15 +216,19 @@ describe('Popup', () => {
         (
             chrome.runtime as { lastError: chrome.runtime.LastError | null }
         ).lastError = null;
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({ override: { headerName: '', headerValue: '' } })
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({ override: { headerName: '', headerValue: '' } })
         );
     });
 
     it('starts in manual mode when no config and no backend', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({})
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({})
         );
 
         render(<Popup />);
@@ -258,7 +266,10 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb(rules)
+        );
 
         render(<Popup />);
 
@@ -299,7 +310,10 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb(rules)
+        );
 
         render(<Popup />);
 
@@ -341,9 +355,12 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb(rules)
+        );
         mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
+            (_opts: unknown, cb: () => void) => cb()
         );
 
         render(<Popup />);
@@ -397,7 +414,10 @@ describe('Popup', () => {
             },
         ];
 
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb(rules));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb(rules)
+        );
 
         render(<Popup />);
 
@@ -410,7 +430,9 @@ describe('Popup', () => {
     });
 
     it('sets empty badge when no rules', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -420,7 +442,9 @@ describe('Popup', () => {
     });
 
     it('renders the configure header form', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -435,15 +459,18 @@ describe('Popup', () => {
     });
 
     it('loads stored config into form fields', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-STORED',
-                    headerValue: 'storedvalue',
-                    scope: '*://example.com/*',
-                },
-            })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    defaults: {
+                        headerName: 'X-STORED',
+                        headerValue: 'storedvalue',
+                        scope: '*://example.com/*',
+                    },
+                })
         );
 
         render(<Popup />);
@@ -458,14 +485,17 @@ describe('Popup', () => {
     });
 
     it('shows reset button when defaults exist', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-DEFAULT',
-                    headerValue: 'defaultval',
-                },
-            })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    defaults: {
+                        headerName: 'X-DEFAULT',
+                        headerValue: 'defaultval',
+                    },
+                })
         );
 
         render(<Popup />);
@@ -478,9 +508,12 @@ describe('Popup', () => {
     });
 
     it('hides reset button when no defaults exist', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({ override: { headerName: '', headerValue: '' } })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({ override: { headerName: '', headerValue: '' } })
         );
 
         render(<Popup />);
@@ -496,29 +529,33 @@ describe('Popup', () => {
 
     it('saves header when save button is clicked', async () => {
         // Rule already active — save should refresh it in place.
-        mockGetDynamicRules.mockImplementation((cb: Function) =>
-            cb([
-                {
-                    id: 1,
-                    priority: 1,
-                    action: {
-                        type: 'modifyHeaders',
-                        requestHeaders: [
-                            {
-                                header: 'X-Old',
-                                operation: 'set',
-                                value: 'old',
-                            },
-                        ],
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb([
+                    {
+                        id: 1,
+                        priority: 1,
+                        action: {
+                            type: chrome.declarativeNetRequest.RuleActionType
+                                .MODIFY_HEADERS,
+                            requestHeaders: [
+                                {
+                                    header: 'X-Old',
+                                    operation:
+                                        chrome.declarativeNetRequest
+                                            .HeaderOperation.SET,
+                                    value: 'old',
+                                },
+                            ],
+                        },
+                        condition: { urlFilter: '|' },
                     },
-                    condition: { urlFilter: '|' },
-                },
-            ])
+                ])
         );
         mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
+            (_opts: unknown, cb: () => void) => cb()
         );
-        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+        mockStorageSet.mockImplementation((_data: unknown, cb: () => void) =>
             cb()
         );
 
@@ -549,9 +586,9 @@ describe('Popup', () => {
                                         value: 'newvalue',
                                     }),
                                 ],
-                            }),
+                            }) as unknown,
                         }),
-                    ]),
+                    ]) as unknown,
                 }),
                 expect.any(Function)
             );
@@ -559,25 +596,28 @@ describe('Popup', () => {
     });
 
     it('resets to defaults when reset button is clicked', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-DEFAULT',
-                    headerValue: 'defaultval',
-                    scope: '*://default.com/*',
-                },
-                override: {
-                    headerName: 'X-OVERRIDE',
-                    headerValue: 'overrideval',
-                },
-            })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
         );
-        mockStorageRemove.mockImplementation((_keys: string[], cb: Function) =>
-            cb()
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    defaults: {
+                        headerName: 'X-DEFAULT',
+                        headerValue: 'defaultval',
+                        scope: '*://default.com/*',
+                    },
+                    override: {
+                        headerName: 'X-OVERRIDE',
+                        headerValue: 'overrideval',
+                    },
+                })
+        );
+        mockStorageRemove.mockImplementation(
+            (_keys: string[], cb: () => void) => cb()
         );
         mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
+            (_opts: unknown, cb: () => void) => cb()
         );
 
         render(<Popup />);
@@ -601,7 +641,9 @@ describe('Popup', () => {
     });
 
     it('shows inline error when saving with empty header name', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -624,7 +666,9 @@ describe('Popup', () => {
     });
 
     it('shows inline error when saving with empty header value', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -648,29 +692,33 @@ describe('Popup', () => {
 
     it('saves header with URL scope', async () => {
         // Rule already active — save should refresh it with the new scope.
-        mockGetDynamicRules.mockImplementation((cb: Function) =>
-            cb([
-                {
-                    id: 1,
-                    priority: 1,
-                    action: {
-                        type: 'modifyHeaders',
-                        requestHeaders: [
-                            {
-                                header: 'X-Old',
-                                operation: 'set',
-                                value: 'old',
-                            },
-                        ],
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) =>
+                cb([
+                    {
+                        id: 1,
+                        priority: 1,
+                        action: {
+                            type: chrome.declarativeNetRequest.RuleActionType
+                                .MODIFY_HEADERS,
+                            requestHeaders: [
+                                {
+                                    header: 'X-Old',
+                                    operation:
+                                        chrome.declarativeNetRequest
+                                            .HeaderOperation.SET,
+                                    value: 'old',
+                                },
+                            ],
+                        },
+                        condition: { urlFilter: '|' },
                     },
-                    condition: { urlFilter: '|' },
-                },
-            ])
+                ])
         );
         mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
+            (_opts: unknown, cb: () => void) => cb()
         );
-        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+        mockStorageSet.mockImplementation((_data: unknown, cb: () => void) =>
             cb()
         );
 
@@ -699,9 +747,9 @@ describe('Popup', () => {
                         expect.objectContaining({
                             condition: expect.objectContaining({
                                 urlFilter: '*://api.test.com/*',
-                            }),
+                            }) as unknown,
                         }),
-                    ]),
+                    ]) as unknown,
                 }),
                 expect.any(Function)
             );
@@ -709,11 +757,13 @@ describe('Popup', () => {
     });
 
     it('stores override config when saving', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockUpdateDynamicRules.mockImplementation(
-            (_opts: unknown, cb: Function) => cb()
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
         );
-        mockStorageSet.mockImplementation((_data: unknown, cb: Function) =>
+        mockUpdateDynamicRules.mockImplementation(
+            (_opts: unknown, cb: () => void) => cb()
+        );
+        mockStorageSet.mockImplementation((_data: unknown, cb: () => void) =>
             cb()
         );
 
@@ -747,18 +797,21 @@ describe('Popup', () => {
     });
 
     it('prefers override config over defaults when loading', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-DEFAULT',
-                    headerValue: 'defaultval',
-                },
-                override: {
-                    headerName: 'X-OVERRIDE',
-                    headerValue: 'overrideval',
-                },
-            })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    defaults: {
+                        headerName: 'X-DEFAULT',
+                        headerValue: 'defaultval',
+                    },
+                    override: {
+                        headerName: 'X-OVERRIDE',
+                        headerValue: 'overrideval',
+                    },
+                })
         );
 
         render(<Popup />);
@@ -770,7 +823,9 @@ describe('Popup', () => {
     });
 
     it('renders mirrord branding header', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -781,7 +836,9 @@ describe('Popup', () => {
     });
 
     it('renders tooltip info icon on the scope field', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
 
         render(<Popup />);
 
@@ -794,7 +851,16 @@ describe('Popup', () => {
     });
 
     it('renders share button', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    override: { headerName: '', headerValue: '' },
+                    popup_tab: 'manual',
+                })
+        );
 
         render(<Popup />);
 
@@ -806,9 +872,15 @@ describe('Popup', () => {
     });
 
     it('share button is disabled when form is empty', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({ override: { headerName: '', headerValue: '' } })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    override: { headerName: '', headerValue: '' },
+                    popup_tab: 'manual',
+                })
         );
 
         render(<Popup />);
@@ -822,14 +894,18 @@ describe('Popup', () => {
     });
 
     it('share button is enabled when form has values', async () => {
-        mockGetDynamicRules.mockImplementation((cb: Function) => cb([]));
-        mockStorageGet.mockImplementation((_keys: string[], cb: Function) =>
-            cb({
-                defaults: {
-                    headerName: 'X-Test',
-                    headerValue: 'value',
-                },
-            })
+        mockGetDynamicRules.mockImplementation(
+            (cb: (rules: chrome.declarativeNetRequest.Rule[]) => void) => cb([])
+        );
+        mockStorageGet.mockImplementation(
+            (_keys: string[], cb: (result: Record<string, unknown>) => void) =>
+                cb({
+                    defaults: {
+                        headerName: 'X-Test',
+                        headerValue: 'value',
+                    },
+                    popup_tab: 'manual',
+                })
         );
 
         render(<Popup />);

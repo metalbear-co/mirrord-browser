@@ -7,14 +7,14 @@ import {
 } from '@metalbear/ui';
 import { STRINGS } from '../constants';
 
-type HeaderFormProps = {
+interface HeaderFormProps {
     headerName: string;
     headerValue: string;
     scope: string;
     onHeaderNameChange: (value: string) => void;
     onHeaderValueChange: (value: string) => void;
     onScopeChange: (value: string) => void;
-};
+}
 
 export function HeaderForm({
     headerName,
@@ -57,11 +57,11 @@ export function HeaderForm({
                     </Label>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span className="text-muted-foreground cursor-help text-meta">
-                                ⓘ
+                            <span className="text-muted-foreground text-meta cursor-help">
+                                {STRINGS.LABEL_INFO}
                             </span>
                         </TooltipTrigger>
-                        <TooltipContent className="text-xs max-w-[200px]">
+                        <TooltipContent className="max-w-[200px] text-xs">
                             {STRINGS.TOOLTIP_SCOPE}
                         </TooltipContent>
                     </Tooltip>

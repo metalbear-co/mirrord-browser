@@ -3,6 +3,7 @@
 // without dragging in either page's DOM bootstrap.
 import {
     buildDnrRule,
+    deriveInjectionHint,
     getDynamicRules,
     refreshIconIndicator,
     sessionInjectionPair,
@@ -10,8 +11,124 @@ import {
     storageSet,
     updateDynamicRules,
 } from './util';
-import { OperatorSessionSummary, STORAGE_KEYS } from './types';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import type { ClusterSession, LocalSessionSummary } from './types';
+import { STORAGE_KEYS } from './types';
+import {
+    fetchLocalSessions,
+    fetchOperatorSessions,
+    fetchOperatorSessionsV2,
+    isAuthFailureStatus,
+} from './hooks/useMirrordUi';
+
+export interface JoinTarget {
+    header: string;
+    value: string;
+    sessionName: string;
+    context: string | null;
+    resolved: 'local' | 'operator' | 'key_convention';
+}
+
+export function isMirrordUiAuthError(err: unknown): boolean {
+    const status =
+        err instanceof Error
+            ? (err as Error & { status?: unknown }).status
+            : undefined;
+    return isAuthFailureStatus(typeof status === 'number' ? status : undefined);
+}
+
+function localHeaderFilter(session: LocalSessionSummary): string | null {
+    const config = session.config as
+        | {
+              feature?: {
+                  network?: {
+                      incoming?: { http_filter?: { header_filter?: unknown } };
+                  };
+              };
+          }
+        | undefined;
+    const filter =
+        config?.feature?.network?.incoming?.http_filter?.header_filter;
+    return typeof filter === 'string' ? filter : null;
+}
+
+async function findLocalSession(
+    backend: string,
+    token: string,
+    key: string
+): Promise<LocalSessionSummary | undefined> {
+    try {
+        const sessions = await fetchLocalSessions(backend, token);
+        return sessions.find((s) => s.key === key);
+    } catch (err) {
+        if (isMirrordUiAuthError(err)) {
+            throw err;
+        }
+        return undefined;
+    }
+}
+
+async function listOperatorSessions(
+    backend: string,
+    token: string,
+    context: string | null
+): Promise<ClusterSession[]> {
+    if (context) {
+        try {
+            return (await fetchOperatorSessionsV2(backend, token, context))
+                .sessions;
+        } catch (err) {
+            if (isMirrordUiAuthError(err)) {
+                throw err;
+            }
+        }
+    }
+    return (await fetchOperatorSessions(backend, token)).sessions;
+}
+
+async function findOperatorSession(
+    backend: string,
+    token: string,
+    key: string,
+    context: string | null
+): Promise<ClusterSession | undefined> {
+    try {
+        const sessions = await listOperatorSessions(backend, token, context);
+        return sessions.find((s) => s.key === key);
+    } catch (err) {
+        if (isMirrordUiAuthError(err)) {
+            throw err;
+        }
+        return undefined;
+    }
+}
+
+export async function resolveJoinTarget(
+    backend: string,
+    token: string,
+    key: string,
+    context: string | null
+): Promise<JoinTarget> {
+    const local = await findLocalSession(backend, token, key);
+    const sessionContext = context ?? local?.context ?? null;
+    const target = await findOperatorSession(
+        backend,
+        token,
+        key,
+        sessionContext
+    );
+    const localHint = local
+        ? deriveInjectionHint(localHeaderFilter(local))
+        : null;
+    const { header, value } =
+        localHint ?? sessionInjectionPair(target ?? { key, httpFilter: null });
+    return {
+        header,
+        value,
+        sessionName: target?.id ?? key,
+        context: sessionContext,
+        resolved: localHint ? 'local' : target ? 'operator' : 'key_convention',
+    };
+}
 
 /**
  * Look for a live operator session whose injection header matches the shared
@@ -34,9 +151,11 @@ export async function joinMatchingSession(
         | string
         | undefined;
     const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined;
-    if (!backend || !token) return null;
+    if (!backend || !token) {
+        return null;
+    }
 
-    let sessions: OperatorSessionSummary[];
+    let sessions: ClusterSession[];
     try {
         ({ sessions } = await fetchOperatorSessions(backend, token));
     } catch {
@@ -50,7 +169,9 @@ export async function joinMatchingSession(
             pair.value === headerValue
         );
     });
-    if (!target) return null;
+    if (!target) {
+        return null;
+    }
 
     const { header, value } = sessionInjectionPair(target);
     const scope =

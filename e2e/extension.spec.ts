@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 
 const TEST_SERVER = 'http://localhost:3456';
 
+type HeadersMap = Record<string, string>;
+
 async function addHeader(
     popupPage: Page,
     headerName: string,
@@ -16,10 +18,6 @@ async function addHeader(
     }
     await popupPage.getByRole('button', { name: 'Save' }).click();
     await expect(popupPage.getByText('Saved!')).toBeVisible();
-
-    // Save no longer auto-installs the DNR rule; flip the toggle on
-    // so tests that assert injected headers still pass.
-    await popupPage.getByLabel('Toggle header injection').click();
     await expect(popupPage.getByText('Active', { exact: true })).toBeVisible();
 }
 
@@ -44,6 +42,185 @@ test.describe('mirrord browser extension', () => {
         await expect(popupPage.getByText('All URLs')).toBeVisible();
     });
 
+    test('baggage merge mode keeps the page baggage in fetch and XHR', async ({
+        context,
+        popupPage,
+    }) => {
+        await addHeader(popupPage, 'baggage', 'mirrord-session=k1');
+        const page = await context.newPage();
+
+        const pageRequests = () =>
+            page.evaluate(async () => {
+                const viaFetch = (headers?: HeadersInit) =>
+                    fetch('/headers', headers ? { headers } : undefined)
+                        .then((r) => r.json() as Promise<HeadersMap>)
+                        .then((h) => h['baggage']);
+                const viaXhr = new Promise<string | undefined>((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', '/headers');
+                    xhr.setRequestHeader('baggage', 'sentry-trace_id=def');
+                    xhr.onload = () =>
+                        resolve(
+                            (JSON.parse(xhr.responseText) as HeadersMap)[
+                                'baggage'
+                            ]
+                        );
+                    xhr.send();
+                });
+                return {
+                    fetch: await viaFetch({ baggage: 'sentry-trace_id=abc' }),
+                    plain: await viaFetch(),
+                    xhr: await viaXhr,
+                };
+            });
+
+        await page.goto(`${TEST_SERVER}/asset-page`);
+        expect(await pageRequests()).toEqual({
+            fetch: 'mirrord-session=k1',
+            plain: 'mirrord-session=k1',
+            xhr: 'mirrord-session=k1',
+        });
+
+        await popupPage.evaluate(() =>
+            chrome.storage.local.set({ baggage_merge: true })
+        );
+        await expect
+            .poll(() =>
+                popupPage.evaluate(
+                    async () =>
+                        (await chrome.scripting.getRegisteredContentScripts())
+                            .length
+                )
+            )
+            .toBe(2);
+
+        await page.reload();
+        expect(await pageRequests()).toEqual({
+            fetch: 'sentry-trace_id=abc,mirrord-session=k1',
+            plain: 'mirrord-session=k1',
+            xhr: 'sentry-trace_id=def,mirrord-session=k1',
+        });
+
+        const reentrant = await page.evaluate(
+            () =>
+                new Promise<string | undefined>((resolve) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === XMLHttpRequest.OPENED) {
+                            xhr.setRequestHeader('baggage', 'early=1');
+                        }
+                    };
+                    xhr.onload = () =>
+                        resolve(
+                            (JSON.parse(xhr.responseText) as HeadersMap)[
+                                'baggage'
+                            ]
+                        );
+                    xhr.open('GET', '/headers');
+                    xhr.send();
+                })
+        );
+        expect(reentrant).toBe('early=1,mirrord-session=k1');
+
+        const snapshot = await page.evaluate(async () => {
+            const headers = new Headers({ 'x-credential': 'first' });
+            const first = fetch('/headers', { headers });
+            headers.set('x-credential', 'second');
+            const response = await first;
+            return ((await response.json()) as HeadersMap)['x-credential'];
+        });
+        expect(snapshot).toBe('first');
+
+        const fetchSemantics = await page.evaluate(async () => {
+            const response = await fetch('/headers', {
+                referrerPolicy: 'no-referrer',
+                headers: { baggage: 'a=1' },
+            });
+            const echoed = (await response.json()) as HeadersMap;
+            const invalid = await fetch('http://[').then(
+                () => 'resolved',
+                () => 'rejected'
+            );
+            return {
+                referer: echoed['referer'] ?? null,
+                baggage: echoed['baggage'],
+                invalid,
+            };
+        });
+        const invalidBaggage = await page.evaluate(
+            () =>
+                new Promise<{ thrown: string; baggage: string | undefined }>(
+                    (resolve) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', '/headers');
+                        let thrown = 'none';
+                        try {
+                            xhr.setRequestHeader('baggage', 'a=1\r\nb=2');
+                        } catch (error) {
+                            thrown = (error as DOMException).name;
+                        }
+                        xhr.onload = () =>
+                            resolve({
+                                thrown,
+                                baggage: (
+                                    JSON.parse(xhr.responseText) as HeadersMap
+                                )['baggage'],
+                            });
+                        xhr.send();
+                    }
+                )
+        );
+        expect(invalidBaggage).toEqual({
+            thrown: 'SyntaxError',
+            baggage: 'mirrord-session=k1',
+        });
+
+        expect(fetchSemantics).toEqual({
+            referer: null,
+            baggage: 'a=1,mirrord-session=k1',
+            invalid: 'rejected',
+        });
+
+        const fromSrcdoc = await page.evaluate(
+            () =>
+                new Promise<string | undefined>((resolve) => {
+                    window.addEventListener('message', (event) =>
+                        resolve(event.data as string | undefined)
+                    );
+                    const frame = document.createElement('iframe');
+                    frame.srcdoc = `<script>
+                        fetch('${location.origin}/headers', {
+                            headers: { baggage: 'frame=1' },
+                        })
+                            .then((r) => r.json())
+                            .then((h) => parent.postMessage(h.baggage, '*'));
+                    </script>`;
+                    document.body.append(frame);
+                })
+        );
+        expect(fromSrcdoc).toBe('frame=1,mirrord-session=k1');
+
+        await popupPage.getByLabel('Toggle header injection').click();
+        await expect(popupPage.getByText('Inactive')).toBeVisible();
+        await expect
+            .poll(async () => (await pageRequests()).fetch)
+            .toBe('sentry-trace_id=abc');
+
+        await popupPage.getByLabel('Toggle header injection').click();
+        await expect(
+            popupPage.getByText('Active', { exact: true })
+        ).toBeVisible();
+        await expect
+            .poll(async () => (await pageRequests()).fetch)
+            .toBe('sentry-trace_id=abc,mirrord-session=k1');
+
+        await page.goto(`${TEST_SERVER}/headers`);
+        const navigation = JSON.parse(
+            await page.locator('body').innerText()
+        ) as HeadersMap;
+        expect(navigation['baggage']).toBe('mirrord-session=k1');
+    });
+
     test('header is injected into real HTTP requests', async ({
         context,
         popupPage,
@@ -55,7 +232,7 @@ test.describe('mirrord browser extension', () => {
         await page.goto(`${TEST_SERVER}/headers`);
 
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
 
         expect(headers['x-mirrord-test']).toBe('test-value-123');
     });
@@ -76,7 +253,7 @@ test.describe('mirrord browser extension', () => {
         await matchingPage.goto(`${TEST_SERVER}/scoped/headers`);
 
         const matchBody = await matchingPage.locator('body').innerText();
-        const matchHeaders = JSON.parse(matchBody);
+        const matchHeaders = JSON.parse(matchBody) as HeadersMap;
         expect(matchHeaders['x-scoped-header']).toBe('scoped-value');
 
         // Header should NOT be present on non-matching URL
@@ -84,7 +261,7 @@ test.describe('mirrord browser extension', () => {
         await nonMatchingPage.goto(`${TEST_SERVER}/headers`);
 
         const noMatchBody = await nonMatchingPage.locator('body').innerText();
-        const noMatchHeaders = JSON.parse(noMatchBody);
+        const noMatchHeaders = JSON.parse(noMatchBody) as HeadersMap;
         expect(noMatchHeaders['x-scoped-header']).toBeUndefined();
     });
 
@@ -104,7 +281,7 @@ test.describe('mirrord browser extension', () => {
         await page.goto(`${TEST_SERVER}/headers`);
 
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
         expect(headers['x-remove-me']).toBeUndefined();
     });
 
@@ -132,7 +309,10 @@ test.describe('mirrord browser extension', () => {
         const resultsPage = await context.newPage();
         await resultsPage.goto(`${TEST_SERVER}/asset-headers`);
         const body = await resultsPage.locator('body').innerText();
-        const assetHeaders = JSON.parse(body);
+        const assetHeaders = JSON.parse(body) as Record<
+            string,
+            HeadersMap | undefined
+        >;
 
         // Verify header was injected into script requests
         expect(assetHeaders['script.js']?.['x-mirrord-test']).toBe(
@@ -188,7 +368,7 @@ test.describe('mirrord browser extension', () => {
         const overridePage = await context.newPage();
         await overridePage.goto(`${TEST_SERVER}/headers`);
         const overrideBody = await overridePage.locator('body').innerText();
-        const overrideHeaders = JSON.parse(overrideBody);
+        const overrideHeaders = JSON.parse(overrideBody) as HeadersMap;
         expect(overrideHeaders['x-override']).toBe('override-val');
         await overridePage.close();
 
@@ -210,7 +390,7 @@ test.describe('mirrord browser extension', () => {
         const page = await context.newPage();
         await page.goto(`${TEST_SERVER}/headers`);
         const body = await page.locator('body').innerText();
-        const headers = JSON.parse(body);
+        const headers = JSON.parse(body) as HeadersMap;
         expect(headers['x-default-header']).toBe('default-val');
     });
 });

@@ -8,13 +8,13 @@ import {
 import { STRINGS } from '../constants';
 import type { KubeContext } from '../types';
 
-type Props = {
+interface Props {
     contexts: KubeContext[];
     currentContext: string | null;
     // The context whose sessions are shown; falls back to `currentContext` when unset.
     value: string | null;
     onChange: (context: string) => void;
-};
+}
 
 /**
  * Selects which kube context's operator sessions to show. Only rendered when the `mirrord ui` server
@@ -26,7 +26,9 @@ export function ContextFilter({
     value,
     onChange,
 }: Props) {
-    if (contexts.length <= 1) return null;
+    if (contexts.length <= 1) {
+        return null;
+    }
 
     const selected = value ?? currentContext ?? contexts[0]?.name ?? '';
 

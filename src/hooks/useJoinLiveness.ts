@@ -34,6 +34,8 @@ export function useJoinLiveness(
         return () => clearTimeout(timer);
     }, [joined, live, graceMs]);
 
-    if (live) return 'live';
+    if (live) {
+        return 'live';
+    }
     return expired ? 'ended' : 'pending';
 }

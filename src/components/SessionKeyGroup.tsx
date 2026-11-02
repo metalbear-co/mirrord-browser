@@ -7,26 +7,52 @@ import {
     CardFooter,
     Separator,
 } from '@metalbear/ui';
-import type { OperatorSessionSummary } from '../types';
+import type { ClusterSession, PreviewSession } from '../types';
 import {
     aggregateSessions,
     formatRelativeTime,
+    groupTone,
+    previewStatusLine,
     targetDisplayName,
+    type PreviewTone,
     type SessionGroupAggregate,
 } from '../util';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { StatusDot } from './StatusDot';
 
-type Props = {
+interface Props {
     groupKey: string;
-    sessions: OperatorSessionSummary[];
-    joined: boolean;
+    sessions: ClusterSession[];
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
-};
+}
 
 const MAX_TARGETS = 4;
+
+const TONE_DOT: Record<
+    PreviewTone,
+    'active' | 'warning' | 'inactive' | 'destructive'
+> = {
+    live: 'active',
+    pending: 'warning',
+    idle: 'warning',
+    paused: 'inactive',
+    failed: 'destructive',
+};
+
+const TONE_BAND: Record<PreviewTone, string> = {
+    live: COLORS.success.band,
+    pending: COLORS.warning.band,
+    idle: COLORS.warning.band,
+    paused: COLORS.muted.band,
+    failed: COLORS.destructive.band,
+};
+
+const TONE_TEXT: Partial<Record<PreviewTone, string>> = {
+    idle: COLORS.warning.solid,
+    failed: COLORS.destructive.solid,
+};
 
 const TRUNCATE_STYLE: React.CSSProperties = {
     overflow: 'hidden',
@@ -36,27 +62,27 @@ const TRUNCATE_STYLE: React.CSSProperties = {
 
 function GroupHeader({
     groupKey,
-    joined,
     isPreview,
+    tone,
 }: {
     groupKey: string;
-    joined: boolean;
     isPreview: boolean;
+    tone: PreviewTone;
 }) {
     return (
         <div
-            className="flex items-center gap-2 border-b border-border"
+            className="border-border flex items-center gap-2 border-b"
             style={{
                 padding: '10px 14px',
-                background: joined ? COLORS.primary.band : COLORS.muted.band,
+                background: TONE_BAND[tone],
             }}
         >
             <KeyIcon
-                className="shrink-0 text-muted-foreground"
+                className="text-muted-foreground shrink-0"
                 style={{ height: 13, width: 13 }}
             />
             <span
-                className="min-w-0 font-mono text-foreground"
+                className="text-foreground min-w-0 font-mono"
                 style={{
                     flex: 1,
                     fontSize: 14,
@@ -76,22 +102,7 @@ function GroupHeader({
                         textTransform: 'uppercase',
                     }}
                 >
-                    preview
-                </Badge>
-            )}
-            {joined && (
-                <Badge
-                    variant="outline"
-                    className="shrink-0 font-mono text-foreground border-foreground/30 bg-foreground/10"
-                    style={{
-                        gap: 5,
-                        fontSize: 9.5,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                    }}
-                >
-                    <StatusDot tone="active" size={5} />
-                    {STRINGS.MSG_JOINED_TAG}
+                    {STRINGS.LABEL_PREVIEW}
                 </Badge>
             )}
         </div>
@@ -101,9 +112,9 @@ function GroupHeader({
 function TargetRow({ target }: { target: string }) {
     const name = targetDisplayName(target);
     return (
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
             <Box
-                className="shrink-0 text-muted-foreground"
+                className="text-muted-foreground shrink-0"
                 style={{ height: 13, width: 13 }}
             />
             <div
@@ -131,8 +142,9 @@ function GroupMeta({
     const age = formatRelativeTime(agg.earliestCreatedAt);
     const parts: string[] = [];
 
-    if (agg.owners.length === 1) {
-        parts.push(agg.owners[0]);
+    const singleOwner = agg.owners[0];
+    if (agg.owners.length === 1 && singleOwner !== undefined) {
+        parts.push(singleOwner);
     } else if (agg.owners.length > 1) {
         parts.push(`${agg.owners.length} owners`);
     }
@@ -141,10 +153,16 @@ function GroupMeta({
         parts.push(`${agg.namespaces.length} namespaces`);
     }
 
-    if (sessionCount > 1) parts.push(`${sessionCount} sessions`);
-    if (age) parts.push(age);
+    if (sessionCount > 1) {
+        parts.push(`${sessionCount} sessions`);
+    }
+    if (age) {
+        parts.push(age);
+    }
 
-    if (parts.length === 0) return null;
+    if (parts.length === 0) {
+        return null;
+    }
 
     return (
         <div
@@ -158,40 +176,47 @@ function GroupMeta({
 
 function GroupFooter({
     groupKey,
-    joined,
+    preview,
     onJoin,
     onShare,
+    tone,
 }: {
     groupKey: string;
-    joined: boolean;
+    preview: PreviewSession | null;
+    tone: PreviewTone;
     onJoin: (key: string) => void;
     onShare: (key: string) => void;
 }) {
+    const label = preview ? previewStatusLine(preview) : STRINGS.MSG_AVAILABLE;
+    const textColor = TONE_TEXT[tone];
+
     return (
         <CardFooter
             className="flex items-center justify-between gap-2"
             style={{ padding: '6px 14px' }}
         >
             <div
-                className="inline-flex items-center text-muted-foreground"
-                style={{ gap: 6, fontSize: 11 }}
+                className="text-muted-foreground inline-flex items-center"
+                style={{
+                    gap: 6,
+                    fontSize: 11,
+                    ...(textColor && { color: textColor, fontWeight: 500 }),
+                }}
             >
-                <StatusDot tone={joined ? 'active' : 'muted'} glow={joined} />
-                {joined ? STRINGS.MSG_ROUTING_TRAFFIC : STRINGS.MSG_AVAILABLE}
+                <StatusDot tone={TONE_DOT[tone]} />
+                {label}
             </div>
             <div className="flex items-center gap-1">
-                {!joined && (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
-                        onClick={() => onJoin(groupKey)}
-                        style={{ height: 28, padding: '0 12px' }}
-                    >
-                        {STRINGS.BTN_JOIN}
-                    </Button>
-                )}
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    aria-label={`${STRINGS.BTN_JOIN} ${groupKey}`}
+                    onClick={() => onJoin(groupKey)}
+                    style={{ height: 28, padding: '0 12px' }}
+                >
+                    {STRINGS.BTN_JOIN}
+                </Button>
                 <Button
                     type="button"
                     size="icon"
@@ -211,30 +236,20 @@ function GroupFooter({
 export function SessionKeyGroup({
     groupKey,
     sessions,
-    joined,
     onJoin,
     onShare,
 }: Props) {
     const agg = aggregateSessions(sessions);
+    const tone = groupTone(sessions);
     const shownTargets = agg.targets.slice(0, MAX_TARGETS);
     const overflow = agg.targets.length - shownTargets.length;
 
     return (
-        <Card
-            className="overflow-hidden"
-            style={
-                joined
-                    ? {
-                          borderColor: COLORS.primary.border,
-                          boxShadow: `0 0 0 1px ${COLORS.primary.tint}`,
-                      }
-                    : undefined
-            }
-        >
+        <Card className="overflow-hidden">
             <GroupHeader
                 groupKey={groupKey}
-                joined={joined}
-                isPreview={agg.isPreview}
+                isPreview={agg.preview !== null}
+                tone={tone}
             />
 
             <CardContent style={{ padding: '10px 14px 8px' }}>
@@ -247,7 +262,8 @@ export function SessionKeyGroup({
                             className="text-muted-foreground"
                             style={{ paddingLeft: 21, fontSize: 11 }}
                         >
-                            + {overflow} more target
+                            {STRINGS.PUNCT_PLUS} {overflow}{' '}
+                            {STRINGS.LABEL_MORE_TARGET}
                             {overflow === 1 ? '' : 's'}
                         </div>
                     )}
@@ -260,7 +276,8 @@ export function SessionKeyGroup({
 
             <GroupFooter
                 groupKey={groupKey}
-                joined={joined}
+                preview={agg.preview}
+                tone={tone}
                 onJoin={onJoin}
                 onShare={onShare}
             />

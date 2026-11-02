@@ -1,20 +1,20 @@
-export type Config = {
+export interface Config {
     header_filter: string;
     inject_scope?: string;
-};
+}
 
-export type StoredConfig = {
+export interface StoredConfig {
     headerName: string;
     headerValue: string;
     scope?: string;
-};
+}
 
-export type HeaderRule = {
+export interface HeaderRule {
     id: number;
     header: string;
     value: string;
     scope: string;
-};
+}
 
 export const STORAGE_KEYS = {
     DEFAULTS: 'defaults',
@@ -27,9 +27,10 @@ export const STORAGE_KEYS = {
     JOINED_HEADER: 'joined_header',
     JOINED_VALUE: 'joined_value',
     SCOPE_PATTERNS: 'scope_patterns',
-    ACTIVE_TAB: 'active_tab',
+    ACTIVE_TAB: 'popup_tab',
     THEME: 'theme',
     SELECTED_CONTEXT: 'selected_context',
+    BAGGAGE_MERGE: 'baggage_merge',
 } as const;
 
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -49,24 +50,99 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
     'other' as chrome.declarativeNetRequest.ResourceType,
 ];
 
-export type MirrordUiConfig = {
+export interface MirrordUiConfig {
     backend: string;
     token: string;
-};
+}
 
-export type OperatorSessionHttpFilter = {
+export interface LocalSessionSummary {
+    session_id: string;
+    key?: string | null;
+    context?: string | null;
+    config?: unknown;
+}
+
+export interface OperatorSessionHttpFilter {
     headerFilter: string | null;
-};
+}
 
-export type OperatorSessionSummary = {
+export interface OperatorSessionTarget {
+    kind: string;
+    name: string;
+    container: string;
+}
+
+export interface OperatorSessionOwner {
+    username: string;
+    k8sUsername: string;
+}
+
+// An entry of `sessions`. Before operator status carries dedicated preview session info, preview
+// environments are also folded into this list.
+export interface OperatorSessionSummary {
     id: string;
     key: string;
     namespace: string;
-    owner: { username: string; k8sUsername: string };
-    target: { kind: string; name: string; container: string } | null;
-    createdAt: string;
+    owner: OperatorSessionOwner | null;
+    target: OperatorSessionTarget | null;
+    createdAt: string | null;
     httpFilter?: OperatorSessionHttpFilter | null;
-};
+}
+
+export const PREVIEW_PHASES = [
+    'initializing',
+    'waiting',
+    'ready',
+    'failed',
+    'idle',
+    'paused',
+    'unknown',
+] as const;
+
+export type PreviewPhase = (typeof PREVIEW_PHASES)[number];
+
+export interface OperatorPreviewSession {
+    id: string;
+    key: string;
+    namespace: string;
+    target: OperatorSessionTarget | null;
+    createdAt: string | null;
+    phase: PreviewPhase;
+    // Only set while `phase` is `idle`.
+    idleSecs?: number;
+}
+
+interface SessionBase {
+    id: string;
+    key: string;
+    namespace: string;
+    target: OperatorSessionTarget | null;
+    createdAt: string | null;
+}
+
+// A session started with `mirrord exec` or `mirrord ci`
+export interface ExecSession extends SessionBase {
+    kind: 'exec';
+    owner: OperatorSessionOwner | null;
+    httpFilter?: OperatorSessionHttpFilter | null;
+}
+
+// A preview environment.
+export interface PreviewSession extends SessionBase {
+    kind: 'preview';
+    phase: PreviewPhase;
+    // Only set while `phase` is `idle`.
+    idleSecs?: number;
+    httpFilter?: OperatorSessionHttpFilter | null;
+}
+
+export type ClusterSession = ExecSession | PreviewSession;
+
+export function isPreviewSession(
+    session: ClusterSession
+): session is PreviewSession {
+    return session.kind === 'preview';
+}
 
 export type OperatorWatchStatus =
     | { status: 'not_started' }
@@ -74,31 +150,40 @@ export type OperatorWatchStatus =
     | { status: 'error'; message: string }
     | { status: 'unavailable'; reason: string };
 
-export type OperatorSessionsResponse = {
+export interface OperatorSessionsV1Response {
     by_key: Record<string, OperatorSessionSummary[]>;
     sessions: OperatorSessionSummary[];
     watch_status: OperatorWatchStatus;
-};
+}
+
+export interface OperatorSessionsResponse {
+    by_key: Record<string, ClusterSession[]>;
+    sessions: ClusterSession[];
+    watch_status: OperatorWatchStatus;
+}
 
 // A kube context and its default namespace, from `GET /api/v2/kube/contexts`.
-export type KubeContext = {
+export interface KubeContext {
     name: string;
     namespace: string | null;
-};
+}
 
-export type ContextsResponse = {
+export interface ContextsResponse {
     current: string | null;
     contexts: KubeContext[];
-};
+}
 
 // `GET /api/v2/operator/sessions?context=`. Namespace is filtered client-side, so this doesn't take
-// a namespace param. `OperatorSession` is the same shape the extension already uses for a summary.
-export type OperatorSessionsV2Response = {
+// a namespace param.
+export interface OperatorSessionsV2Response {
     context: string | null;
     status: 'available' | 'unavailable';
     reason?: string;
     sessions: OperatorSessionSummary[];
-};
+    // Absent when there are no previews, or against an operator that predates the
+    // dedicated preview list.
+    previewSessions?: OperatorPreviewSession[];
+}
 
 export type SessionNotification =
     | { type: 'session_added'; session: unknown }

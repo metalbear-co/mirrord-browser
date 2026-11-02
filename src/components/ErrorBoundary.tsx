@@ -1,41 +1,45 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
-import { emitUserBlocked } from '../analytics';
+import type { ReactNode } from 'react';
+import { ErrorBoundary as KitErrorBoundary } from '@metalbear/ui';
+import { captureException, emitUserBlocked } from '../analytics';
+import { STRINGS } from '../constants';
 
 type Flow = 'session_monitor' | 'header_injector' | 'configure';
 
-type Props = {
+interface Props {
     flow: Flow;
     component: string;
     children: ReactNode;
-};
+}
 
-type State = { crashed: boolean };
+const MAX_STACK_LENGTH = 500;
 
-export class ErrorBoundary extends Component<Props, State> {
-    state: State = { crashed: false };
-
-    static getDerivedStateFromError(): State {
-        return { crashed: true };
-    }
-
-    componentDidCatch(error: Error, info: ErrorInfo): void {
-        emitUserBlocked('ui_crashed', 'user_action', {
-            error: error.message,
-            component: this.props.component,
-            flow: this.props.flow,
-            stack: info.componentStack?.slice(0, 500),
-        });
-    }
-
-    render(): ReactNode {
-        if (this.state.crashed) {
-            return (
+export function ErrorBoundary({ flow, component, children }: Props) {
+    return (
+        <KitErrorBoundary
+            fallback={
                 <div style={{ padding: 16, fontFamily: 'system-ui' }}>
-                    <h3>Something went wrong.</h3>
-                    <p>Please reload the extension.</p>
+                    <h3>{STRINGS.MSG_ERROR_BOUNDARY_TITLE}</h3>
+                    <p>{STRINGS.MSG_ERROR_BOUNDARY_HINT}</p>
                 </div>
-            );
-        }
-        return this.props.children;
-    }
+            }
+            onError={(error, info) => {
+                captureException(error, {
+                    component,
+                    flow,
+                    componentStack: info.componentStack?.slice(
+                        0,
+                        MAX_STACK_LENGTH
+                    ),
+                });
+                emitUserBlocked('ui_crashed', 'user_action', {
+                    error: error.message,
+                    component,
+                    flow,
+                    stack: info.componentStack?.slice(0, MAX_STACK_LENGTH),
+                });
+            }}
+        >
+            {children}
+        </KitErrorBoundary>
+    );
 }

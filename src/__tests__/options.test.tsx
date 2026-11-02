@@ -8,7 +8,9 @@ const mockChromeStorage = {
         const result: Record<string, unknown> = {};
         const keyList = Array.isArray(keys) ? keys : [keys];
         for (const k of keyList) {
-            if (k in chromeStore) result[k] = chromeStore[k];
+            if (k in chromeStore) {
+                result[k] = chromeStore[k];
+            }
         }
         return Promise.resolve(result);
     }),
@@ -18,7 +20,9 @@ const mockChromeStorage = {
     }),
     remove: jest.fn((keys: string | string[]) => {
         const keyList = Array.isArray(keys) ? keys : [keys];
-        for (const k of keyList) delete chromeStore[k];
+        for (const k of keyList) {
+            Reflect.deleteProperty(chromeStore, k);
+        }
         return Promise.resolve();
     }),
 };
@@ -37,13 +41,17 @@ import { Options } from '../options';
 describe('Options page', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        for (const key of Object.keys(chromeStore)) delete chromeStore[key];
+        for (const key of Object.keys(chromeStore)) {
+            Reflect.deleteProperty(chromeStore, key);
+        }
     });
 
     it('renders toggle in "on" state by default', async () => {
         render(<Options />);
 
-        const toggle = await screen.findByRole('switch');
+        const toggle = await screen.findByRole('switch', {
+            name: 'Usage analytics',
+        });
         expect(toggle).toBeInTheDocument();
         expect(toggle).toHaveAttribute('data-state', 'checked');
     });
@@ -53,14 +61,18 @@ describe('Options page', () => {
 
         render(<Options />);
 
-        const toggle = await screen.findByRole('switch');
+        const toggle = await screen.findByRole('switch', {
+            name: 'Usage analytics',
+        });
         expect(toggle).toHaveAttribute('data-state', 'unchecked');
     });
 
     it('toggling off writes analytics_opt_out: true to storage', async () => {
         render(<Options />);
 
-        const toggle = await screen.findByRole('switch');
+        const toggle = await screen.findByRole('switch', {
+            name: 'Usage analytics',
+        });
         fireEvent.click(toggle);
 
         await waitFor(() => {
@@ -75,7 +87,9 @@ describe('Options page', () => {
 
         render(<Options />);
 
-        const toggle = await screen.findByRole('switch');
+        const toggle = await screen.findByRole('switch', {
+            name: 'Usage analytics',
+        });
         expect(toggle).toHaveAttribute('data-state', 'unchecked');
 
         fireEvent.click(toggle);

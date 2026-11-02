@@ -52,14 +52,16 @@ export const STRINGS = {
     MSG_KUBE_AUTH_EXPIRED_HINT:
         'Re-authenticate with your cluster provider (e.g. gcloud auth login). Sessions will load again automatically.',
     MSG_ALL_NAMESPACES: 'All',
-    MSG_LIVE_SESSIONS: 'Live sessions',
+    MSG_LIVE_SESSIONS: (live: number, total: number) =>
+        live === total
+            ? `${total} Live sessions`
+            : `${live}/${total} Live sessions`,
     MSG_SHOW_MORE: (n: number) => `Show ${n} more session${n === 1 ? '' : 's'}`,
     MSG_SHOW_LESS: 'Show less',
     MSG_USE_SEARCH_HINT: 'Use search to narrow down',
     MSG_SESSION_LIVE: 'Session live',
     MSG_SESSION_RECONNECTING: 'Waiting for session',
     MSG_SESSION_ENDED: 'Session ended',
-    MSG_ROUTING_TRAFFIC: 'Routing your traffic',
     MSG_AVAILABLE: 'Available',
     MSG_JOINED_TAG: 'Joined',
     MSG_ACTIVE: 'Active',
@@ -116,12 +118,43 @@ export const STRINGS = {
     SETTINGS_ANALYTICS_LABEL: 'Usage analytics',
     SETTINGS_ANALYTICS_DESCRIPTION:
         'Help improve mirrord by sending anonymous usage data.',
-} as const;
+    SETTINGS_BAGGAGE_MERGE_LABEL: 'Merge into existing baggage header',
+    SETTINGS_BAGGAGE_MERGE_DESCRIPTION:
+        'Adds the mirrord entry to the baggage header a page already sends from fetch and XHR, instead of replacing it. Reload open tabs after changing this.',
 
-export const BADGE = {
-    COLOR: '#ADD8E6',
-    ACTIVE: '✓',
-    INACTIVE: '',
+    MSG_APPLYING_CONFIG: 'Applying mirrord config…',
+    MSG_JOINED_LIVE_SESSION: 'Joined live session',
+    MSG_ROUTING_TO_SESSION: 'Routing your traffic to session',
+    MSG_BY_INJECTING: 'by injecting',
+    MSG_CONFIGURED_TAG: 'Configured',
+    MSG_HEADER_CONFIGURED: 'mirrord header configured',
+    MSG_COULDNT_APPLY_TAG: 'Couldn’t apply',
+    MSG_COULDNT_APPLY_CONFIG: 'Couldn’t apply mirrord config',
+    MSG_INVALID_INPUT: 'Invalid input',
+    MSG_ON_ALL_REQUESTS: 'on all requests.',
+    MSG_ERROR_BOUNDARY_TITLE: 'Something went wrong.',
+    MSG_ERROR_BOUNDARY_HINT: 'Please reload the extension.',
+    LABEL_KEY: 'Key',
+    LABEL_MORE_TARGET: 'more target',
+    LABEL_REQ_LAST: 'req · last',
+    LABEL_SECONDS_SUFFIX: 's',
+    LABEL_PREVIEW: 'preview',
+    PREVIEW_PHASE_LABEL: {
+        initializing: 'initializing',
+        waiting: 'waiting',
+        failed: 'failed',
+        idle: 'idle',
+        paused: 'paused',
+    },
+    MSG_PREVIEW_STARTING: 'Starting up',
+    MSG_PREVIEW_READY: 'Ready',
+    MSG_PREVIEW_IDLE: (duration: string | null) =>
+        duration ? `Idle for ${duration}` : 'Idle',
+    MSG_PREVIEW_PAUSED: 'Paused, will not wake on traffic',
+    MSG_PREVIEW_FAILED: 'Failed',
+    TERMINAL_PROMPT: '$',
+    PUNCT_PLUS: '+',
+    PUNCT_PERIOD: '.',
 } as const;
 
 export const TAB = {
@@ -139,13 +172,6 @@ export const SESSION_NOTIFICATION_TYPE = {
     OPERATOR_SESSION_UPDATED: 'operator_session_updated',
 } as const;
 
-export const ROW_TAG = {
-    JOINED: 'joined',
-    LOCAL: 'local',
-} as const;
-
-export type RowTag = (typeof ROW_TAG)[keyof typeof ROW_TAG];
-
 export const NAMESPACE_ALL_SENTINEL = '__all__';
 
 // The metalbear.com page whose visits the content script intercepts. Share links point here
@@ -162,7 +188,7 @@ export const CONFIG_HASH_PARAM = 'config';
 
 // Default port `mirrord ui` listens on (its `--port` default).
 // Source: metalbear-co/mirrord — mirrord/cli/src/config.rs `UI_DEFAULT_PORT`.
-export const MIRRORD_UI_DEFAULT_PORT = 59281;
+const MIRRORD_UI_DEFAULT_PORT = 59281;
 export const MIRRORD_UI_DEFAULT_BACKEND = `http://127.0.0.1:${MIRRORD_UI_DEFAULT_PORT}`;
 
 // How long the joined banner stays in the amber "waiting" state after the session

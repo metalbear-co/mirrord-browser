@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const PORT = parseInt(process.env.TEST_SERVER_PORT || '3456', 10);
+const PORT = parseInt(process.env['TEST_SERVER_PORT'] ?? '3456', 10);
 
 // Store headers received on asset requests so tests can verify injection
 const assetHeaders: Record<string, http.IncomingHttpHeaders> = {};
@@ -54,7 +54,9 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(assetHeaders));
     } else if (req.url === '/asset-headers/reset') {
         // Reset recorded headers between tests
-        Object.keys(assetHeaders).forEach((k) => delete assetHeaders[k]);
+        Object.keys(assetHeaders).forEach((k) => {
+            Reflect.deleteProperty(assetHeaders, k);
+        });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{}');
     } else {

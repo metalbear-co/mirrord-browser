@@ -1,21 +1,23 @@
 export const HEADER_OBSERVATION_PORT = 'header-observation';
 
 export const RING_SECONDS = 60;
-export const RECENT_URL_LIMIT = 3;
+const RECENT_URL_LIMIT = 3;
 
-export type RecentUrl = {
+const MS_PER_SECOND = 1000;
+
+interface RecentUrl {
     url: string;
     method: string;
     at: number;
-};
+}
 
-export type HeaderObservation = {
+export interface HeaderObservation {
     headerName: string;
     bucketStartMs: number;
     buckets: number[];
     recent: RecentUrl[];
     totalLast60s: number;
-};
+}
 
 export function emptyObservation(
     headerName: string,
@@ -30,8 +32,8 @@ export function emptyObservation(
     };
 }
 
-export function alignToSecond(ms: number): number {
-    return Math.floor(ms / 1000) * 1000;
+function alignToSecond(ms: number): number {
+    return Math.floor(ms / MS_PER_SECOND) * MS_PER_SECOND;
 }
 
 export function rotateBuckets(
@@ -39,14 +41,18 @@ export function rotateBuckets(
     nowMs: number
 ): HeaderObservation {
     const nowSec = alignToSecond(nowMs);
-    const elapsedSec = Math.floor((nowSec - obs.bucketStartMs) / 1000);
-    if (elapsedSec <= 0) return obs;
+    const elapsedSec = Math.floor((nowSec - obs.bucketStartMs) / MS_PER_SECOND);
+    if (elapsedSec <= 0) {
+        return obs;
+    }
     const buckets = obs.buckets.slice();
     if (elapsedSec >= RING_SECONDS) {
         buckets.fill(0);
     } else {
         buckets.splice(0, elapsedSec);
-        for (let i = 0; i < elapsedSec; i += 1) buckets.push(0);
+        for (let i = 0; i < elapsedSec; i += 1) {
+            buckets.push(0);
+        }
     }
     return {
         ...obs,
@@ -81,55 +87,102 @@ export function setHeaderName(
     obs: HeaderObservation,
     headerName: string
 ): HeaderObservation {
-    if (obs.headerName.toLowerCase() === headerName.toLowerCase()) return obs;
+    if (obs.headerName.toLowerCase() === headerName.toLowerCase()) {
+        return obs;
+    }
     return emptyObservation(headerName);
 }
 
-import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    captureException,
+    emitUserBlocked,
+    emitUserSucceeded,
+} from './analytics';
+import { getDynamicRules } from './util';
 
-type CanaryArm = {
+interface CanaryArm {
     headerName: string;
     flow: 'session_monitor' | 'header_injector';
-};
+    scoped: boolean;
+}
 
 let activeArm: CanaryArm | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let observed = false;
+let requestsWhileArmed = 0;
 
-export const CANARY_TIMEOUT_MS = 60_000;
+const CANARY_TIMEOUT_MS = 60_000;
 
 export function armCanary(arm: CanaryArm): void {
     cancelCanary();
     activeArm = arm;
     observed = false;
+    requestsWhileArmed = 0;
     activeTimer = setTimeout(() => {
-        if (activeArm) {
-            emitUserBlocked('no_header_observed', 'health', {
-                headerName: activeArm.headerName,
-                flow: activeArm.flow,
-            });
-        }
+        const expired = activeArm;
+        const requests = requestsWhileArmed;
         activeArm = null;
         activeTimer = null;
+        if (!expired) {
+            return;
+        }
+        void getDynamicRules()
+            .then((rules) => {
+                const stillInstalled = rules.some((rule) =>
+                    rule.action.requestHeaders?.some(
+                        (h) =>
+                            h.header.toLowerCase() ===
+                            expired.headerName.toLowerCase()
+                    )
+                );
+                if (stillInstalled) {
+                    emitUserBlocked('no_header_observed', 'health', {
+                        headerName: expired.headerName,
+                        flow: expired.flow,
+                        scoped: expired.scoped,
+                        requestsWhileArmed: requests,
+                    });
+                }
+            })
+            .catch((error: unknown) => {
+                captureException(error, { reason: 'canary_rule_check' });
+            });
     }, CANARY_TIMEOUT_MS);
 }
 
+export function countRequestWhileArmed(): void {
+    if (activeArm) {
+        requestsWhileArmed += 1;
+    }
+}
+
 export function cancelCanary(): void {
-    if (activeTimer) clearTimeout(activeTimer);
+    if (activeTimer) {
+        clearTimeout(activeTimer);
+    }
     activeTimer = null;
     activeArm = null;
     observed = false;
+    requestsWhileArmed = 0;
 }
 
 export function notifyHeaderObserved(headerName: string): void {
-    if (!activeArm) return;
-    if (observed) return;
-    if (activeArm.headerName.toLowerCase() !== headerName.toLowerCase()) return;
+    if (!activeArm) {
+        return;
+    }
+    if (observed) {
+        return;
+    }
+    if (activeArm.headerName.toLowerCase() !== headerName.toLowerCase()) {
+        return;
+    }
     observed = true;
     emitUserSucceeded('header_observed', 'health', {
         headerName: activeArm.headerName,
         flow: activeArm.flow,
     });
-    if (activeTimer) clearTimeout(activeTimer);
+    if (activeTimer) {
+        clearTimeout(activeTimer);
+    }
     activeTimer = null;
 }

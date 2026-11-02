@@ -21,19 +21,28 @@ import type { ThemePref } from './types';
 import { SessionsView, ManualSetup } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
-import { capture, captureBeacon, optOutReady } from './analytics';
+import {
+    capture,
+    captureBeacon,
+    optOutReady,
+    initErrorTracking,
+} from './analytics';
 import { STRINGS, TAB, type TabId } from './constants';
 import { STORAGE_KEYS } from './types';
+
+initErrorTracking('popup');
 
 const popupOpenedAt = Date.now();
 const surface: 'side_panel' | 'popup_fallback' =
     typeof (chrome as { sidePanel?: unknown }).sidePanel === 'undefined'
         ? 'popup_fallback'
         : 'side_panel';
-optOutReady.then(() => capture('extension_popup_opened', { surface }));
+void optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden') return;
+    if (document.visibilityState !== 'hidden') {
+        return;
+    }
     captureBeacon('extension_popup_closed', {
         duration_ms: Date.now() - popupOpenedAt,
         surface,
@@ -50,19 +59,19 @@ export function Popup() {
         (mirrordUi.sessions?.sessions ?? []).map((s) => s.key)
     ).size;
 
-    const [tab, setTab] = useState<TabId>(TAB.MANUAL);
+    const [tab, setTab] = useState<TabId>(TAB.SESSIONS);
     const [tabRestored, setTabRestored] = useState(false);
     const [themePref, setThemeState] = useState<ThemePref>('system');
     const isDark = resolveDark(themePref);
     useEffect(() => {
-        loadTheme().then(setThemeState);
+        void loadTheme().then(setThemeState);
     }, []);
 
     useEffect(() => {
         chrome.storage.local.get(
             [STORAGE_KEYS.ACTIVE_TAB],
             (stored: Record<string, unknown>) => {
-                const saved = stored?.[STORAGE_KEYS.ACTIVE_TAB];
+                const saved = stored[STORAGE_KEYS.ACTIVE_TAB];
                 if (saved === TAB.SESSIONS || saved === TAB.MANUAL) {
                     setTab(saved);
                 }
@@ -72,13 +81,18 @@ export function Popup() {
     }, []);
 
     useEffect(() => {
-        if (!tabRestored) return;
-        chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_TAB]: tab }, () => {});
+        if (!tabRestored) {
+            return;
+        }
+        chrome.storage.local.set(
+            { [STORAGE_KEYS.ACTIVE_TAB]: tab },
+            () => undefined
+        );
     }, [tab, tabRestored]);
 
     return (
         <TooltipProvider>
-            <div className="w-[420px] p-3 flex flex-col gap-2">
+            <div className="flex w-[420px] flex-col gap-2 p-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <img
@@ -87,7 +101,7 @@ export function Popup() {
                             className="h-5 w-auto"
                         />
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold tracking-tight leading-none">
+                            <span className="text-sm leading-none font-semibold tracking-tight">
                                 {STRINGS.LABEL_MIRRORD}
                             </span>
                             <span className="text-meta text-muted-foreground leading-tight">
@@ -100,7 +114,7 @@ export function Popup() {
                             <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={headerRules.handleShare}
+                                onClick={() => void headerRules.handleShare()}
                                 disabled={!headerRules.canShare}
                                 title={
                                     headerRules.shareState === 'copied'
@@ -125,7 +139,7 @@ export function Popup() {
                                     ? 'light'
                                     : 'dark';
                                 setThemeState(next);
-                                saveTheme(next);
+                                void saveTheme(next);
                             }}
                             title={isDark ? 'Light mode' : 'Dark mode'}
                             aria-label={isDark ? 'Light mode' : 'Dark mode'}
@@ -136,7 +150,9 @@ export function Popup() {
                         <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => chrome.runtime.openOptionsPage()}
+                            onClick={() =>
+                                void chrome.runtime.openOptionsPage()
+                            }
                             title={STRINGS.SETTINGS_TITLE}
                             aria-label={STRINGS.SETTINGS_TITLE}
                             className="h-7 w-7"
@@ -151,7 +167,7 @@ export function Popup() {
                     onValueChange={(v: string) => setTab(v as TabId)}
                     className="flex flex-col gap-2"
                 >
-                    <TabsList className="grid grid-cols-2 w-full">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value={TAB.SESSIONS}>
                             <span className="inline-flex items-center gap-1.5">
                                 {STRINGS.TAB_SESSIONS}
@@ -207,14 +223,16 @@ function SessionsScreen({
             contexts={mirrordUi.contexts}
             currentContext={mirrordUi.currentContext}
             selectedContext={mirrordUi.selectedContext}
-            onSelectContext={mirrordUi.setSelectedContext}
+            onSelectContext={(context) =>
+                void mirrordUi.setSelectedContext(context)
+            }
             joinState={mirrordUi.joinState}
             status={mirrordUi.status}
-            onJoin={mirrordUi.join}
-            onClear={mirrordUi.clearJoin}
+            onJoin={(key) => void mirrordUi.join(key)}
+            onClear={() => void mirrordUi.clearJoin()}
             onShare={(key) => {
                 const url = mirrordUi.buildShareUrl(key);
-                navigator.clipboard.writeText(url).catch(() => {});
+                navigator.clipboard.writeText(url).catch(() => undefined);
             }}
             scopePatterns={mirrordUi.scopePatterns}
             onAddScopePattern={mirrordUi.addScopePattern}

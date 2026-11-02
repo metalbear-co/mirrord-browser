@@ -14,14 +14,15 @@ import { OperatorUnavailableNote } from './OperatorUnavailableNote';
 import type { JoinState } from '../hooks/useMirrordUi';
 import { useJoinLiveness } from '../hooks/useJoinLiveness';
 import type {
+    ClusterSession,
     KubeContext,
-    OperatorSessionSummary,
     OperatorWatchStatus,
 } from '../types';
 import { JOIN_GRACE_MS, STRINGS } from '../constants';
+import { isGroupLive } from '../util';
 
-type Props = {
-    sessions: OperatorSessionSummary[];
+interface Props {
+    sessions: ClusterSession[];
     sessionsLoaded: boolean;
     authFailed: boolean;
     uiDetectedNoToken: boolean;
@@ -43,15 +44,21 @@ type Props = {
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
     joinedHeader: string | null;
     joinedValue: string | null;
-};
+}
 
-function matchesQuery(s: OperatorSessionSummary, q: string): boolean {
-    if (!q) return true;
+function matchesQuery(s: ClusterSession, q: string): boolean {
+    if (!q) {
+        return true;
+    }
     const haystack = [
         s.key,
         s.namespace,
-        s.owner?.username,
-        s.owner?.k8sUsername,
+        s.kind === 'exec' ? s.owner?.username : STRINGS.LABEL_PREVIEW,
+        s.kind === 'exec'
+            ? s.owner?.k8sUsername
+            : s.phase === 'unknown'
+              ? undefined
+              : s.phase,
         s.target ? `${s.target.kind}/${s.target.name}` : '',
         s.target?.name,
         s.target?.container,
@@ -134,8 +141,15 @@ export function SessionsView({
         ? sessions.filter((s) => s.key === joinedKey)
         : [];
 
+    // A failed or paused preview environment is not serving traffic, so it must not be counted
+    // among the live sessions even though its card is still listed.
+    const liveCount = orderedKeys.filter((k) =>
+        isGroupLive(groups[k] ?? [])
+    ).length;
+
     const watching = status?.status === 'watching';
-    const operatorUnavailable = status?.status === 'unavailable';
+    const unavailableReason =
+        status?.status === 'unavailable' ? status.reason : null;
     const hasGroups = orderedKeys.length > 0;
     const totalSessionsBeforeQuery = sessions.filter(
         (s) => (!namespace || s.namespace === namespace) && s.key !== joinedKey
@@ -151,13 +165,13 @@ export function SessionsView({
 
     return (
         <div className="flex flex-col" style={{ gap: 10 }}>
-            {joinState.joinedKey && (
+            {joinedKey && (
                 <ConnectedBanner
-                    joinedKey={joinState.joinedKey}
+                    joinedKey={joinedKey}
                     sessions={joinedSessions}
                     liveness={liveness}
                     onLeave={onClear}
-                    onShare={() => onShare(joinState.joinedKey!)}
+                    onShare={() => onShare(joinedKey)}
                     scopePatterns={scopePatterns}
                     onAddScopePattern={onAddScopePattern}
                     onRemoveScopePattern={onRemoveScopePattern}
@@ -166,19 +180,13 @@ export function SessionsView({
                 />
             )}
 
-            {operatorUnavailable && (
-                <OperatorUnavailableNote
-                    reason={
-                        status?.status === 'unavailable'
-                            ? status.reason
-                            : undefined
-                    }
-                />
+            {unavailableReason !== null && (
+                <OperatorUnavailableNote reason={unavailableReason} />
             )}
 
             {(contexts.length > 1 ||
                 namespaces.filter((ns) => ns !== '').length > 1) && (
-                <div className="flex items-center flex-wrap" style={{ gap: 8 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: 8 }}>
                     <ContextFilter
                         contexts={contexts}
                         currentContext={currentContext}
@@ -234,7 +242,7 @@ export function SessionsView({
             {hasGroups && (
                 <>
                     <div
-                        className="flex items-center justify-between text-muted-foreground font-semibold"
+                        className="text-muted-foreground flex items-center justify-between font-semibold"
                         style={{
                             padding: '0 2px',
                             fontSize: 10.5,
@@ -243,7 +251,10 @@ export function SessionsView({
                         }}
                     >
                         <span>
-                            {orderedKeys.length} {STRINGS.MSG_LIVE_SESSIONS}
+                            {STRINGS.MSG_LIVE_SESSIONS(
+                                liveCount,
+                                orderedKeys.length
+                            )}
                         </span>
                         {status && (
                             <span
@@ -264,7 +275,6 @@ export function SessionsView({
                                 key={k}
                                 groupKey={k}
                                 sessions={groups[k] ?? []}
-                                joined={k === joinedKey}
                                 onJoin={onJoin}
                                 onShare={onShare}
                             />

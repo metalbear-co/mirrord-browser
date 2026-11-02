@@ -14,7 +14,15 @@ import {
 } from './configCore';
 import { applyHeaderConfig } from './applyConfig';
 import { joinMatchingSession } from './joinSession';
-import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    capture,
+    emitUserBlocked,
+    emitUserSucceeded,
+    initErrorTracking,
+} from './analytics';
+import { STRINGS } from './constants';
+
+initErrorTracking('applied');
 
 export type AppliedState =
     | { kind: 'loading' }
@@ -47,7 +55,7 @@ export async function run(): Promise<AppliedState> {
             ? promptForValidHeader(config.header_filter)
             : config.header_filter;
         ({ key: header, value } = parseHeader(headerLine));
-        scope = config.inject_scope || undefined;
+        scope = config.inject_scope;
     } catch (err) {
         return {
             kind: 'error',
@@ -74,7 +82,13 @@ export async function run(): Promise<AppliedState> {
                 key: joinedKey,
                 source: 'web_link',
             });
-            return { kind: 'done', header, value, scope, joinedKey };
+            return {
+                kind: 'done',
+                header,
+                value,
+                ...(scope !== undefined ? { scope } : {}),
+                joinedKey,
+            };
         }
 
         await applyHeaderConfig(header, value, scope);
@@ -83,7 +97,12 @@ export async function run(): Promise<AppliedState> {
             source: 'web_link',
         });
         emitUserSucceeded('configured', 'user_action', { source: 'web_link' });
-        return { kind: 'done', header, value, scope };
+        return {
+            kind: 'done',
+            header,
+            value,
+            ...(scope !== undefined ? { scope } : {}),
+        };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         emitUserBlocked('configure_failed', 'user_action', {
@@ -98,29 +117,31 @@ function AppliedPage() {
     const [state, setState] = useState<AppliedState>({ kind: 'loading' });
 
     useEffect(() => {
-        run().then(setState);
+        void run().then(setState);
     }, []);
 
     return (
         <div className="mb-card">
             {state.kind === 'loading' && (
-                <p className="mb-text">Applying mirrord config…</p>
+                <p className="mb-text">{STRINGS.MSG_APPLYING_CONFIG}</p>
             )}
 
             {state.kind === 'done' && state.joinedKey && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--success">
-                        Joined
+                        {STRINGS.MSG_JOINED_TAG}
                     </span>
-                    <h1 className="mb-title">Joined live session</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_JOINED_LIVE_SESSION}
+                    </h1>
                     <p className="mb-text">
-                        Routing your traffic to session{' '}
-                        <code className="mb-code">{state.joinedKey}</code> by
-                        injecting{' '}
+                        {STRINGS.MSG_ROUTING_TO_SESSION}{' '}
+                        <code className="mb-code">{state.joinedKey}</code>{' '}
+                        {STRINGS.MSG_BY_INJECTING}{' '}
                         <code className="mb-code">
                             {state.header}: {state.value}
                         </code>
-                        .
+                        {STRINGS.PUNCT_PERIOD}
                     </p>
                 </>
             )}
@@ -128,11 +149,13 @@ function AppliedPage() {
             {state.kind === 'done' && !state.joinedKey && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--success">
-                        Configured
+                        {STRINGS.MSG_CONFIGURED_TAG}
                     </span>
-                    <h1 className="mb-title">mirrord header configured</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_HEADER_CONFIGURED}
+                    </h1>
                     <p className="mb-text">
-                        Injecting{' '}
+                        {STRINGS.MSG_JOINED_SESSION_HINT}{' '}
                         <code className="mb-code">
                             {state.header}: {state.value}
                         </code>{' '}
@@ -146,13 +169,17 @@ function AppliedPage() {
             {state.kind === 'error' && (
                 <>
                     <span className="mb-eyebrow mb-eyebrow--error">
-                        Couldn’t apply
+                        {STRINGS.MSG_COULDNT_APPLY_TAG}
                     </span>
-                    <h1 className="mb-title">Couldn’t apply mirrord config</h1>
+                    <h1 className="mb-title">
+                        {STRINGS.MSG_COULDNT_APPLY_CONFIG}
+                    </h1>
                     <p className="mb-text">{state.error}</p>
                     {state.input && (
                         <>
-                            <p className="mb-label">Invalid input</p>
+                            <p className="mb-label">
+                                {STRINGS.MSG_INVALID_INPUT}
+                            </p>
                             <pre className="mb-terminal">{state.input}</pre>
                         </>
                     )}

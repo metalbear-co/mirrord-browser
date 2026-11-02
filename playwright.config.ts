@@ -16,7 +16,7 @@ export default defineConfig({
         {
             command: 'npx tsx e2e/test-server.ts',
             port: 3456,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer: !process.env['CI'],
         },
     ],
 });

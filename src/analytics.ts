@@ -3,19 +3,87 @@ import { STORAGE_KEYS } from './types';
 const POSTHOG_KEY = 'phc_wIZh92nyk4vu6HidiLFUzjW6piZlZszuWZZFBS7yHHe';
 const POSTHOG_HOST = 'https://hog.metalbear.com';
 
+const APP_VERSION = (() => {
+    try {
+        return chrome.runtime.getManifest().version;
+    } catch {
+        return 'unknown';
+    }
+})();
+
+const DISTINCT_ID_KEY = 'posthog_distinct_id';
+
 let distinctId: string | null = null;
 let optedOut = false;
 
+function pageStorage(): Storage | null {
+    try {
+        return typeof localStorage === 'undefined' ? null : localStorage;
+    } catch {
+        return null;
+    }
+}
+
+function rememberDistinctId(value: string): void {
+    distinctId = value;
+    try {
+        pageStorage()?.setItem(DISTINCT_ID_KEY, value);
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    try {
+        void chrome.storage.local
+            .set({ [DISTINCT_ID_KEY]: value })
+            .catch(() => undefined);
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+}
+
+/**
+ * Adopt the identity shared through chrome.storage.local, since a Manifest V3
+ * service worker has no localStorage to read it from.
+ */
+async function loadDistinctId(): Promise<void> {
+    let own: string | null = null;
+    try {
+        own = pageStorage()?.getItem(DISTINCT_ID_KEY) ?? null;
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    if (own) {
+        rememberDistinctId(own);
+        return;
+    }
+    try {
+        const stored = await chrome.storage.local.get(DISTINCT_ID_KEY);
+        const shared: unknown = stored[DISTINCT_ID_KEY];
+        if (typeof shared === 'string' && shared.length > 0) {
+            rememberDistinctId(shared);
+            return;
+        }
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    rememberDistinctId(distinctId ?? crypto.randomUUID());
+}
+
+/** Resolves once this context knows which analytics identity to send. */
+export const identityReady = loadDistinctId();
+
 function getDistinctId(): string {
-    if (distinctId) return distinctId;
-    const stored = localStorage.getItem('posthog_distinct_id');
-    if (stored) {
-        distinctId = stored;
+    if (distinctId) {
         return distinctId;
     }
-    distinctId = crypto.randomUUID();
-    localStorage.setItem('posthog_distinct_id', distinctId);
-    return distinctId;
+    let stored: string | null = null;
+    try {
+        stored = pageStorage()?.getItem(DISTINCT_ID_KEY) ?? null;
+    } catch {
+        // Storage access can fail in certain contexts
+    }
+    const value = stored ?? crypto.randomUUID();
+    rememberDistinctId(value);
+    return value;
 }
 
 /**
@@ -58,7 +126,9 @@ export function capture(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) return;
+    if (optedOut) {
+        return;
+    }
     try {
         fetch(`${POSTHOG_HOST}/capture/`, {
             method: 'POST',
@@ -70,10 +140,11 @@ export function capture(
                 properties: {
                     ...properties,
                     $lib: 'mirrord-browser-extension',
+                    $app_version: APP_VERSION,
                 },
                 timestamp: new Date().toISOString(),
             }),
-        }).catch(() => {});
+        }).catch(() => undefined);
     } catch {
         // Analytics should never break the extension
     }
@@ -86,7 +157,9 @@ export function captureBeacon(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) return;
+    if (optedOut) {
+        return;
+    }
     try {
         const payload = JSON.stringify({
             api_key: POSTHOG_KEY,
@@ -95,6 +168,7 @@ export function captureBeacon(
             properties: {
                 ...properties,
                 $lib: 'mirrord-browser-extension',
+                $app_version: APP_VERSION,
             },
             timestamp: new Date().toISOString(),
         });
@@ -102,6 +176,35 @@ export function captureBeacon(
     } catch {
         // Analytics should never break the extension
     }
+}
+
+export function captureException(
+    error: unknown,
+    properties: Record<string, unknown> = {},
+    handled = true
+): void {
+    const err = error instanceof Error ? error : new Error(String(error));
+    capture('$exception', {
+        $exception_list: [
+            {
+                type: err.name,
+                value: err.message,
+                mechanism: { handled, synthetic: false },
+            },
+        ],
+        $exception_stack_trace_raw: err.stack,
+        surface: 'extension',
+        ...properties,
+    });
+}
+
+export function initErrorTracking(page: string): void {
+    window.addEventListener('error', (event) => {
+        captureException(event.error ?? event.message, { page }, false);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        captureException(event.reason, { page }, false);
+    });
 }
 
 export type EventKind = 'user_action' | 'health';

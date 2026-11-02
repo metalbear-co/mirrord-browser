@@ -3,6 +3,7 @@ jest.mock('../analytics', () => ({
     capture: jest.fn(),
     emitUserBlocked: jest.fn(),
     emitUserSucceeded: jest.fn(),
+    initErrorTracking: jest.fn(),
 }));
 // joinMatchingSession's internals are covered by config.test; here we control its result to
 // exercise run()'s join-vs-static-override orchestration.
@@ -27,7 +28,13 @@ beforeEach(() => {
     mockStorageSet.mockClear();
     mockStorageRemove.mockClear();
     globalThis.chrome = {
-        storage: { local: { set: mockStorageSet, remove: mockStorageRemove } },
+        storage: {
+            local: {
+                get: (_keys: string[], cb: (r: object) => void) => cb({}),
+                set: mockStorageSet,
+                remove: mockStorageRemove,
+            },
+        },
         runtime: { lastError: null },
         declarativeNetRequest: {
             getDynamicRules: mockGetDynamicRules,
@@ -84,11 +91,11 @@ describe('applied result page run()', () => {
         expect(mockJoinMatchingSession).toHaveBeenCalledWith('X-Test', 'v');
         // persisted as a reset-able override, never the saved defaults
         expect(mockStorageSet).toHaveBeenCalledWith(
-            expect.objectContaining({ override: expect.anything() }),
+            expect.objectContaining({ override: expect.anything() as unknown }),
             expect.any(Function)
         );
         expect(mockStorageSet).not.toHaveBeenCalledWith(
-            expect.objectContaining({ defaults: expect.anything() }),
+            expect.objectContaining({ defaults: expect.anything() as unknown }),
             expect.any(Function)
         );
         expect(mockStorageRemove).toHaveBeenCalled();
@@ -110,7 +117,7 @@ describe('applied result page run()', () => {
         expect(state).toMatchObject({ kind: 'done', joinedKey: 'k1' });
         // joined the live session — no static override written
         expect(mockStorageSet).not.toHaveBeenCalledWith(
-            expect.objectContaining({ override: expect.anything() }),
+            expect.objectContaining({ override: expect.anything() as unknown }),
             expect.any(Function)
         );
     });
@@ -126,9 +133,11 @@ describe('applied result page run()', () => {
 
         expect(mockJoinMatchingSession).toHaveBeenCalled();
         expect(state).toMatchObject({ kind: 'done' });
-        if (state.kind === 'done') expect(state.joinedKey).toBeUndefined();
+        if (state.kind === 'done') {
+            expect(state.joinedKey).toBeUndefined();
+        }
         expect(mockStorageSet).toHaveBeenCalledWith(
-            expect.objectContaining({ override: expect.anything() }),
+            expect.objectContaining({ override: expect.anything() as unknown }),
             expect.any(Function)
         );
         expect(mockStorageRemove).toHaveBeenCalled();

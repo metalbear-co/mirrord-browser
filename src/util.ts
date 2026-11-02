@@ -1,11 +1,22 @@
 import RandExp from 'randexp';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import {
+import type {
+    ClusterSession,
     Config,
+    ExecSession,
     HeaderRule,
+    OperatorPreviewSession,
+    OperatorSessionHttpFilter,
     OperatorSessionSummary,
+    PreviewPhase,
+    PreviewSession,
+} from './types';
+import {
     ALL_RESOURCE_TYPES,
+    PREVIEW_PHASES,
+    STORAGE_KEYS,
+    isPreviewSession,
 } from './types';
 import {
     STRINGS,
@@ -16,17 +27,12 @@ import {
 dayjs.extend(relativeTime);
 
 export function refreshIconIndicator(num: number) {
-    chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
+    void chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
     if (num > 0) {
-        chrome.action.setBadgeText({ text: '✓' });
+        void chrome.action.setBadgeText({ text: '✓' });
     } else {
-        chrome.action.setBadgeText({ text: '' });
+        void chrome.action.setBadgeText({ text: '' });
     }
-}
-
-function getDisplayScope(urlFilter: string | undefined): string {
-    const isWildcard = !urlFilter || urlFilter === '|';
-    return isWildcard ? STRINGS.MSG_ALL_URLS : urlFilter;
 }
 
 export function parseRules(
@@ -45,21 +51,28 @@ export function parseRules(
             continue;
         }
         const requestHeader = rule.action.requestHeaders[0];
-        const header = requestHeader?.header || '';
-        const value = requestHeader?.value || '';
-        const urlFilter = rule.condition?.urlFilter;
+        if (!requestHeader) {
+            continue;
+        }
+        const header = requestHeader.header;
+        const value = requestHeader.value ?? '';
+        const urlFilter = rule.condition.urlFilter;
         const isWildcard = !urlFilter || urlFilter === '|';
         const key = `${header}\n${value}`;
         const group = groups.get(key);
         if (group) {
-            if (!isWildcard) group.scopes.push(urlFilter as string);
-            if (rule.id < group.id) group.id = rule.id;
+            if (!isWildcard) {
+                group.scopes.push(urlFilter);
+            }
+            if (rule.id < group.id) {
+                group.id = rule.id;
+            }
         } else {
             groups.set(key, {
                 id: rule.id,
                 header,
                 value,
-                scopes: isWildcard ? [] : [urlFilter as string],
+                scopes: isWildcard ? [] : [urlFilter],
             });
         }
     }
@@ -113,11 +126,116 @@ export function getDynamicRules(): Promise<
     });
 }
 
-export function updateDynamicRules(
+const XHR_RESOURCE_TYPE =
+    'xmlhttprequest' as chrome.declarativeNetRequest.ResourceType;
+
+/** In baggage merge mode, the page script owns fetch/XHR baggage so DNR must not overwrite it. */
+export function isBaggageRule(rule: chrome.declarativeNetRequest.Rule) {
+    return (
+        rule.action.requestHeaders?.some(
+            (header) => header.header.toLowerCase() === 'baggage'
+        ) ?? false
+    );
+}
+
+export function withBaggageMerge(
+    rule: chrome.declarativeNetRequest.Rule,
+    merge: boolean
+): chrome.declarativeNetRequest.Rule {
+    if (!isBaggageRule(rule)) {
+        return rule;
+    }
+    const others = (rule.condition.resourceTypes ?? ALL_RESOURCE_TYPES).filter(
+        (type) => type !== XHR_RESOURCE_TYPE
+    );
+    return {
+        ...rule,
+        condition: {
+            ...rule.condition,
+            resourceTypes: merge ? others : [...others, XHR_RESOURCE_TYPE],
+        },
+    };
+}
+
+export async function baggageMergeEnabled(): Promise<boolean> {
+    const result = await storageGet([STORAGE_KEYS.BAGGAGE_MERGE]);
+    return result[STORAGE_KEYS.BAGGAGE_MERGE] === true;
+}
+
+export const BAGGAGE_CONFIG_UPDATE = 'mirrord-baggage-config-update';
+
+export interface BaggageConfigEntry {
+    value: string;
+    filters: string[];
+}
+
+export async function baggageConfig(): Promise<BaggageConfigEntry[]> {
+    if (!(await baggageMergeEnabled())) {
+        return [];
+    }
+    const entries: BaggageConfigEntry[] = [];
+    for (const rule of await getDynamicRules()) {
+        const header = rule.action.requestHeaders?.find(
+            (h) => h.header.toLowerCase() === 'baggage'
+        );
+        if (header?.value === undefined) {
+            continue;
+        }
+        const filter = rule.condition.urlFilter ?? '|';
+        const existing = entries.find((e) => e.value === header.value);
+        if (existing) {
+            existing.filters.push(filter);
+        } else {
+            entries.push({ value: header.value, filters: [filter] });
+        }
+    }
+    return entries;
+}
+
+/** Pushes the current baggage config to pages that already run the merge script. */
+export async function publishBaggageConfig(force = false): Promise<void> {
+    if (!force && !(await baggageMergeEnabled())) {
+        return;
+    }
+    const entries = await baggageConfig();
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+        tabs.map((tab) =>
+            tab.id === undefined
+                ? Promise.resolve()
+                : chrome.tabs
+                      .sendMessage(tab.id, {
+                          type: BAGGAGE_CONFIG_UPDATE,
+                          entries,
+                      })
+                      .catch(() => undefined)
+        )
+    );
+}
+
+export async function updateDynamicRules(
     opts: chrome.declarativeNetRequest.UpdateRuleOptions
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        chrome.declarativeNetRequest.updateDynamicRules(opts, () => {
+    const hasBaggage = opts.addRules?.some(isBaggageRule);
+    const merge = hasBaggage ? await baggageMergeEnabled() : false;
+    await applyDynamicRules(
+        opts.addRules && hasBaggage
+            ? {
+                  ...opts,
+                  addRules: opts.addRules.map((rule) =>
+                      withBaggageMerge(rule, merge)
+                  ),
+              }
+            : opts
+    );
+}
+
+/** Writes rules as given, without reading anything first, then refreshes open pages. */
+export async function applyDynamicRules(
+    update: chrome.declarativeNetRequest.UpdateRuleOptions
+): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+        chrome.declarativeNetRequest.updateDynamicRules(update, () => {
             if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
             } else {
@@ -125,6 +243,7 @@ export function updateDynamicRules(
             }
         });
     });
+    void publishBaggageConfig().catch(() => undefined);
 }
 
 export function storageGet(keys: string[]): Promise<Record<string, unknown>> {
@@ -160,38 +279,244 @@ export function storageRemove(keys: string[]): Promise<void> {
 }
 
 export function formatRelativeTime(iso: string | null | undefined): string {
-    if (!iso) return '';
+    if (!iso) {
+        return '';
+    }
     const parsed = dayjs(iso);
-    if (!parsed.isValid()) return '';
+    if (!parsed.isValid()) {
+        return '';
+    }
     return parsed.fromNow();
 }
 
-export const PREVIEW_OWNER_USERNAME = 'preview-env';
+const PREVIEW_OWNER_USERNAME = 'preview-env';
 
-export type SessionGroupAggregate = {
+export function normalizePreviewPhase(raw: unknown): PreviewPhase {
+    return PREVIEW_PHASES.includes(raw as PreviewPhase)
+        ? (raw as PreviewPhase)
+        : 'unknown';
+}
+
+// Check both markers set by mirrord CLI when folding a preview into the session list.
+function isFoldedPreview(session: OperatorSessionSummary): boolean {
+    return (
+        session.owner?.username === PREVIEW_OWNER_USERNAME &&
+        session.owner.k8sUsername === PREVIEW_OWNER_USERNAME
+    );
+}
+
+/**
+ * Builds the session list the popup renders out of the two lists the operator publishes.
+ *
+ * A preview environment can reach us twice: folded into `sessions` with owner username as
+ * `preview-env`, and again in dedicated `previewSessions`. The dedicated list wins - a folded
+ * preview is promoted on its own only when the dedicated list does not account for it, which is the
+ * backward-compatible path for the v1 API and for operators predating `previewSessions`.
+ */
+export function toClusterSessions(
+    sessions: OperatorSessionSummary[],
+    previews: OperatorPreviewSession[] | undefined
+): ClusterSession[] {
+    const reported = previews ?? [];
+    // Matched on id — both projections use the preview's k8s uid — and, defensively, on key, so an
+    // operator that ever changes how it stamps the folded entry's id cannot resurrect a duplicate.
+    const reportedIds = new Set(reported.map((p) => p.id));
+    const reportedKeys = new Set(reported.map((p) => p.key));
+
+    const folded = sessions.filter(isFoldedPreview);
+    const foldedFilter = (preview: OperatorPreviewSession) =>
+        folded.find((s) => s.id === preview.id || s.key === preview.key)
+            ?.httpFilter;
+
+    return [
+        ...sessions.filter((s) => !isFoldedPreview(s)).map(asExecSession),
+        ...reported.map((preview) =>
+            asPreviewSession(preview, foldedFilter(preview))
+        ),
+        // Fallback only: previews the dedicated list never mentioned.
+        ...folded
+            .filter((s) => !reportedIds.has(s.id) && !reportedKeys.has(s.key))
+            .map(foldedAsPreviewSession),
+    ];
+}
+
+function asExecSession(session: OperatorSessionSummary): ExecSession {
+    return {
+        kind: 'exec',
+        id: session.id,
+        key: session.key,
+        namespace: session.namespace,
+        owner: session.owner,
+        target: session.target,
+        createdAt: session.createdAt,
+        ...(session.httpFilter ? { httpFilter: session.httpFilter } : {}),
+    };
+}
+
+function asPreviewSession(
+    preview: OperatorPreviewSession,
+    httpFilter: OperatorSessionHttpFilter | null | undefined
+): PreviewSession {
+    const phase = normalizePreviewPhase(preview.phase);
+    return {
+        kind: 'preview',
+        id: preview.id,
+        key: preview.key,
+        namespace: preview.namespace,
+        target: preview.target,
+        createdAt: preview.createdAt,
+        phase,
+        ...(phase === 'idle' && preview.idleSecs !== undefined
+            ? { idleSecs: preview.idleSecs }
+            : {}),
+        ...(httpFilter ? { httpFilter } : {}),
+    };
+}
+
+function foldedAsPreviewSession(
+    session: OperatorSessionSummary
+): PreviewSession {
+    return {
+        kind: 'preview',
+        id: session.id,
+        key: session.key,
+        namespace: session.namespace,
+        target: session.target,
+        createdAt: session.createdAt,
+        phase: 'unknown',
+        ...(session.httpFilter ? { httpFilter: session.httpFilter } : {}),
+    };
+}
+
+export type PreviewTone = 'live' | 'pending' | 'idle' | 'paused' | 'failed';
+
+export function previewPhaseTone(preview: PreviewSession): PreviewTone | null {
+    switch (preview.phase) {
+        case 'ready':
+            return 'live';
+        case 'initializing':
+        case 'waiting':
+            return 'pending';
+        case 'failed':
+            return 'failed';
+        case 'idle':
+            return 'idle';
+        case 'paused':
+            return 'paused';
+        case 'unknown':
+            return null;
+    }
+}
+
+export function previewPhaseLabel(preview: PreviewSession): string | null {
+    switch (preview.phase) {
+        case 'idle':
+            return preview.idleSecs === undefined
+                ? STRINGS.PREVIEW_PHASE_LABEL.idle
+                : `${STRINGS.PREVIEW_PHASE_LABEL.idle} ${formatDurationSecs(preview.idleSecs)}`;
+        case 'initializing':
+        case 'waiting':
+        case 'failed':
+        case 'paused':
+            return STRINGS.PREVIEW_PHASE_LABEL[preview.phase];
+        case 'ready':
+        case 'unknown':
+            return null;
+    }
+}
+
+// Whether a preview environment is currently serving, or would on the next request. `idle` counts:
+// its pods are scaled to zero but traffic wakes them. `paused` does not — nothing wakes it.
+export function isPreviewLive(preview: PreviewSession): boolean {
+    switch (preview.phase) {
+        // `unknown` means the operator never told us, so assume up, as before phases existed.
+        case 'ready':
+        case 'idle':
+        case 'unknown':
+            return true;
+        case 'initializing':
+        case 'waiting':
+        case 'paused':
+        case 'failed':
+            return false;
+    }
+}
+
+// A key's group is live unless it is a preview environment that is not currently serving.
+export function groupTone(sessions: ClusterSession[]): PreviewTone {
+    const preview = sessions.find(isPreviewSession);
+    return (preview && previewPhaseTone(preview)) ?? 'live';
+}
+
+export function isGroupLive(sessions: ClusterSession[]): boolean {
+    const preview = sessions.find(isPreviewSession);
+    return preview ? isPreviewLive(preview) : true;
+}
+
+export function previewStatusLine(preview: PreviewSession): string {
+    switch (preview.phase) {
+        case 'initializing':
+        case 'waiting':
+            return STRINGS.MSG_PREVIEW_STARTING;
+        case 'ready':
+            return STRINGS.MSG_PREVIEW_READY;
+        case 'idle':
+            return STRINGS.MSG_PREVIEW_IDLE(
+                preview.idleSecs === undefined
+                    ? null
+                    : formatDurationSecs(preview.idleSecs)
+            );
+        case 'paused':
+            return STRINGS.MSG_PREVIEW_PAUSED;
+        case 'failed':
+            return STRINGS.MSG_PREVIEW_FAILED;
+        case 'unknown':
+            return STRINGS.MSG_AVAILABLE;
+    }
+}
+
+const SECS_PER_MIN = 60;
+const MINS_PER_HOUR = 60;
+
+export function formatDurationSecs(secs: number): string {
+    const seconds = Math.max(0, Math.floor(secs));
+    const minutes = Math.floor(seconds / SECS_PER_MIN);
+    const hours = Math.floor(minutes / MINS_PER_HOUR);
+    if (hours > 0) {
+        return `${hours}h ${minutes % MINS_PER_HOUR}m`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${seconds % SECS_PER_MIN}s`;
+    }
+    return `${seconds}s`;
+}
+
+export interface SessionGroupAggregate {
     targets: string[];
     owners: string[];
     namespaces: string[];
     earliestCreatedAt: string | null;
-    isPreview: boolean;
-};
+    // The preview environment behind this key, or `null` for a group of ordinary exec sessions. A
+    // key maps to at most one preview environment.
+    preview: PreviewSession | null;
+}
 
 export function aggregateSessions(
-    sessions: OperatorSessionSummary[]
+    sessions: ClusterSession[]
 ): SessionGroupAggregate {
     const targets = new Set<string>();
     const owners = new Set<string>();
     const namespaces = new Set<string>();
     let earliest: string | null = null;
-    let isPreview = false;
+    let preview: PreviewSession | null = null;
 
     for (const s of sessions) {
         const targetLabel = s.target
             ? `${s.target.kind}/${s.target.name}`
             : 'targetless';
         targets.add(targetLabel);
-        if (s.owner?.username === PREVIEW_OWNER_USERNAME) {
-            isPreview = true;
+        if (s.kind === 'preview') {
+            preview ??= s;
         } else if (s.owner?.username) {
             owners.add(s.owner.username);
         }
@@ -206,7 +531,7 @@ export function aggregateSessions(
         owners: Array.from(owners),
         namespaces: Array.from(namespaces),
         earliestCreatedAt: earliest,
-        isPreview,
+        preview,
     };
 }
 
@@ -228,12 +553,13 @@ export function buildShareUrl(config: Config): string {
     return `${METALBEAR_EXTENSION_URL}#${CONFIG_HASH_PARAM}=${encoded}`;
 }
 
-export type InjectionHint = {
+export interface InjectionHint {
     header: string;
     value: string;
-};
+}
 
 const HEADER_LINE_PATTERN = /^([A-Za-z0-9_-]+):\s?(.+)$/;
+const NON_DOT_REGEX_SYNTAX = /[\\^$*+?()[\]{}|]/;
 
 function generateLowestMatch(pattern: string): string | null {
     try {
@@ -247,28 +573,45 @@ function generateLowestMatch(pattern: string): string | null {
 }
 
 function parseHeaderLine(line: string): InjectionHint | null {
-    const m = line.match(HEADER_LINE_PATTERN);
-    if (!m) return null;
-    return { header: m[1], value: m[2] };
+    const m = HEADER_LINE_PATTERN.exec(line);
+    if (!m) {
+        return null;
+    }
+    const header = m[1];
+    const value = m[2];
+    if (header === undefined || value === undefined) {
+        return null;
+    }
+    return { header, value };
 }
 
 export function deriveInjectionHint(
     headerFilter: string | null | undefined
 ): InjectionHint | null {
-    if (!headerFilter) return null;
+    if (!headerFilter) {
+        return null;
+    }
     const trimmed = headerFilter.trim();
-    if (!trimmed) return null;
+    if (!trimmed) {
+        return null;
+    }
+    if (!NON_DOT_REGEX_SYNTAX.test(trimmed)) {
+        return parseHeaderLine(trimmed);
+    }
     const generated = generateLowestMatch(trimmed);
-    if (!generated) return null;
+    if (!generated) {
+        return null;
+    }
     return parseHeaderLine(generated);
 }
 
-export const BAGGAGE_HEADER_NAME = 'baggage';
-export const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
+const BAGGAGE_HEADER_NAME = 'baggage';
+const BAGGAGE_VALUE_PREFIX = 'mirrord-session=';
 
-export function sessionInjectionPair(
-    session: Pick<OperatorSessionSummary, 'key' | 'httpFilter'>
-): InjectionHint {
+export function sessionInjectionPair(session: {
+    key: string;
+    httpFilter?: OperatorSessionHttpFilter | null;
+}): InjectionHint {
     return (
         deriveInjectionHint(session.httpFilter?.headerFilter) ?? {
             header: BAGGAGE_HEADER_NAME,

@@ -10,7 +10,7 @@ import {
     Plus,
 } from 'lucide-react';
 import { Button, Input } from '@metalbear/ui';
-import type { OperatorSessionSummary } from '../types';
+import type { ClusterSession } from '../types';
 import { STRINGS } from '../constants';
 import { COLORS } from '../colors';
 import { RING_SECONDS } from '../headerObservation';
@@ -20,12 +20,13 @@ import { StatusDot } from './StatusDot';
 import {
     aggregateSessions,
     formatRelativeTime,
+    previewPhaseLabel,
     targetDisplayName,
 } from '../util';
 
-type Props = {
+interface Props {
     joinedKey: string;
-    sessions: OperatorSessionSummary[];
+    sessions: ClusterSession[];
     liveness: JoinLiveness;
     onLeave: () => void;
     onShare: () => void;
@@ -34,9 +35,11 @@ type Props = {
     onRemoveScopePattern: (pattern: string) => void | Promise<void>;
     joinedHeader: string | null;
     joinedValue: string | null;
-};
+}
 
 const MAX_TARGETS = 4;
+const COPIED_RESET_MS = 1200;
+const DIMMED_OPACITY = 0.6;
 
 export function ConnectedBanner({
     joinedKey,
@@ -54,14 +57,15 @@ export function ConnectedBanner({
     const shownTargets = agg.targets.slice(0, MAX_TARGETS);
     const overflowTargets = agg.targets.length - shownTargets.length;
     const age = formatRelativeTime(agg.earliestCreatedAt);
-    const ownerLabel = agg.isPreview
-        ? 'preview'
+    const ownerLabel = agg.preview
+        ? STRINGS.LABEL_PREVIEW
         : agg.owners.length === 1
           ? agg.owners[0]
           : agg.owners.length > 1
             ? `${agg.owners.length} owners`
             : '';
-    const metaParts = [ownerLabel, age].filter(Boolean);
+    const phaseLabel = agg.preview ? previewPhaseLabel(agg.preview) : null;
+    const metaParts = [ownerLabel, phaseLabel, age].filter(Boolean);
     const ended = liveness === 'ended';
     const pending = liveness === 'pending';
     const label = ended
@@ -96,13 +100,15 @@ export function ConnectedBanner({
     const observed = observation.totalLast60s;
 
     const copyHeader = async () => {
-        if (!joinedHeader || !joinedValue) return;
+        if (!joinedHeader || !joinedValue) {
+            return;
+        }
         try {
             await navigator.clipboard.writeText(
                 `${joinedHeader}: ${joinedValue}`
             );
             setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
+            setTimeout(() => setCopied(false), COPIED_RESET_MS);
         } catch {}
     };
 
@@ -114,13 +120,17 @@ export function ConnectedBanner({
     }, [ended]);
 
     useEffect(() => {
-        if (composing) inputRef.current?.focus();
+        if (composing) {
+            inputRef.current?.focus();
+        }
     }, [composing]);
 
     const submit = async () => {
         const trimmed = draft.trim();
         if (!trimmed) {
-            if (scopePatterns.length > 0) setComposing(false);
+            if (scopePatterns.length > 0) {
+                setComposing(false);
+            }
             return;
         }
         await onAddScopePattern(trimmed);
@@ -209,10 +219,10 @@ export function ConnectedBanner({
                     {shownTargets.map((t) => (
                         <div
                             key={t}
-                            className="flex items-center gap-2 min-w-0"
+                            className="flex min-w-0 items-center gap-2"
                         >
                             <Box
-                                className="shrink-0 text-muted-foreground"
+                                className="text-muted-foreground shrink-0"
                                 style={{ height: 13, width: 13 }}
                             />
                             <div
@@ -235,7 +245,8 @@ export function ConnectedBanner({
                             className="text-muted-foreground"
                             style={{ paddingLeft: 21, fontSize: 11 }}
                         >
-                            + {overflowTargets} more target
+                            {STRINGS.PUNCT_PLUS} {overflowTargets}{' '}
+                            {STRINGS.LABEL_MORE_TARGET}
                             {overflowTargets === 1 ? '' : 's'}
                         </div>
                     )}
@@ -269,7 +280,7 @@ export function ConnectedBanner({
                         style={{ fontSize: 10.5 }}
                     >
                         <span
-                            className="inline-flex items-center text-muted-foreground font-semibold"
+                            className="text-muted-foreground inline-flex items-center font-semibold"
                             style={{
                                 gap: 6,
                                 letterSpacing: 'normal',
@@ -306,9 +317,9 @@ export function ConnectedBanner({
                                     type="button"
                                     aria-label={STRINGS.LABEL_REMOVE_PATTERN}
                                     onClick={() =>
-                                        onRemoveScopePattern(pattern)
+                                        void onRemoveScopePattern(pattern)
                                     }
-                                    className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                                    className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
                                     style={{
                                         height: 16,
                                         width: 16,
@@ -327,7 +338,7 @@ export function ConnectedBanner({
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        submit();
+                                        void submit();
                                     } else if (
                                         e.key === 'Escape' &&
                                         scopePatterns.length > 0
@@ -336,7 +347,7 @@ export function ConnectedBanner({
                                         setComposing(false);
                                     }
                                 }}
-                                onBlur={submit}
+                                onBlur={() => void submit()}
                                 placeholder={STRINGS.PLACEHOLDER_URL_PATTERN}
                                 spellCheck={false}
                                 autoComplete="off"
@@ -353,7 +364,7 @@ export function ConnectedBanner({
                                 type="button"
                                 aria-label={STRINGS.PLACEHOLDER_URL_PATTERN}
                                 onClick={() => setComposing(true)}
-                                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                                className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
                                 style={{
                                     height: 24,
                                     width: 24,
@@ -404,20 +415,21 @@ export function ConnectedBanner({
                                 fontWeight: 600,
                             }}
                         >
-                            {observed} req · last {RING_SECONDS}s
+                            {observed} {STRINGS.LABEL_REQ_LAST} {RING_SECONDS}
+                            {STRINGS.LABEL_SECONDS_SUFFIX}
                         </span>
                     </div>
                     {joinedHeader && joinedValue && (
                         <button
                             type="button"
-                            onClick={copyHeader}
+                            onClick={() => void copyHeader()}
                             title={
                                 copied
                                     ? STRINGS.BTN_COPIED
                                     : STRINGS.BTN_COPY_HEADER
                             }
                             aria-label={STRINGS.BTN_COPY_HEADER}
-                            className="font-mono group"
+                            className="group font-mono"
                             style={{
                                 marginTop: 4,
                                 display: 'flex',
@@ -492,7 +504,7 @@ export function ConnectedBanner({
                                     color: copied
                                         ? COLORS.success.dot
                                         : 'inherit',
-                                    opacity: copied ? 1 : 0.6,
+                                    opacity: copied ? 1 : DIMMED_OPACITY,
                                     flexShrink: 0,
                                     display: 'grid',
                                     placeItems: 'center',

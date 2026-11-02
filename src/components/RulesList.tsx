@@ -1,16 +1,16 @@
-import { HeaderRule } from '../types';
+import type { HeaderRule } from '../types';
 import { STRINGS } from '../constants';
 import { RuleItem } from './RuleItem';
 
-type RulesListProps = {
+interface RulesListProps {
     rules: HeaderRule[];
-};
+}
 
 export function RulesList({ rules }: RulesListProps) {
     if (rules.length === 0) {
         return (
-            <div className="text-center py-2">
-                <p className="text-xs text-muted-foreground">
+            <div className="py-2 text-center">
+                <p className="text-muted-foreground text-xs">
                     {STRINGS.MSG_NO_ACTIVE_HEADERS}
                 </p>
             </div>

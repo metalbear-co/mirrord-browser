@@ -1,19 +1,24 @@
 import { STORAGE_KEYS } from './types';
 import {
+    baggageConfig,
     buildDnrRule,
     getDynamicRules,
     refreshIconIndicator,
-    sessionInjectionPair,
     storageGet,
     storageRemove,
     storageSet,
     updateDynamicRules,
 } from './util';
-import { fetchOperatorSessions } from './hooks/useMirrordUi';
+import {
+    isMirrordUiAuthError,
+    resolveJoinTarget,
+    type JoinTarget,
+} from './joinSession';
 import {
     HEADER_OBSERVATION_PORT,
     armCanary,
     cancelCanary,
+    countRequestWhileArmed,
     emptyObservation,
     notifyHeaderObserved,
     recordRequest,
@@ -22,6 +27,12 @@ import {
     type HeaderObservation,
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import {
+    BAGGAGE_CONFIG_REQUEST,
+    isBaggageModeChange,
+    reconnectBaggageBridges,
+    syncBaggageMode,
+} from './baggageMode';
 
 const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
@@ -30,16 +41,25 @@ const LEAVE_RESULT_TYPE = 'leave_result';
 const TRUSTED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const OBSERVATION_SESSION_KEY = 'header_observation';
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+const ROTATION_INTERVAL_MS = 1000;
 
-type ConfigureMessage = {
+interface ConfigureMessage {
     type: typeof MIRRORD_UI_CONFIGURE_TYPE;
     backend: string;
     token: string;
-};
+}
 
-type PingMessage = { type: 'ping' };
-type JoinMessage = { type: 'join'; key: string };
-type LeaveMessage = { type: 'leave' };
+interface PingMessage {
+    type: 'ping';
+}
+interface JoinMessage {
+    type: 'join';
+    key: string;
+    context?: string;
+}
+interface LeaveMessage {
+    type: 'leave';
+}
 type BridgeMessage =
     | ConfigureMessage
     | PingMessage
@@ -53,7 +73,7 @@ let observationLoaded = false;
 
 self.addEventListener('error', (event: ErrorEvent) => {
     emitUserBlocked('unhandled_error', 'health', {
-        error: event.message ?? 'unknown',
+        error: event.message,
         source: 'error',
     });
 });
@@ -81,13 +101,39 @@ chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
 
-restoreObservation().then(loadHeaderName);
+void restoreObservation().then(() => loadHeaderName());
 chrome.runtime.onStartup.addListener(() => {
-    restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
 chrome.runtime.onInstalled.addListener(() => {
-    restoreObservation().then(loadHeaderName);
+    void restoreObservation().then(() => loadHeaderName());
 });
+
+chrome.runtime.onInstalled.addListener((details) => {
+    void syncBaggageMode().then(() =>
+        (details.reason as string) === 'update'
+            ? reconnectBaggageBridges()
+            : undefined
+    );
+});
+
+chrome.runtime.onMessage.addListener(
+    (
+        message: unknown,
+        sender: chrome.runtime.MessageSender,
+        sendResponse: (response: unknown) => void
+    ) => {
+        if (
+            sender.id !== chrome.runtime.id ||
+            (message as { type?: unknown } | null)?.type !==
+                BAGGAGE_CONFIG_REQUEST
+        ) {
+            return;
+        }
+        void baggageConfig().then(sendResponse, () => sendResponse([]));
+        return true;
+    }
+);
 
 const RULE_TRIGGERING_KEYS: readonly string[] = [
     STORAGE_KEYS.OVERRIDE,
@@ -97,18 +143,28 @@ const RULE_TRIGGERING_KEYS: readonly string[] = [
 ];
 
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local') return;
+    if (area !== 'local') {
+        return;
+    }
     if (RULE_TRIGGERING_KEYS.some((key) => key in changes)) {
-        loadHeaderName();
+        loadHeaderName({ arm: true });
+    }
+    if (isBaggageModeChange(changes)) {
+        void syncBaggageMode();
     }
 });
 
 chrome.webRequest.onSendHeaders.addListener(
     (details) => {
-        if (!observation.headerName) return;
+        countRequestWhileArmed();
+        if (!observation.headerName) {
+            return;
+        }
         const target = observation.headerName.toLowerCase();
         const headers = details.requestHeaders ?? [];
-        if (!headers.some((h) => h.name.toLowerCase() === target)) return;
+        if (!headers.some((h) => h.name.toLowerCase() === target)) {
+            return;
+        }
         observation = recordRequest(
             observation,
             details.url,
@@ -118,7 +174,9 @@ chrome.webRequest.onSendHeaders.addListener(
         const matchedHeader = headers.find(
             (h) => h.name.toLowerCase() === target
         );
-        if (matchedHeader) notifyHeaderObserved(matchedHeader.name);
+        if (matchedHeader) {
+            notifyHeaderObserved(matchedHeader.name);
+        }
         persistObservation();
         broadcast();
     },
@@ -127,13 +185,17 @@ chrome.webRequest.onSendHeaders.addListener(
 );
 
 chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== HEADER_OBSERVATION_PORT) return;
+    if (port.name !== HEADER_OBSERVATION_PORT) {
+        return;
+    }
     subscribers.add(port);
     ensureRotation();
     pushTo(port);
     port.onDisconnect.addListener(() => {
         subscribers.delete(port);
-        if (subscribers.size === 0) stopRotation();
+        if (subscribers.size === 0) {
+            stopRotation();
+        }
     });
 });
 
@@ -143,10 +205,12 @@ function restrictStorageAccess() {
             setAccessLevel?: (opts: { accessLevel: string }) => Promise<void>;
         }
     ).setAccessLevel;
-    if (typeof setAccessLevel !== 'function') return;
+    if (typeof setAccessLevel !== 'function') {
+        return;
+    }
     setAccessLevel
         .call(chrome.storage.local, { accessLevel: 'TRUSTED_CONTEXTS' })
-        .catch(() => {});
+        .catch(() => undefined);
 }
 
 chrome.runtime.onMessageExternal.addListener(
@@ -160,16 +224,19 @@ chrome.runtime.onMessageExternal.addListener(
             return;
         }
         const m = message as Partial<BridgeMessage> | null;
-        if (m && m.type === 'ping') {
-            handlePing().then(sendResponse);
+        if (m?.type === 'ping') {
+            void handlePing().then(sendResponse);
             return true;
         }
-        if (m && m.type === 'join' && typeof m.key === 'string') {
-            handleJoin(m.key).then(sendResponse);
+        if (m?.type === 'join' && typeof m.key === 'string') {
+            void handleJoin(
+                m.key,
+                typeof m.context === 'string' ? m.context : null
+            ).then(sendResponse);
             return true;
         }
-        if (m && m.type === 'leave') {
-            handleLeave().then(sendResponse);
+        if (m?.type === 'leave') {
+            void handleLeave().then(sendResponse);
             return true;
         }
         if (!isConfigureMessage(message)) {
@@ -212,7 +279,7 @@ async function handlePing() {
     };
 }
 
-export async function handleJoin(key: string) {
+export async function handleJoin(key: string, context: string | null = null) {
     try {
         const stored = await storageGet([
             STORAGE_KEYS.MIRRORD_UI_BACKEND,
@@ -234,17 +301,21 @@ export async function handleJoin(key: string) {
                 error,
             };
         }
-        const sessionsResp = await fetchOperatorSessions(backend, token);
-        const target = sessionsResp.sessions.find((s) => s.key === key);
-        if (!target) {
-            const error = `key ${key} not visible from extension`;
-            emitUserBlocked('join_key_not_visible', 'user_action', {
+        let target: JoinTarget;
+        try {
+            target = await resolveJoinTarget(backend, token, key, context);
+        } catch (err) {
+            if (!isMirrordUiAuthError(err)) {
+                throw err;
+            }
+            const error = 'mirrord ui token rejected';
+            emitUserBlocked('join_auth_failed', 'user_action', {
                 error,
                 key,
             });
             return { type: JOIN_RESULT_TYPE, ok: false, error };
         }
-        const { header, value } = sessionInjectionPair(target);
+        const { header, value } = target;
         const scope =
             (stored[STORAGE_KEYS.SCOPE_PATTERNS] as string[] | undefined) ?? [];
         const existing = await getDynamicRules();
@@ -254,12 +325,17 @@ export async function handleJoin(key: string) {
         });
         await storageSet({
             [STORAGE_KEYS.JOINED_KEY]: key,
-            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
+            [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
+            ...(target.context && {
+                [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
+            }),
         });
-        armCanary({ headerName: header, flow: 'session_monitor' });
-        emitUserSucceeded('joined', 'user_action', { key });
+        emitUserSucceeded('joined', 'user_action', {
+            key,
+            resolved: target.resolved,
+        });
         return { type: JOIN_RESULT_TYPE, ok: true, joinedKey: key };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -286,7 +362,6 @@ export async function handleLeave() {
             STORAGE_KEYS.JOINED_VALUE,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
-        cancelCanary();
         emitUserSucceeded('left', 'user_action');
         return { type: LEAVE_RESULT_TYPE, ok: true };
     } catch (err) {
@@ -301,7 +376,9 @@ export async function handleLeave() {
 }
 
 function isTrustedSender(sender: chrome.runtime.MessageSender): boolean {
-    if (!sender.url) return false;
+    if (!sender.url) {
+        return false;
+    }
     try {
         const origin = new URL(sender.url).origin;
         return TRUSTED_ORIGIN.test(origin);
@@ -311,12 +388,14 @@ function isTrustedSender(sender: chrome.runtime.MessageSender): boolean {
 }
 
 function isConfigureMessage(value: unknown): value is ConfigureMessage {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
     const m = value as Record<string, unknown>;
     return (
-        m.type === MIRRORD_UI_CONFIGURE_TYPE &&
-        typeof m.backend === 'string' &&
-        typeof m.token === 'string'
+        m['type'] === MIRRORD_UI_CONFIGURE_TYPE &&
+        typeof m['backend'] === 'string' &&
+        typeof m['token'] === 'string'
     );
 }
 
@@ -332,7 +411,7 @@ function configureSidePanel() {
     ).sidePanel;
     sidePanel
         ?.setPanelBehavior?.({ openPanelOnActionClick: true })
-        ?.catch(() => {});
+        .catch(() => undefined);
 }
 
 function refreshIcon() {
@@ -341,9 +420,36 @@ function refreshIcon() {
     });
 }
 
-function loadHeaderName() {
+/** `buildDnrRule` uses the `|` url filter as its match-all sentinel. */
+function isScopedCondition(
+    condition: chrome.declarativeNetRequest.RuleCondition
+): boolean {
+    const filter = condition.urlFilter ?? condition.regexFilter ?? '';
+    return filter.length > 0 && filter !== '|';
+}
+
+function syncCanary(headerName: string, scoped: boolean) {
+    if (!headerName) {
+        cancelCanary();
+        return;
+    }
+    void storageGet([STORAGE_KEYS.JOINED_KEY]).then(
+        (stored) =>
+            armCanary({
+                headerName,
+                flow: stored[STORAGE_KEYS.JOINED_KEY]
+                    ? 'session_monitor'
+                    : 'header_injector',
+                scoped,
+            }),
+        () => undefined
+    );
+}
+
+function loadHeaderName(options: { arm?: boolean } = {}) {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
         let headerName = '';
+        let scoped = false;
         for (const rule of rules) {
             if (
                 rule.action.type ===
@@ -352,26 +458,35 @@ function loadHeaderName() {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;
+                    scoped = isScopedCondition(rule.condition);
                     break;
                 }
             }
         }
         const next = setHeaderName(observation, headerName);
-        if (next !== observation) {
+        const changed = next !== observation;
+        if (changed) {
             observation = next;
             persistObservation();
+        }
+        if (options.arm === true && changed) {
+            syncCanary(headerName, scoped);
         }
         broadcast();
     });
 }
 
 async function restoreObservation(): Promise<void> {
-    if (observationLoaded) return;
+    if (observationLoaded) {
+        return;
+    }
     observationLoaded = true;
     const session = (
         chrome.storage as unknown as { session?: chrome.storage.StorageArea }
     ).session;
-    if (!session) return;
+    if (!session) {
+        return;
+    }
     try {
         const stored = await session.get(OBSERVATION_SESSION_KEY);
         const value = stored[OBSERVATION_SESSION_KEY] as
@@ -387,26 +502,36 @@ function persistObservation() {
     const session = (
         chrome.storage as unknown as { session?: chrome.storage.StorageArea }
     ).session;
-    if (!session) return;
-    session.set({ [OBSERVATION_SESSION_KEY]: observation }).catch(() => {});
+    if (!session) {
+        return;
+    }
+    session
+        .set({ [OBSERVATION_SESSION_KEY]: observation })
+        .catch(() => undefined);
 }
 
 function ensureRotation() {
-    if (rotationTimer !== null) return;
+    if (rotationTimer !== null) {
+        return;
+    }
     rotationTimer = setInterval(() => {
         observation = rotateBuckets(observation, Date.now());
         broadcast();
-    }, 1000);
+    }, ROTATION_INTERVAL_MS);
 }
 
 function stopRotation() {
-    if (rotationTimer === null) return;
+    if (rotationTimer === null) {
+        return;
+    }
     clearInterval(rotationTimer);
     rotationTimer = null;
 }
 
 function broadcast() {
-    for (const port of subscribers) pushTo(port);
+    for (const port of subscribers) {
+        pushTo(port);
+    }
 }
 
 function pushTo(port: chrome.runtime.Port) {

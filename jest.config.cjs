@@ -8,6 +8,7 @@ module.exports = {
     moduleNameMapper: {
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
         '\\.(svg|png|jpg|jpeg|gif)$': '<rootDir>/src/__mocks__/fileMock.js',
+        '\\?script$': '<rootDir>/src/__mocks__/fileMock.js',
     },
     testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
 };

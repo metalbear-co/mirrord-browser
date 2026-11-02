@@ -8,6 +8,53 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.9.0](https://github.com/metalbear-co/mirrord-browser/tree/0.9.0) - 2026-10-21
+
+
+### Changed
+
+- The popup opens on the Sessions tab instead of Override. A tab you pick is
+  still remembered.
+
+
+### Fixed
+
+- Joining a preview environment that filters on a custom header, such as a
+  renamed `baggage` header, injects that header instead of `baggage`.
+- Joining a session from mirrord ui injects that session's own header even when
+  it runs in a kube context other than the current one, instead of falling back
+  to `baggage`.
+
+## [0.8.0](https://github.com/metalbear-co/mirrord-browser/tree/0.8.0) - 2026-10-02
+
+
+### Added
+
+- Added a setting that keeps a page's own `baggage` header and adds the mirrord
+  entry to it in fetch and XHR requests, instead of replacing it.
+
+## [0.7.0](https://github.com/metalbear-co/mirrord-browser/tree/0.7.0) - 2026-09-09
+
+
+### Changed
+
+- Display preview environments' state in session list.
+
+## [0.6.0](https://github.com/metalbear-co/mirrord-browser/tree/0.6.0) - 2026-07-21
+
+
+### Added
+
+- Added a kube context selector to the popup. When the `mirrord ui` server
+  supports it, you can pick which cluster context's sessions to view (and still
+  filter by namespace); older servers keep working unchanged.
+
+
+### Changed
+
+- Saving a manual header now also enables it, so the header is injected right
+  away without a separate toggle step.
+
 ## [0.5.2](https://github.com/metalbear-co/mirrord-browser/tree/0.5.2) - 2026-07-09
 
 

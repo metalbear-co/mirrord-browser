@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import groupBy from 'lodash.groupby';
 import { STORAGE_KEYS } from '../types';
 import type {
+    ClusterSession,
     Config,
     ContextsResponse,
     KubeContext,
-    OperatorSessionSummary,
+    LocalSessionSummary,
     OperatorSessionsResponse,
+    OperatorSessionsV1Response,
     OperatorSessionsV2Response,
     OperatorWatchStatus,
     SessionNotification,
@@ -25,18 +27,42 @@ import {
     sessionInjectionPair,
     buildDnrRule,
     buildShareUrl as buildConfigShareUrl,
+    toClusterSessions,
 } from '../util';
 import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
 let bridgeHealthy = true;
+
+const HTTP_NOT_FOUND = 404;
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
 
 export async function fetchOperatorSessions(
     backend: string,
     token: string,
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
-    const url = `${backend}/api/operator-sessions?token=${encodeURIComponent(token)}`;
-    const resp = await fetchImpl(url);
+    const url = `${backend}/api/operator-sessions`;
+    const resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
+    if (isAuthFailureStatus(resp.status)) {
+        const retry = await fetchImpl(
+            `${url}?token=${encodeURIComponent(token)}`
+        );
+        if (retry.ok) {
+            try {
+                return mapV1ToInternal(
+                    (await retry.json()) as OperatorSessionsV1Response
+                );
+            } catch {}
+        }
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
+    }
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
@@ -44,7 +70,40 @@ export async function fetchOperatorSessions(
         (e as Error & { status?: number }).status = resp.status;
         throw e;
     }
-    return (await resp.json()) as OperatorSessionsResponse;
+    return mapV1ToInternal((await resp.json()) as OperatorSessionsV1Response);
+}
+
+/**
+ * v1 or older operator has no dedicated preview list. Its previews therefore only ever
+ * arrive folded into `sessions`, which `toClusterSessions` includes on the fallback path if
+ * it's not already included.
+ */
+function mapV1ToInternal(
+    v1: OperatorSessionsV1Response
+): OperatorSessionsResponse {
+    return rebuild(toClusterSessions(v1.sessions, undefined), v1.watch_status);
+}
+
+export async function fetchLocalSessions(
+    backend: string,
+    token: string,
+    fetchImpl: typeof fetch = fetch
+): Promise<LocalSessionSummary[]> {
+    const headers = { 'x-auth-token': token };
+    let resp = await fetchImpl(`${backend}/api/v2/local/sessions`, {
+        headers,
+    });
+    if (resp.status === HTTP_NOT_FOUND) {
+        resp = await fetchImpl(`${backend}/api/sessions`, { headers });
+    }
+    if (!resp.ok) {
+        const e = new Error(
+            `mirrord ui responded ${resp.status} ${resp.statusText}`
+        );
+        (e as Error & { status?: number }).status = resp.status;
+        throw e;
+    }
+    return (await resp.json()) as LocalSessionSummary[];
 }
 
 /**
@@ -57,9 +116,13 @@ export async function fetchContexts(
     token: string,
     fetchImpl: typeof fetch = fetch
 ): Promise<ContextsResponse | null> {
-    const url = `${backend}/api/v2/kube/contexts?token=${encodeURIComponent(token)}`;
-    const resp = await fetchImpl(url);
-    if (resp.status === 404) return null;
+    const url = `${backend}/api/v2/kube/contexts`;
+    const resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
+    if (resp.status === HTTP_NOT_FOUND) {
+        return null;
+    }
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}`
@@ -77,11 +140,10 @@ function mapV2ToInternal(
         v2.status === 'available'
             ? { status: 'watching' }
             : { status: 'unavailable', reason: v2.reason ?? '' };
-    return {
-        sessions: v2.sessions,
-        by_key: groupByKey(v2.sessions),
-        watch_status,
-    };
+    return rebuild(
+        toClusterSessions(v2.sessions, v2.previewSessions),
+        watch_status
+    );
 }
 
 /**
@@ -94,10 +156,14 @@ export async function fetchOperatorSessionsV2(
     context: string | null,
     fetchImpl: typeof fetch = fetch
 ): Promise<OperatorSessionsResponse> {
-    const params = new URLSearchParams({ token });
-    if (context) params.set('context', context);
+    const params = new URLSearchParams();
+    if (context) {
+        params.set('context', context);
+    }
     const url = `${backend}/api/v2/operator/sessions?${params.toString()}`;
-    const resp = await fetchImpl(url);
+    const resp = await fetchImpl(url, {
+        headers: { 'x-auth-token': token },
+    });
     if (!resp.ok) {
         const e = new Error(
             `mirrord ui responded ${resp.status} ${resp.statusText}: ${await resp.text()}`
@@ -112,7 +178,7 @@ export type PollResult =
     | { ok: true; data: OperatorSessionsResponse }
     | { ok: false; status?: number; error: string };
 
-export async function runPoll(
+async function runPoll(
     backend: string,
     token: string,
     v2 = false,
@@ -129,7 +195,11 @@ export async function runPoll(
         return { ok: true, data: resp };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        const status = (err as { status?: number })?.status;
+        const status =
+            err instanceof Error &&
+            typeof (err as Error & { status?: unknown }).status === 'number'
+                ? (err as Error & { status: number }).status
+                : undefined;
         if (bridgeHealthy) {
             bridgeHealthy = false;
             emitUserBlocked('bridge_unhealthy', 'health', {
@@ -137,28 +207,31 @@ export async function runPoll(
                 ...(status !== undefined && { status }),
             });
         }
-        return { ok: false, status, error };
+        return { ok: false, error, ...(status !== undefined && { status }) };
     }
 }
 
 /** True for HTTP responses that indicate the mirrord ui token is wrong / rejected. */
 export function isAuthFailureStatus(status: number | undefined): boolean {
-    return status === 401 || status === 403;
+    return status === HTTP_UNAUTHORIZED || status === HTTP_FORBIDDEN;
 }
 
 export function buildWsUrl(backend: string, token: string): string {
     let scheme: string;
-    if (backend.startsWith('https://')) scheme = 'wss';
-    else if (backend.startsWith('http://')) scheme = 'ws';
-    else
+    if (backend.startsWith('https://')) {
+        scheme = 'wss';
+    } else if (backend.startsWith('http://')) {
+        scheme = 'ws';
+    } else {
         throw new Error(
             `mirrord ui backend must be http:// or https://, got ${backend}`
         );
+    }
     const hostAndRest = backend.replace(/^https?:\/\//, '');
     return `${scheme}://${hostAndRest}/ws?token=${encodeURIComponent(token)}`;
 }
 
-export async function pingHealth(
+async function pingHealth(
     backend: string,
     timeoutMs = 1500,
     fetchImpl: typeof fetch = fetch
@@ -195,15 +268,15 @@ function hasWatchedChange(
 }
 
 function groupByKey(
-    sessions: OperatorSessionSummary[]
-): Record<string, OperatorSessionSummary[]> {
+    sessions: ClusterSession[]
+): Record<string, ClusterSession[]> {
     return groupBy(sessions, (s) => s.key);
 }
 
-export type JoinState = {
+export interface JoinState {
     joinedKey: string | null;
     joinedSessionName: string | null;
-};
+}
 
 export function useMirrordUi() {
     const [backend, setBackend] = useState<string | null>(null);
@@ -258,20 +331,33 @@ export function useMirrordUi() {
                 STORAGE_KEYS.SCOPE_PATTERNS,
                 STORAGE_KEYS.SELECTED_CONTEXT,
             ]);
-            if (cancelled) return;
+            if (cancelled) {
+                return;
+            }
             setBackend(
-                (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as string) ?? null
+                (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
+                    | string
+                    | undefined) ?? null
             );
-            setToken((stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string) ?? null);
+            setToken(
+                (stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined) ??
+                    null
+            );
             setJoinState({
-                joinedKey: (stored[STORAGE_KEYS.JOINED_KEY] as string) ?? null,
-                joinedSessionName:
-                    (stored[STORAGE_KEYS.JOINED_SESSION_NAME] as string) ??
+                joinedKey:
+                    (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ??
                     null,
+                joinedSessionName:
+                    (stored[STORAGE_KEYS.JOINED_SESSION_NAME] as
+                        | string
+                        | undefined) ?? null,
             });
             const header =
-                (stored[STORAGE_KEYS.JOINED_HEADER] as string) ?? null;
-            const value = (stored[STORAGE_KEYS.JOINED_VALUE] as string) ?? null;
+                (stored[STORAGE_KEYS.JOINED_HEADER] as string | undefined) ??
+                null;
+            const value =
+                (stored[STORAGE_KEYS.JOINED_VALUE] as string | undefined) ??
+                null;
             joinedHeaderRef.current = header;
             joinedValueRef.current = value;
             setJoinedHeader(header);
@@ -285,17 +371,20 @@ export function useMirrordUi() {
                     : []
             );
             setSelectedContextState(
-                (stored[STORAGE_KEYS.SELECTED_CONTEXT] as string) ?? null
+                (stored[STORAGE_KEYS.SELECTED_CONTEXT] as string | undefined) ??
+                    null
             );
             setConfigLoaded(true);
         };
 
-        loadFromStorage();
+        void loadFromStorage();
 
         const listener = (
             changes: Record<string, chrome.storage.StorageChange>
         ) => {
-            if (hasWatchedChange(changes)) loadFromStorage();
+            if (hasWatchedChange(changes)) {
+                void loadFromStorage();
+            }
         };
         chrome.storage.onChanged.addListener(listener);
         return () => {
@@ -305,7 +394,9 @@ export function useMirrordUi() {
     }, []);
 
     useEffect(() => {
-        if (!backend) return;
+        if (!backend) {
+            return;
+        }
         pingHealth(backend)
             .then(setHealthy)
             .catch(() => setHealthy(false));
@@ -323,10 +414,14 @@ export function useMirrordUi() {
         const probe = () => {
             pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
                 .then((ok) => {
-                    if (!cancelled) setUiDetectedNoToken(ok);
+                    if (!cancelled) {
+                        setUiDetectedNoToken(ok);
+                    }
                 })
                 .catch(() => {
-                    if (!cancelled) setUiDetectedNoToken(false);
+                    if (!cancelled) {
+                        setUiDetectedNoToken(false);
+                    }
                 });
         };
         probe();
@@ -346,7 +441,9 @@ export function useMirrordUi() {
         let cancelled = false;
         fetchContexts(backend, token)
             .then((resp) => {
-                if (cancelled) return;
+                if (cancelled) {
+                    return;
+                }
                 if (resp === null) {
                     setV2Available(false);
                     setContexts([]);
@@ -370,13 +467,16 @@ export function useMirrordUi() {
     }, [backend, token, healthy]);
 
     useEffect(() => {
-        if (!backend || !token || healthy !== true || v2Available === null)
+        if (!backend || !token || healthy !== true || v2Available === null) {
             return;
+        }
         let cancelled = false;
         const refresh = () => {
-            runPoll(backend, token, v2Available, effectiveContext).then(
+            void runPoll(backend, token, v2Available, effectiveContext).then(
                 (result) => {
-                    if (cancelled) return;
+                    if (cancelled) {
+                        return;
+                    }
                     if (result.ok) {
                         setSessions(result.data);
                         setStatus(result.data.watch_status);
@@ -399,16 +499,22 @@ export function useMirrordUi() {
     // The live-updates WebSocket is a v1-only feature; v2 is poll-only (its `/api/v2/operator/
     // sessions` is per-context and has no push channel), so only open it on the v1 fallback path.
     useEffect(() => {
-        if (!backend || !token || healthy !== true || v2Available !== false)
+        if (!backend || !token || healthy !== true || v2Available !== false) {
             return;
+        }
         const url = buildWsUrl(backend, token);
         const ws = new WebSocket(url);
         wsRef.current = ws;
 
         ws.onmessage = (ev) => {
+            const data: unknown = ev.data;
+            if (typeof data !== 'string') {
+                setError(STRINGS.ERR_WS_PARSE);
+                return;
+            }
             let msg: SessionNotification;
             try {
-                msg = JSON.parse(ev.data) as SessionNotification;
+                msg = JSON.parse(data) as SessionNotification;
             } catch {
                 setError(STRINGS.ERR_WS_PARSE);
                 return;
@@ -431,15 +537,17 @@ export function useMirrordUi() {
     const namespaces = useMemo(() => {
         const set = new Set<string>();
         sessions?.sessions.forEach((s) => {
-            if (s.namespace) set.add(s.namespace);
+            if (s.namespace) {
+                set.add(s.namespace);
+            }
         });
         return ['', ...Array.from(set).sort()];
     }, [sessions]);
 
-    const groupedFiltered = useMemo<
-        Record<string, OperatorSessionSummary[]>
-    >(() => {
-        if (!sessions) return {};
+    const groupedFiltered = useMemo<Record<string, ClusterSession[]>>(() => {
+        if (!sessions) {
+            return {};
+        }
         const filtered = namespace
             ? sessions.sessions.filter((s) => s.namespace === namespace)
             : sessions.sessions;
@@ -533,7 +641,7 @@ export function useMirrordUi() {
             const target = sessions?.sessions.find((s) => s.key === key);
             const { header, value } = sessionInjectionPair({
                 key,
-                httpFilter: target?.httpFilter,
+                httpFilter: target?.httpFilter ?? null,
             });
             const config: Config = {
                 header_filter: `${header}: ${value}`,
@@ -585,11 +693,15 @@ function applyNotification(
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_ADDED ||
         msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_UPDATED
     ) {
-        const idx = current.sessions.findIndex((s) => s.id === msg.session.id);
+        const [session] = toClusterSessions([msg.session], undefined);
+        if (!session) {
+            return current;
+        }
+        const idx = current.sessions.findIndex((s) => s.id === session.id);
         const next =
             idx === -1
-                ? [...current.sessions, msg.session]
-                : current.sessions.map((s, i) => (i === idx ? msg.session : s));
+                ? [...current.sessions, session]
+                : current.sessions.map((s, i) => (i === idx ? session : s));
         return rebuild(next, current.watch_status);
     }
     if (msg.type === SESSION_NOTIFICATION_TYPE.OPERATOR_SESSION_REMOVED) {
@@ -600,7 +712,7 @@ function applyNotification(
 }
 
 function rebuild(
-    sessions: OperatorSessionSummary[],
+    sessions: ClusterSession[],
     watch_status: OperatorWatchStatus
 ): OperatorSessionsResponse {
     return { sessions, by_key: groupByKey(sessions), watch_status };

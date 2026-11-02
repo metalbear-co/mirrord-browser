@@ -11,7 +11,9 @@ const OPERATOR_INSTALL_URL =
  * to the operator simply not being installed.
  */
 export function isKubeAuthFailure(reason: string | undefined): boolean {
-    if (!reason) return false;
+    if (!reason) {
+        return false;
+    }
     return /auth error|auth exec|ExecCredential|reauthentication|unauthorized|\b401\b|token has expired|expired/i.test(
         reason
     );

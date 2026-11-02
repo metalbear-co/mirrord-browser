@@ -4,6 +4,7 @@ import React from 'react';
 
 // Mock @metalbear/ui components
 jest.mock('@metalbear/ui', () => ({
+    ErrorBoundary: ({ children }: { children?: React.ReactNode }) => children,
     Button: ({
         children,
         onClick,
@@ -50,7 +51,7 @@ jest.mock('@metalbear/ui', () => ({
 import { RuleItem } from '../components/RuleItem';
 import { RulesList } from '../components/RulesList';
 import { HeaderForm } from '../components/HeaderForm';
-import { HeaderRule } from '../types';
+import type { HeaderRule } from '../types';
 
 describe('RuleItem', () => {
     const mockRule: HeaderRule = {
