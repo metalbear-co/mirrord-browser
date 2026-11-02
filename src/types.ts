@@ -191,3 +191,7 @@ export type SessionNotification =
     | { type: 'operator_session_added'; session: OperatorSessionSummary }
     | { type: 'operator_session_removed'; id: string }
     | { type: 'operator_session_updated'; session: OperatorSessionSummary };
+
+export const MODIFY_HEADERS =
+    'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType;
+export const HEADER_SET = 'set' as chrome.declarativeNetRequest.HeaderOperation;

@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './types';
+import { MODIFY_HEADERS, STORAGE_KEYS } from './types';
 import {
     baggageConfig,
     buildDnrRule,
@@ -27,6 +27,7 @@ import {
     type HeaderObservation,
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
+import { PAGE_BRIDGE_TYPE } from './content/pageBridgeProtocol';
 import {
     BAGGAGE_CONFIG_REQUEST,
     isBaggageModeChange,
@@ -154,35 +155,44 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
 });
 
-chrome.webRequest.onSendHeaders.addListener(
-    (details) => {
-        countRequestWhileArmed();
-        if (!observation.headerName) {
-            return;
-        }
-        const target = observation.headerName.toLowerCase();
-        const headers = details.requestHeaders ?? [];
-        if (!headers.some((h) => h.name.toLowerCase() === target)) {
-            return;
-        }
-        observation = recordRequest(
-            observation,
-            details.url,
-            details.method,
-            Date.now()
-        );
-        const matchedHeader = headers.find(
-            (h) => h.name.toLowerCase() === target
-        );
-        if (matchedHeader) {
-            notifyHeaderObserved(matchedHeader.name);
-        }
-        persistObservation();
-        broadcast();
-    },
-    { urls: ['<all_urls>'] },
-    ['requestHeaders', 'extraHeaders']
-);
+function onSendHeaders(details: chrome.webRequest.WebRequestHeadersDetails) {
+    countRequestWhileArmed();
+    if (!observation.headerName) {
+        return;
+    }
+    const target = observation.headerName.toLowerCase();
+    const headers = details.requestHeaders ?? [];
+    if (!headers.some((h) => h.name.toLowerCase() === target)) {
+        return;
+    }
+    observation = recordRequest(
+        observation,
+        details.url,
+        details.method,
+        Date.now()
+    );
+    const matchedHeader = headers.find((h) => h.name.toLowerCase() === target);
+    if (matchedHeader) {
+        notifyHeaderObserved(matchedHeader.name);
+    }
+    persistObservation();
+    broadcast();
+}
+
+try {
+    chrome.webRequest.onSendHeaders.addListener(
+        onSendHeaders,
+        { urls: ['<all_urls>'] },
+        ['requestHeaders', 'extraHeaders']
+    );
+} catch {
+    // Firefox rejects the Chrome-only `extraHeaders` value.
+    chrome.webRequest.onSendHeaders.addListener(
+        onSendHeaders,
+        { urls: ['<all_urls>'] },
+        ['requestHeaders']
+    );
+}
 
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== HEADER_OBSERVATION_PORT) {
@@ -213,53 +223,67 @@ function restrictStorageAccess() {
         .catch(() => undefined);
 }
 
-chrome.runtime.onMessageExternal.addListener(
+function handleBridgeMessage(
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: unknown) => void
+): boolean | undefined {
+    if (!isTrustedSender(sender)) {
+        sendResponse({ ok: false, error: 'untrusted sender' });
+        return;
+    }
+    const m = message as Partial<BridgeMessage> | null;
+    if (m?.type === 'ping') {
+        void handlePing().then(sendResponse);
+        return true;
+    }
+    if (m?.type === 'join' && typeof m.key === 'string') {
+        void handleJoin(
+            m.key,
+            typeof m.context === 'string' ? m.context : null
+        ).then(sendResponse);
+        return true;
+    }
+    if (m?.type === 'leave') {
+        void handleLeave().then(sendResponse);
+        return true;
+    }
+    if (!isConfigureMessage(message)) {
+        sendResponse({ ok: false, error: 'unknown message' });
+        return;
+    }
+    chrome.storage.local.set(
+        {
+            [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
+            [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
+        },
+        () => {
+            if (chrome.runtime.lastError) {
+                sendResponse({
+                    ok: false,
+                    error: chrome.runtime.lastError.message,
+                });
+            } else {
+                sendResponse({ ok: true });
+            }
+        }
+    );
+    return true;
+}
+
+chrome.runtime.onMessageExternal.addListener(handleBridgeMessage);
+
+chrome.runtime.onMessage.addListener(
     (
         message: unknown,
         sender: chrome.runtime.MessageSender,
         sendResponse: (response: unknown) => void
     ) => {
-        if (!isTrustedSender(sender)) {
-            sendResponse({ ok: false, error: 'untrusted sender' });
+        const m = message as { type?: unknown; payload?: unknown } | null;
+        if (sender.id !== chrome.runtime.id || m?.type !== PAGE_BRIDGE_TYPE) {
             return;
         }
-        const m = message as Partial<BridgeMessage> | null;
-        if (m?.type === 'ping') {
-            void handlePing().then(sendResponse);
-            return true;
-        }
-        if (m?.type === 'join' && typeof m.key === 'string') {
-            void handleJoin(
-                m.key,
-                typeof m.context === 'string' ? m.context : null
-            ).then(sendResponse);
-            return true;
-        }
-        if (m?.type === 'leave') {
-            void handleLeave().then(sendResponse);
-            return true;
-        }
-        if (!isConfigureMessage(message)) {
-            sendResponse({ ok: false, error: 'unknown message' });
-            return;
-        }
-        chrome.storage.local.set(
-            {
-                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
-                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
-            },
-            () => {
-                if (chrome.runtime.lastError) {
-                    sendResponse({
-                        ok: false,
-                        error: chrome.runtime.lastError.message,
-                    });
-                } else {
-                    sendResponse({ ok: true });
-                }
-            }
-        );
-        return true;
+        return handleBridgeMessage(m.payload, sender, sendResponse);
     }
 );
 
@@ -451,10 +475,7 @@ function loadHeaderName(options: { arm?: boolean } = {}) {
         let headerName = '';
         let scoped = false;
         for (const rule of rules) {
-            if (
-                rule.action.type ===
-                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS
-            ) {
+            if (rule.action.type === MODIFY_HEADERS) {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;

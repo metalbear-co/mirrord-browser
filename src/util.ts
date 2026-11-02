@@ -14,6 +14,8 @@ import type {
 } from './types';
 import {
     ALL_RESOURCE_TYPES,
+    HEADER_SET,
+    MODIFY_HEADERS,
     PREVIEW_PHASES,
     STORAGE_KEYS,
     isPreviewSession,
@@ -44,8 +46,7 @@ export function parseRules(
     >();
     for (const rule of rules) {
         if (
-            rule.action.type !==
-                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS ||
+            rule.action.type !== MODIFY_HEADERS ||
             !rule.action.requestHeaders
         ) {
             continue;
@@ -100,11 +101,11 @@ export function buildDnrRule(
         id: idx + 1,
         priority: 1,
         action: {
-            type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+            type: MODIFY_HEADERS,
             requestHeaders: [
                 {
                     header,
-                    operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+                    operation: HEADER_SET,
                     value,
                 },
             ],

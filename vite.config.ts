@@ -1,12 +1,41 @@
 import { defineConfig } from 'vite';
-import { crx } from '@crxjs/vite-plugin';
+import { crx, type ManifestV3Export } from '@crxjs/vite-plugin';
 import react from '@vitejs/plugin-react';
-import manifest from './src/manifest.json';
+import chromeManifest from './src/manifest.json';
 import { resolve } from 'path';
+
+const browser = process.env['BROWSER'] === 'firefox' ? 'firefox' : 'chrome';
+
+function firefoxManifest(): ManifestV3Export {
+    const {
+        key: _key,
+        externally_connectable: _externallyConnectable,
+        side_panel: sidePanel,
+        background,
+        ...rest
+    } = chromeManifest;
+    return {
+        ...rest,
+        permissions: rest.permissions.filter((p) => p !== 'sidePanel'),
+        background: { scripts: [background.service_worker], type: 'module' },
+        action: { default_popup: sidePanel.default_path },
+        content_scripts: [
+            ...rest.content_scripts,
+            {
+                matches: ['http://localhost/*', 'http://127.0.0.1/*'],
+                js: ['src/content/pageBridge.ts'],
+                run_at: 'document_start',
+            },
+        ],
+        browser_specific_settings: {
+            gecko: { id: 'mirrord@metalbear.com', strict_min_version: '128.0' },
+        },
+    };
+}
 
 export default defineConfig({
     build: {
-        outDir: 'dist',
+        outDir: browser === 'firefox' ? 'dist-firefox' : 'dist',
         emptyOutDir: true,
         rollupOptions: {
             input: {
@@ -21,5 +50,12 @@ export default defineConfig({
             },
         },
     },
-    plugins: [react(), crx({ manifest })],
+    plugins: [
+        react(),
+        crx({
+            manifest:
+                browser === 'firefox' ? firefoxManifest() : chromeManifest,
+            browser,
+        }),
+    ],
 });
