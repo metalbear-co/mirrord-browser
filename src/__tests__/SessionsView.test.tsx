@@ -414,7 +414,7 @@ describe('SessionsView', () => {
                 sessionsLoaded={true}
                 status={{
                     status: 'unavailable',
-                    reason: 'kube client init failed: auth error: auth exec command \'gke-gcloud-auth-plugin\' failed',
+                    reason: 'kube client init failed: auth error: auth exec command failed',
                 }}
             />
         );
