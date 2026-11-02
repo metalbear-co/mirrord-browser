@@ -1,0 +1,1 @@
+Analytics events captured while the extension's background context is still starting up are now attributed to the browser profile's existing identity instead of a throwaway one, and are suppressed when analytics are opted out.
