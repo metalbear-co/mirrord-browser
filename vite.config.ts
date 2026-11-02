@@ -14,11 +14,17 @@ function firefoxManifest(): ManifestV3Export {
         background,
         ...rest
     } = chromeManifest;
-    return {
+    const manifest = {
         ...rest,
         permissions: rest.permissions.filter((p) => p !== 'sidePanel'),
         background: { scripts: [background.service_worker], type: 'module' },
-        action: { default_popup: sidePanel.default_path },
+        action: { default_title: rest.name },
+        sidebar_action: {
+            default_panel: sidePanel.default_path,
+            default_title: rest.name,
+            default_icon: rest.icons,
+            open_at_install: false,
+        },
         content_scripts: [
             ...rest.content_scripts,
             {
@@ -31,6 +37,7 @@ function firefoxManifest(): ManifestV3Export {
             gecko: { id: 'mirrord@metalbear.com', strict_min_version: '128.0' },
         },
     };
+    return manifest;
 }
 
 export default defineConfig({

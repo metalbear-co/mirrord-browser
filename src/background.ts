@@ -98,6 +98,7 @@ configureSidePanel();
 chrome.runtime.onStartup.addListener(restrictStorageAccess);
 chrome.runtime.onInstalled.addListener(restrictStorageAccess);
 chrome.runtime.onStartup.addListener(configureSidePanel);
+chrome.action.onClicked.addListener(toggleFirefoxSidebar);
 chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
@@ -435,6 +436,17 @@ function configureSidePanel() {
     ).sidePanel;
     sidePanel
         ?.setPanelBehavior?.({ openPanelOnActionClick: true })
+        .catch(() => undefined);
+}
+
+// Must run synchronously inside the click handler: Firefox only opens the sidebar on user input.
+function toggleFirefoxSidebar() {
+    (
+        chrome as unknown as {
+            sidebarAction?: { toggle?: () => Promise<void> };
+        }
+    ).sidebarAction
+        ?.toggle?.()
         .catch(() => undefined);
 }
 
