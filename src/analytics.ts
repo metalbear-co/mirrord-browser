@@ -11,6 +11,14 @@ const APP_VERSION = (() => {
     }
 })();
 
+const BROWSER = (() => {
+    try {
+        return navigator.userAgent.includes('Firefox/') ? 'Firefox' : 'Chrome';
+    } catch {
+        return 'unknown';
+    }
+})();
+
 const DISTINCT_ID_KEY = 'posthog_distinct_id';
 
 let distinctId: string | null = null;
@@ -196,6 +204,7 @@ export function capture(
                     ...properties,
                     $lib: 'mirrord-browser-extension',
                     $app_version: APP_VERSION,
+                    $browser: BROWSER,
                 },
                 timestamp: new Date().toISOString(),
             }),
@@ -224,6 +233,7 @@ export function captureBeacon(
                 ...properties,
                 $lib: 'mirrord-browser-extension',
                 $app_version: APP_VERSION,
+                $browser: BROWSER,
             },
             timestamp: new Date().toISOString(),
         });
