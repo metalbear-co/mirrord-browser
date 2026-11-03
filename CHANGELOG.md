@@ -8,6 +8,15 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.9.1](https://github.com/metalbear-co/mirrord-browser/tree/0.9.1) - 2026-11-03
+
+
+### Fixed
+
+- The popup now tells you when the Kubernetes credentials used by `mirrord ui`
+  have expired (instead of suggesting you install the operator), and points you
+  to re-authenticate. Sessions load again automatically afterwards.
+
 ## [0.9.0](https://github.com/metalbear-co/mirrord-browser/tree/0.9.0) - 2026-10-21
 
 
