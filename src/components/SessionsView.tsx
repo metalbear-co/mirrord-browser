@@ -148,7 +148,8 @@ export function SessionsView({
     ).length;
 
     const watching = status?.status === 'watching';
-    const operatorUnavailable = status?.status === 'unavailable';
+    const unavailableReason =
+        status?.status === 'unavailable' ? status.reason : null;
     const hasGroups = orderedKeys.length > 0;
     const totalSessionsBeforeQuery = sessions.filter(
         (s) => (!namespace || s.namespace === namespace) && s.key !== joinedKey
@@ -179,7 +180,9 @@ export function SessionsView({
                 />
             )}
 
-            {operatorUnavailable && <OperatorUnavailableNote />}
+            {unavailableReason !== null && (
+                <OperatorUnavailableNote reason={unavailableReason} />
+            )}
 
             {(contexts.length > 1 ||
                 namespaces.filter((ns) => ns !== '').length > 1) && (
