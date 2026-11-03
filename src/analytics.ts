@@ -104,6 +104,49 @@ export async function loadOptOutState(): Promise<void> {
 /** Resolves once the opt-out preference has been read from storage. */
 export const optOutReady = loadOptOutState();
 
+const MAX_DEFERRED_EVENTS = 20;
+
+interface DeferredEvent {
+    event: string;
+    properties: Record<string, unknown> | undefined;
+}
+
+const deferredEvents: DeferredEvent[] = [];
+
+function post(event: string, properties?: Record<string, unknown>): void {
+    try {
+        fetch(`${POSTHOG_HOST}/capture/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: POSTHOG_KEY,
+                event,
+                distinct_id: getDistinctId(),
+                properties: {
+                    ...properties,
+                    $lib: 'mirrord-browser-extension',
+                    $app_version: APP_VERSION,
+                },
+                timestamp: new Date().toISOString(),
+            }),
+        }).catch(() => undefined);
+    } catch {
+        // Analytics should never break the extension
+    }
+}
+
+// A background context has no localStorage, so minting an id rather than
+// waiting for chrome.storage.local would report every restart as a new user.
+void Promise.all([identityReady, optOutReady]).then(() => {
+    const queued = deferredEvents.splice(0, deferredEvents.length);
+    if (optedOut) {
+        return;
+    }
+    for (const item of queued) {
+        post(item.event, item.properties);
+    }
+});
+
 /**
  * Update opt-out state in memory and persist to storage.
  */
@@ -129,25 +172,13 @@ export function capture(
     if (optedOut) {
         return;
     }
-    try {
-        fetch(`${POSTHOG_HOST}/capture/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: POSTHOG_KEY,
-                event,
-                distinct_id: getDistinctId(),
-                properties: {
-                    ...properties,
-                    $lib: 'mirrord-browser-extension',
-                    $app_version: APP_VERSION,
-                },
-                timestamp: new Date().toISOString(),
-            }),
-        }).catch(() => undefined);
-    } catch {
-        // Analytics should never break the extension
+    if (distinctId === null) {
+        if (deferredEvents.length < MAX_DEFERRED_EVENTS) {
+            deferredEvents.push({ event, properties });
+        }
+        return;
     }
+    post(event, properties);
 }
 
 /**
