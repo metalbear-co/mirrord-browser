@@ -193,6 +193,7 @@ export type SessionNotification =
     | { type: 'operator_session_removed'; id: string }
     | { type: 'operator_session_updated'; session: OperatorSessionSummary };
 
+// Firefox has no declarativeNetRequest enum objects at runtime, so the string values are cast to Chrome's enum types.
 export const MODIFY_HEADERS =
     'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType;
 export const HEADER_SET = 'set' as chrome.declarativeNetRequest.HeaderOperation;

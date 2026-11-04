@@ -1,9 +1,11 @@
 import {
+    MIRRORD_UI_CONFIGURE_TYPE,
     PAGE_BRIDGE_TYPE,
     PAGE_REQUEST_SOURCE,
     PAGE_RESPONSE_SOURCE,
 } from './pageBridgeProtocol';
 
+// The monitor re-posts each request until answered; only pings, which are safe to repeat, are forgotten after the reply.
 const seenIds = new Set<string>();
 
 window.addEventListener('message', (event: MessageEvent) => {
@@ -23,11 +25,16 @@ window.addEventListener('message', (event: MessageEvent) => {
         return;
     }
     seenIds.add(id);
-    const reply = (response: unknown) =>
+    const isPing = (data.message as { type?: unknown } | null)?.type === 'ping';
+    const reply = (response: unknown) => {
         window.postMessage(
             { source: PAGE_RESPONSE_SOURCE, id, response },
             window.location.origin
         );
+        if (isPing) {
+            seenIds.delete(id);
+        }
+    };
     void toExtensionMessage(data.message)
         .then((payload) =>
             payload
@@ -40,11 +47,12 @@ window.addEventListener('message', (event: MessageEvent) => {
         .then(reply, () => reply(null));
 });
 
-const CONFIGURE_TYPE = 'mirrord-ui-configure';
-
 // The token never travels through page messages: read it from the page's own server instead.
 async function toExtensionMessage(message: unknown): Promise<unknown> {
-    if ((message as { type?: unknown } | null)?.type !== CONFIGURE_TYPE) {
+    if (
+        (message as { type?: unknown } | null)?.type !==
+        MIRRORD_UI_CONFIGURE_TYPE
+    ) {
         return message;
     }
     try {
@@ -55,7 +63,11 @@ async function toExtensionMessage(message: unknown): Promise<unknown> {
             ? ((await response.json()) as { token?: unknown }).token
             : null;
         return typeof token === 'string' && token
-            ? { type: CONFIGURE_TYPE, backend: window.location.origin, token }
+            ? {
+                  type: MIRRORD_UI_CONFIGURE_TYPE,
+                  backend: window.location.origin,
+                  token,
+              }
             : null;
     } catch {
         return null;

@@ -29,7 +29,10 @@ import {
     type HeaderObservation,
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
-import { PAGE_BRIDGE_TYPE } from './content/pageBridgeProtocol';
+import {
+    MIRRORD_UI_CONFIGURE_TYPE,
+    PAGE_BRIDGE_TYPE,
+} from './content/pageBridgeProtocol';
 import {
     BAGGAGE_CONFIG_REQUEST,
     isBaggageModeChange,
@@ -37,7 +40,6 @@ import {
     syncBaggageMode,
 } from './baggageMode';
 
-const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
 const JOIN_RESULT_TYPE = 'join_result';
 const LEAVE_RESULT_TYPE = 'leave_result';
@@ -182,20 +184,14 @@ function onSendHeaders(details: chrome.webRequest.WebRequestHeadersDetails) {
     broadcast();
 }
 
-try {
-    chrome.webRequest.onSendHeaders.addListener(
-        onSendHeaders,
-        { urls: ['<all_urls>'] },
-        ['requestHeaders', 'extraHeaders']
-    );
-} catch {
-    // Firefox rejects the Chrome-only `extraHeaders` value.
-    chrome.webRequest.onSendHeaders.addListener(
-        onSendHeaders,
-        { urls: ['<all_urls>'] },
-        ['requestHeaders']
-    );
-}
+// Firefox rejects the Chrome-only `extraHeaders` value.
+chrome.webRequest.onSendHeaders.addListener(
+    onSendHeaders,
+    { urls: ['<all_urls>'] },
+    __BROWSER__ === 'firefox'
+        ? ['requestHeaders']
+        : ['requestHeaders', 'extraHeaders']
+);
 
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== HEADER_OBSERVATION_PORT) {

@@ -11,19 +11,14 @@ const APP_VERSION = (() => {
     }
 })();
 
-const BROWSER = (() => {
-    try {
-        return navigator.userAgent.includes('Firefox/') ? 'Firefox' : 'Chrome';
-    } catch {
-        return 'unknown';
-    }
-})();
+const BROWSER = __BROWSER__ === 'firefox' ? 'Firefox' : 'Chrome';
 
 const DISTINCT_ID_KEY = 'posthog_distinct_id';
 
 let distinctId: string | null = null;
 let optedOut = false;
 let preferenceLoaded = false;
+let loadGeneration = 0;
 
 function pageStorage(): Storage | null {
     try {
@@ -100,6 +95,7 @@ function getDistinctId(): string {
  * Kicks off eagerly at module init so it resolves before most capture calls.
  */
 export async function loadOptOutState(): Promise<void> {
+    const generation = ++loadGeneration;
     try {
         const result = await chrome.storage.local.get(
             STORAGE_KEYS.ANALYTICS_OPT_OUT
@@ -110,7 +106,9 @@ export async function loadOptOutState(): Promise<void> {
             optedOut = true;
         }
         const consent = await hasDataCollectionConsent();
-        optedOut = storedOptOut || !consent;
+        if (generation === loadGeneration) {
+            optedOut = storedOptOut || !consent;
+        }
     } catch {
         // Storage access can fail in certain contexts; default to not opted out
     } finally {
@@ -124,26 +122,23 @@ type DataCollectionPermissions = chrome.permissions.Permissions & {
     data_collection?: string[];
 };
 
-let consentPromptSupported = false;
-
 /** Firefox asks for usage-data consent at install; other browsers have no such grant. */
 export async function hasDataCollectionConsent(): Promise<boolean> {
+    if (__BROWSER__ !== 'firefox') {
+        return true;
+    }
     try {
         const granted =
             (await chrome.permissions.getAll()) as DataCollectionPermissions;
-        consentPromptSupported = Array.isArray(granted.data_collection);
-        return (
-            !granted.data_collection ||
-            granted.data_collection.includes(DATA_COLLECTION)
-        );
+        return granted.data_collection?.includes(DATA_COLLECTION) ?? false;
     } catch {
-        return true;
+        return false;
     }
 }
 
 /** Call synchronously from a user gesture: Firefox only shows the prompt on user input. */
 export function requestDataCollectionConsent(): Promise<boolean> {
-    if (!consentPromptSupported) {
+    if (__BROWSER__ !== 'firefox') {
         return Promise.resolve(true);
     }
     return chrome.permissions
@@ -154,10 +149,15 @@ export function requestDataCollectionConsent(): Promise<boolean> {
 }
 
 try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && STORAGE_KEYS.ANALYTICS_OPT_OUT in changes) {
+            void loadOptOutState();
+        }
+    });
     chrome.permissions.onAdded.addListener(() => void loadOptOutState());
     chrome.permissions.onRemoved.addListener(() => void loadOptOutState());
 } catch {
-    // Not every context (or test environment) exposes the permissions API.
+    // Not every context (or test environment) exposes these APIs.
 }
 
 /** Resolves once the opt-out preference has been read from storage. */
@@ -167,6 +167,7 @@ export const optOutReady = loadOptOutState();
  * Update opt-out state in memory and persist to storage.
  */
 export async function setOptOut(value: boolean): Promise<void> {
+    loadGeneration++;
     optedOut = value;
     try {
         if (value) {

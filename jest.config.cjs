@@ -1,6 +1,7 @@
 module.exports = {
     preset: 'ts-jest',
     testEnvironment: 'jsdom',
+    globals: { __BROWSER__: 'chrome' },
     transform: {
         '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
     },

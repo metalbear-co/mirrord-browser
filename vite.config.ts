@@ -9,7 +9,7 @@ const browser = process.env['BROWSER'] === 'firefox' ? 'firefox' : 'chrome';
 function firefoxManifest(): ManifestV3Export {
     const {
         key: _key,
-        externally_connectable: _externallyConnectable,
+        externally_connectable: externallyConnectable,
         side_panel: sidePanel,
         background,
         ...rest
@@ -34,7 +34,7 @@ function firefoxManifest(): ManifestV3Export {
         content_scripts: [
             ...rest.content_scripts,
             {
-                matches: ['http://localhost/*', 'http://127.0.0.1/*'],
+                matches: externallyConnectable.matches,
                 js: ['src/content/pageBridge.ts'],
                 run_at: 'document_start',
             },
@@ -54,6 +54,9 @@ function firefoxManifest(): ManifestV3Export {
 }
 
 export default defineConfig({
+    define: {
+        __BROWSER__: JSON.stringify(browser),
+    },
     build: {
         outDir: browser === 'firefox' ? 'dist-firefox' : 'dist',
         emptyOutDir: true,
