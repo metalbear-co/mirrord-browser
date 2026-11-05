@@ -236,5 +236,38 @@ describe('analytics', () => {
             capture('test_event');
             expect(mockFetch).not.toHaveBeenCalled();
         });
+
+        describe('on Firefox', () => {
+            beforeEach(() => {
+                Object.assign(globalThis, { __BROWSER__: 'firefox' });
+            });
+            afterEach(() => {
+                Object.assign(globalThis, { __BROWSER__: 'chrome' });
+            });
+
+            it('sends nothing without data collection consent', async () => {
+                Object.assign(chrome, {
+                    permissions: {
+                        getAll: () => Promise.resolve({ data_collection: [] }),
+                    },
+                });
+                await loadOptOutState();
+                capture('test_event');
+                captureBeacon('test_event');
+                expect(mockFetch).not.toHaveBeenCalled();
+                expect(mockSendBeacon).not.toHaveBeenCalled();
+            });
+
+            it('sends nothing when the consent lookup fails', async () => {
+                Object.assign(chrome, {
+                    permissions: {
+                        getAll: () => Promise.reject(new Error('unavailable')),
+                    },
+                });
+                await loadOptOutState();
+                capture('test_event');
+                expect(mockFetch).not.toHaveBeenCalled();
+            });
+        });
     });
 });

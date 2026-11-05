@@ -15,7 +15,8 @@
         "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui",
-        "prepare": "husky"
+        "prepare": "husky",
+        "build:firefox": "BROWSER=firefox vite build"
     },
     "keywords": [
         "mirrord"

@@ -19,15 +19,17 @@ import {
     STRINGS,
 } from '../constants';
 import {
-    storageGet,
-    storageSet,
-    storageRemove,
-    getDynamicRules,
-    updateDynamicRules,
-    sessionInjectionPair,
     buildDnrRule,
     buildShareUrl as buildConfigShareUrl,
+    getDynamicRules,
+    MIRRORD_UI_CREDENTIAL_KEYS,
+    mirrordUiCredentials,
+    sessionInjectionPair,
+    storageGet,
+    storageRemove,
+    storageSet,
     toClusterSessions,
+    updateDynamicRules,
 } from '../util';
 import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
@@ -248,6 +250,35 @@ async function pingHealth(
     }
 }
 
+/**
+ * Reads the token from a `mirrord ui` the user already opened in this browser, using its login
+ * cookie. Covers browsers the page cannot message directly (Firefox) and monitors that predate the
+ * page relay.
+ */
+export async function fetchCookieToken(
+    backend: string,
+    timeoutMs = 1500,
+    fetchImpl: typeof fetch = fetch
+): Promise<string | null> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        const r = await fetchImpl(`${backend}/api/token`, {
+            credentials: 'include',
+            signal: ctrl.signal,
+        });
+        if (!r.ok) {
+            return null;
+        }
+        const data = (await r.json()) as { token?: unknown };
+        return typeof data.token === 'string' && data.token ? data.token : null;
+    } catch {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 const OPERATOR_SESSIONS_POLL_MS = 5000;
 
 const WATCHED_STORAGE_KEYS: readonly string[] = [
@@ -256,8 +287,7 @@ const WATCHED_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.JOINED_HEADER,
     STORAGE_KEYS.JOINED_VALUE,
     STORAGE_KEYS.SCOPE_PATTERNS,
-    STORAGE_KEYS.MIRRORD_UI_BACKEND,
-    STORAGE_KEYS.MIRRORD_UI_TOKEN,
+    ...MIRRORD_UI_CREDENTIAL_KEYS,
     STORAGE_KEYS.SELECTED_CONTEXT,
 ];
 
@@ -281,6 +311,7 @@ export interface JoinState {
 export function useMirrordUi() {
     const [backend, setBackend] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
+    const [tokenDiscovered, setTokenDiscovered] = useState(false);
     const [configLoaded, setConfigLoaded] = useState(false);
     const [healthy, setHealthy] = useState<boolean | null>(null);
     // True when we have no token but a `mirrord ui` server is answering on the default port.
@@ -322,8 +353,7 @@ export function useMirrordUi() {
         let cancelled = false;
         const loadFromStorage = async () => {
             const stored = await storageGet([
-                STORAGE_KEYS.MIRRORD_UI_BACKEND,
-                STORAGE_KEYS.MIRRORD_UI_TOKEN,
+                ...MIRRORD_UI_CREDENTIAL_KEYS,
                 STORAGE_KEYS.JOINED_KEY,
                 STORAGE_KEYS.JOINED_SESSION_NAME,
                 STORAGE_KEYS.JOINED_HEADER,
@@ -334,15 +364,10 @@ export function useMirrordUi() {
             if (cancelled) {
                 return;
             }
-            setBackend(
-                (stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-                    | string
-                    | undefined) ?? null
-            );
-            setToken(
-                (stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as string | undefined) ??
-                    null
-            );
+            const credentials = mirrordUiCredentials(stored);
+            setBackend(credentials.backend);
+            setToken(credentials.token);
+            setTokenDiscovered(credentials.discovered);
             setJoinState({
                 joinedKey:
                     (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ??
@@ -402,6 +427,20 @@ export function useMirrordUi() {
             .catch(() => setHealthy(false));
     }, [backend]);
 
+    // A rejection belongs to the credentials that failed; new credentials start clean.
+    useEffect(() => {
+        setAuthFailed(false);
+    }, [backend, token]);
+
+    // A discovered token goes stale when the daemon restarts; drop it so discovery runs again.
+    useEffect(() => {
+        if (authFailed && tokenDiscovered && backend) {
+            void storageSet({
+                [STORAGE_KEYS.MIRRORD_UI_DISCOVERED]: { backend },
+            });
+        }
+    }, [authFailed, tokenDiscovered, backend]);
+
     // When the extension has no token, poll the default `mirrord ui` port so we can tell the
     // user it's already running and just needs configuring (instead of the generic "run mirrord
     // ui" prompt). Stops as soon as a token arrives.
@@ -411,15 +450,28 @@ export function useMirrordUi() {
             return;
         }
         let cancelled = false;
+        const isCancelled = () => cancelled;
         const probe = () => {
             pingHealth(MIRRORD_UI_DEFAULT_BACKEND)
-                .then((ok) => {
-                    if (!cancelled) {
-                        setUiDetectedNoToken(ok);
+                .then(async (ok) => {
+                    if (isCancelled()) {
+                        return;
+                    }
+                    setUiDetectedNoToken(ok);
+                    const cookieToken = ok
+                        ? await fetchCookieToken(MIRRORD_UI_DEFAULT_BACKEND)
+                        : null;
+                    if (cookieToken && !isCancelled()) {
+                        await storageSet({
+                            [STORAGE_KEYS.MIRRORD_UI_DISCOVERED]: {
+                                backend: MIRRORD_UI_DEFAULT_BACKEND,
+                                token: cookieToken,
+                            },
+                        });
                     }
                 })
                 .catch(() => {
-                    if (!cancelled) {
+                    if (!isCancelled()) {
                         setUiDetectedNoToken(false);
                     }
                 });

@@ -33,10 +33,13 @@ import { STORAGE_KEYS } from './types';
 initErrorTracking('popup');
 
 const popupOpenedAt = Date.now();
-const surface: 'side_panel' | 'popup_fallback' =
-    typeof (chrome as { sidePanel?: unknown }).sidePanel === 'undefined'
-        ? 'popup_fallback'
-        : 'side_panel';
+const surface: 'side_panel' | 'sidebar' | 'popup_fallback' =
+    typeof (chrome as { sidePanel?: unknown }).sidePanel !== 'undefined'
+        ? 'side_panel'
+        : typeof (chrome as { sidebarAction?: unknown }).sidebarAction !==
+            'undefined'
+          ? 'sidebar'
+          : 'popup_fallback';
 void optOutReady.then(() => capture('extension_popup_opened', { surface }));
 
 document.addEventListener('visibilitychange', () => {

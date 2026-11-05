@@ -67,6 +67,7 @@ function installChrome() {
         action: {
             setBadgeText: () => undefined,
             setBadgeTextColor: () => undefined,
+            onClicked: noopEvent,
         },
         alarms: {
             create: () => undefined,

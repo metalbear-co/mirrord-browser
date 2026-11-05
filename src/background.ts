@@ -1,8 +1,10 @@
-import { STORAGE_KEYS } from './types';
+import { MODIFY_HEADERS, STORAGE_KEYS } from './types';
 import {
     baggageConfig,
     buildDnrRule,
     getDynamicRules,
+    MIRRORD_UI_CREDENTIAL_KEYS,
+    mirrordUiCredentials,
     refreshIconIndicator,
     storageGet,
     storageRemove,
@@ -28,13 +30,16 @@ import {
 } from './headerObservation';
 import { emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
+    MIRRORD_UI_CONFIGURE_TYPE,
+    PAGE_BRIDGE_TYPE,
+} from './content/pageBridgeProtocol';
+import {
     BAGGAGE_CONFIG_REQUEST,
     isBaggageModeChange,
     reconnectBaggageBridges,
     syncBaggageMode,
 } from './baggageMode';
 
-const MIRRORD_UI_CONFIGURE_TYPE = 'mirrord-ui-configure';
 const PONG_TYPE = 'pong';
 const JOIN_RESULT_TYPE = 'join_result';
 const LEAVE_RESULT_TYPE = 'leave_result';
@@ -97,6 +102,7 @@ configureSidePanel();
 chrome.runtime.onStartup.addListener(restrictStorageAccess);
 chrome.runtime.onInstalled.addListener(restrictStorageAccess);
 chrome.runtime.onStartup.addListener(configureSidePanel);
+chrome.action.onClicked.addListener(toggleFirefoxSidebar);
 chrome.runtime.onInstalled.addListener(configureSidePanel);
 chrome.runtime.onStartup.addListener(refreshIcon);
 chrome.runtime.onInstalled.addListener(refreshIcon);
@@ -154,34 +160,37 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
 });
 
+function onSendHeaders(details: chrome.webRequest.WebRequestHeadersDetails) {
+    countRequestWhileArmed();
+    if (!observation.headerName) {
+        return;
+    }
+    const target = observation.headerName.toLowerCase();
+    const headers = details.requestHeaders ?? [];
+    if (!headers.some((h) => h.name.toLowerCase() === target)) {
+        return;
+    }
+    observation = recordRequest(
+        observation,
+        details.url,
+        details.method,
+        Date.now()
+    );
+    const matchedHeader = headers.find((h) => h.name.toLowerCase() === target);
+    if (matchedHeader) {
+        notifyHeaderObserved(matchedHeader.name);
+    }
+    persistObservation();
+    broadcast();
+}
+
+// Firefox rejects the Chrome-only `extraHeaders` value.
 chrome.webRequest.onSendHeaders.addListener(
-    (details) => {
-        countRequestWhileArmed();
-        if (!observation.headerName) {
-            return;
-        }
-        const target = observation.headerName.toLowerCase();
-        const headers = details.requestHeaders ?? [];
-        if (!headers.some((h) => h.name.toLowerCase() === target)) {
-            return;
-        }
-        observation = recordRequest(
-            observation,
-            details.url,
-            details.method,
-            Date.now()
-        );
-        const matchedHeader = headers.find(
-            (h) => h.name.toLowerCase() === target
-        );
-        if (matchedHeader) {
-            notifyHeaderObserved(matchedHeader.name);
-        }
-        persistObservation();
-        broadcast();
-    },
+    onSendHeaders,
     { urls: ['<all_urls>'] },
-    ['requestHeaders', 'extraHeaders']
+    __BROWSER__ === 'firefox'
+        ? ['requestHeaders']
+        : ['requestHeaders', 'extraHeaders']
 );
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -213,85 +222,93 @@ function restrictStorageAccess() {
         .catch(() => undefined);
 }
 
-chrome.runtime.onMessageExternal.addListener(
+function handleBridgeMessage(
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: unknown) => void
+): boolean | undefined {
+    if (!isTrustedSender(sender)) {
+        sendResponse({ ok: false, error: 'untrusted sender' });
+        return;
+    }
+    const m = message as Partial<BridgeMessage> | null;
+    if (m?.type === 'ping') {
+        void handlePing().then(sendResponse);
+        return true;
+    }
+    if (m?.type === 'join' && typeof m.key === 'string') {
+        void handleJoin(
+            m.key,
+            typeof m.context === 'string' ? m.context : null
+        ).then(sendResponse);
+        return true;
+    }
+    if (m?.type === 'leave') {
+        void handleLeave().then(sendResponse);
+        return true;
+    }
+    if (!isConfigureMessage(message)) {
+        sendResponse({ ok: false, error: 'unknown message' });
+        return;
+    }
+    chrome.storage.local.set(
+        {
+            [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
+            [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
+        },
+        () => {
+            if (chrome.runtime.lastError) {
+                sendResponse({
+                    ok: false,
+                    error: chrome.runtime.lastError.message,
+                });
+            } else {
+                sendResponse({ ok: true });
+            }
+        }
+    );
+    return true;
+}
+
+chrome.runtime.onMessageExternal.addListener(handleBridgeMessage);
+
+chrome.runtime.onMessage.addListener(
     (
         message: unknown,
         sender: chrome.runtime.MessageSender,
         sendResponse: (response: unknown) => void
     ) => {
-        if (!isTrustedSender(sender)) {
-            sendResponse({ ok: false, error: 'untrusted sender' });
+        const m = message as { type?: unknown; payload?: unknown } | null;
+        if (sender.id !== chrome.runtime.id || m?.type !== PAGE_BRIDGE_TYPE) {
             return;
         }
-        const m = message as Partial<BridgeMessage> | null;
-        if (m?.type === 'ping') {
-            void handlePing().then(sendResponse);
-            return true;
-        }
-        if (m?.type === 'join' && typeof m.key === 'string') {
-            void handleJoin(
-                m.key,
-                typeof m.context === 'string' ? m.context : null
-            ).then(sendResponse);
-            return true;
-        }
-        if (m?.type === 'leave') {
-            void handleLeave().then(sendResponse);
-            return true;
-        }
-        if (!isConfigureMessage(message)) {
-            sendResponse({ ok: false, error: 'unknown message' });
-            return;
-        }
-        chrome.storage.local.set(
-            {
-                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: message.backend,
-                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: message.token,
-            },
-            () => {
-                if (chrome.runtime.lastError) {
-                    sendResponse({
-                        ok: false,
-                        error: chrome.runtime.lastError.message,
-                    });
-                } else {
-                    sendResponse({ ok: true });
-                }
-            }
-        );
-        return true;
+        return handleBridgeMessage(m.payload, sender, sendResponse);
     }
 );
 
 async function handlePing() {
     const stored = await storageGet([
         STORAGE_KEYS.JOINED_KEY,
-        STORAGE_KEYS.MIRRORD_UI_BACKEND,
-        STORAGE_KEYS.MIRRORD_UI_TOKEN,
+        ...MIRRORD_UI_CREDENTIAL_KEYS,
     ]);
+    const credentials = mirrordUiCredentials(stored);
     return {
         type: PONG_TYPE,
         version: EXTENSION_VERSION,
         joinedKey:
             (stored[STORAGE_KEYS.JOINED_KEY] as string | undefined) ?? null,
-        hasBackend: !!stored[STORAGE_KEYS.MIRRORD_UI_BACKEND],
-        watching: !!stored[STORAGE_KEYS.MIRRORD_UI_TOKEN],
+        hasBackend: !!credentials.backend,
+        watching: !!credentials.token,
     };
 }
 
 export async function handleJoin(key: string, context: string | null = null) {
     try {
         const stored = await storageGet([
-            STORAGE_KEYS.MIRRORD_UI_BACKEND,
-            STORAGE_KEYS.MIRRORD_UI_TOKEN,
+            ...MIRRORD_UI_CREDENTIAL_KEYS,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
-        const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-            | string
-            | undefined;
-        const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
-            | string
-            | undefined;
+        const { backend, token } = mirrordUiCredentials(stored);
         if (!backend || !token) {
             const error = 'mirrord ui not configured in extension';
             emitUserBlocked('join_misconfigured', 'user_action', { error });
@@ -414,6 +431,17 @@ function configureSidePanel() {
         .catch(() => undefined);
 }
 
+// Must run synchronously inside the click handler: Firefox only opens the sidebar on user input.
+function toggleFirefoxSidebar() {
+    (
+        chrome as unknown as {
+            sidebarAction?: { toggle?: () => Promise<void> };
+        }
+    ).sidebarAction
+        ?.toggle?.()
+        .catch(() => undefined);
+}
+
 function refreshIcon() {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
         refreshIconIndicator(rules.length);
@@ -451,10 +479,7 @@ function loadHeaderName(options: { arm?: boolean } = {}) {
         let headerName = '';
         let scoped = false;
         for (const rule of rules) {
-            if (
-                rule.action.type ===
-                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS
-            ) {
+            if (rule.action.type === MODIFY_HEADERS) {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;

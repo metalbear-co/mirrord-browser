@@ -14,6 +14,8 @@ import type {
 } from './types';
 import {
     ALL_RESOURCE_TYPES,
+    HEADER_SET,
+    MODIFY_HEADERS,
     PREVIEW_PHASES,
     STORAGE_KEYS,
     isPreviewSession,
@@ -44,8 +46,7 @@ export function parseRules(
     >();
     for (const rule of rules) {
         if (
-            rule.action.type !==
-                chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS ||
+            rule.action.type !== MODIFY_HEADERS ||
             !rule.action.requestHeaders
         ) {
             continue;
@@ -100,11 +101,11 @@ export function buildDnrRule(
         id: idx + 1,
         priority: 1,
         action: {
-            type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+            type: MODIFY_HEADERS,
             requestHeaders: [
                 {
                     header,
-                    operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+                    operation: HEADER_SET,
                     value,
                 },
             ],
@@ -244,6 +245,51 @@ export async function applyDynamicRules(
         });
     });
     void publishBaggageConfig().catch(() => undefined);
+}
+
+export const MIRRORD_UI_CREDENTIAL_KEYS: readonly string[] = [
+    STORAGE_KEYS.MIRRORD_UI_BACKEND,
+    STORAGE_KEYS.MIRRORD_UI_TOKEN,
+    STORAGE_KEYS.MIRRORD_UI_DISCOVERED,
+];
+
+/**
+ * Explicitly configured credentials win; the popup's cookie discovery lives under its own key so it
+ * can never overwrite them.
+ */
+export function mirrordUiCredentials(stored: Record<string, unknown>): {
+    backend: string | null;
+    token: string | null;
+    discovered: boolean;
+} {
+    const explicitBackend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND];
+    const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN];
+    const found = stored[STORAGE_KEYS.MIRRORD_UI_DISCOVERED] as
+        | { backend?: unknown; token?: unknown }
+        | undefined;
+    const discoveredBackend =
+        typeof found?.backend === 'string' ? found.backend : null;
+    const backend =
+        typeof explicitBackend === 'string' ? explicitBackend : null;
+    if (typeof token === 'string' && token) {
+        return {
+            backend: backend ?? discoveredBackend,
+            token,
+            discovered: false,
+        };
+    }
+    if (discoveredBackend && typeof found?.token === 'string') {
+        return {
+            backend: discoveredBackend,
+            token: found.token,
+            discovered: true,
+        };
+    }
+    return {
+        backend: backend ?? discoveredBackend,
+        token: null,
+        discovered: false,
+    };
 }
 
 export function storageGet(keys: string[]): Promise<Record<string, unknown>> {

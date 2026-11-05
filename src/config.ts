@@ -5,7 +5,12 @@ import {
     updateDynamicRules,
 } from './util';
 import type { Config, StoredConfig } from './types';
-import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
+import {
+    ALL_RESOURCE_TYPES,
+    HEADER_SET,
+    MODIFY_HEADERS,
+    STORAGE_KEYS,
+} from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     isRegex,
@@ -121,14 +126,11 @@ function setHeaderRule(
                 id: 1,
                 priority: 1,
                 action: {
-                    type: chrome.declarativeNetRequest.RuleActionType
-                        .MODIFY_HEADERS,
+                    type: MODIFY_HEADERS,
                     requestHeaders: [
                         {
                             header: key.trim(),
-                            operation:
-                                chrome.declarativeNetRequest.HeaderOperation
-                                    .SET,
+                            operation: HEADER_SET,
                             value: value.trim(),
                         },
                     ],
