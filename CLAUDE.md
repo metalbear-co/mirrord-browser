@@ -38,7 +38,7 @@ mirrord-browser is a Chrome extension (Manifest V3) that injects HTTP headers in
 - **Language:** TypeScript (strict mode, ES6 target, jsx: react-jsx)
 - **UI:** React 19 with @metalbear/ui (Radix-based components) and Tailwind CSS
 - **Build:** Vite 5.4 with @crxjs/vite-plugin for Chrome extension bundling
-- **Published to:** Chrome Web Store (automated when a `releases/*` PR is merged)
+- **Published to:** Chrome Web Store and Microsoft Edge Add-ons (automated when a `releases/*` PR is merged; Edge is skipped until the `EDGE_*` secrets are set)
 
 ## Architecture
 
