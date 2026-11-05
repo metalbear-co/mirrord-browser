@@ -446,6 +446,7 @@ describe('joinMatchingSession', () => {
                 [STORAGE_KEYS.JOINED_SESSION_NAME]: 'sess-1',
                 [STORAGE_KEYS.JOINED_HEADER]: 'baggage',
                 [STORAGE_KEYS.JOINED_VALUE]: 'mirrord-session=k1',
+                [STORAGE_KEYS.JOINED_CONTEXT]: null,
             },
             expect.any(Function)
         );

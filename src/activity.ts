@@ -3,7 +3,6 @@ export const ACTIVITY_WINDOW_MS = 60_000;
 
 const MAX_HITS = 200;
 const REPEAT_WINDOW_MS = 10_000;
-let hitSequence = 0;
 
 export type ActivityStatus =
     | 'idle'
@@ -15,7 +14,6 @@ export type ActivityStatus =
     | 'disconnected';
 
 export interface ActivityHit {
-    id: string;
     at: number;
     service: string;
     method: string;
@@ -23,9 +21,22 @@ export interface ActivityHit {
     status: number | null;
     // Connection and request ids from the event, used to attach the response.
     correlation?: string;
-    // Absent on hits stored before repeats were merged.
-    count?: number;
-    kind?: 'http' | 'queue';
+    count: number;
+    kind: 'http' | 'queue';
+}
+
+export interface LatestRequest {
+    kind: 'http' | 'queue';
+    method: string;
+    path: string;
+}
+
+// Per-service totals, kept outside the capped hit rows so a quiet service keeps its card.
+export interface ServiceTotal {
+    at: number;
+    count: number;
+    messages: number;
+    latest: LatestRequest;
 }
 
 export interface ActivityMember {
@@ -39,10 +50,11 @@ export interface ActivityState {
     // Backend, context and key the hits belong to.
     scope?: string;
     // Arrival times inside the activity window, kept apart from the capped display rows.
-    arrivals?: number[];
+    arrivals: number[];
     status: ActivityStatus;
     reason: string | null;
     hits: ActivityHit[];
+    services: Record<string, ServiceTotal>;
     // Workloads running a session with this key; absent until mirrord ui answers.
     members?: ActivityMember[];
 }
@@ -53,18 +65,29 @@ export interface SseMessage {
 }
 
 export function emptyActivity(key: string | null = null): ActivityState {
-    return { key, status: 'idle', reason: null, hits: [] };
+    return {
+        key,
+        status: 'idle',
+        reason: null,
+        hits: [],
+        arrivals: [],
+        services: {},
+    };
 }
 
 const SHORT_DIGEST = 7;
 const LONG_HEX = /^[0-9a-f]{12,}$/i;
 
 export function imageVersion(image: string): string {
-    const name = image.split('@')[0] ?? image;
+    const [name = image, digest] = image.split('@');
     const last = name.slice(name.lastIndexOf('/') + 1);
     const colon = last.lastIndexOf(':');
-    const tag = colon === -1 ? 'latest' : last.slice(colon + 1);
-    return LONG_HEX.test(tag) ? tag.slice(0, SHORT_DIGEST) : tag;
+    if (colon !== -1) {
+        const tag = last.slice(colon + 1);
+        return LONG_HEX.test(tag) ? tag.slice(0, SHORT_DIGEST) : tag;
+    }
+    const hex = digest?.slice(digest.indexOf(':') + 1);
+    return hex && LONG_HEX.test(hex) ? hex.slice(0, SHORT_DIGEST) : 'latest';
 }
 
 export function parseSse(buffer: string): {
@@ -178,6 +201,7 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
         ...hit,
         count: (repeat?.count ?? 0) + 1,
     };
+    const total = state.services[hit.service];
     return {
         ...state,
         hits: [merged, ...state.hits.filter((h) => h !== repeat)].slice(
@@ -186,10 +210,18 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
         ),
         arrivals: [
             hit.at,
-            ...(state.arrivals ?? []).filter(
-                (t) => hit.at - t <= ACTIVITY_WINDOW_MS
-            ),
+            ...state.arrivals.filter((t) => hit.at - t <= ACTIVITY_WINDOW_MS),
         ],
+        services: {
+            ...state.services,
+            [hit.service]: {
+                at: hit.at,
+                count: (total?.count ?? 0) + 1,
+                messages:
+                    (total?.messages ?? 0) + (hit.kind === 'queue' ? 1 : 0),
+                latest: { kind: hit.kind, method: hit.method, path: hit.path },
+            },
+        },
     };
 }
 
@@ -243,13 +275,13 @@ export function applyOperatorEvent(
         }
         const correlation = correlationId(origin, request);
         return mergeHit(state, {
-            id: `${origin}/${now}/${++hitSequence}`,
             ...(correlation ? { correlation } : {}),
             at: now,
             service,
             method,
             path,
             status: null,
+            count: 1,
             kind: 'http',
         });
     }
@@ -259,12 +291,12 @@ export function applyOperatorEvent(
             return state;
         }
         return mergeHit(state, {
-            id: `${origin}/${now}/${++hitSequence}`,
             at: now,
             service,
             method: queue.broker,
             path: queue.name,
             status: null,
+            count: 1,
             kind: 'queue',
         });
     }
@@ -299,44 +331,50 @@ export interface ServiceActivity {
     at: number;
     count: number;
     messages: number;
+    latest: ServiceRequest;
     requests: ServiceRequest[];
 }
 
-export function groupByService(hits: ActivityHit[]): ServiceActivity[] {
-    const services = new Map<string, ServiceActivity>();
-    for (const hit of hits) {
-        let group = services.get(hit.service);
-        if (!group) {
-            group = {
-                service: hit.service,
-                at: hit.at,
-                count: 0,
-                messages: 0,
-                requests: [],
-            };
-            services.set(hit.service, group);
-        }
-        const count = hit.count ?? 1;
-        group.count += count;
-        if (hit.kind === 'queue') {
-            group.messages += count;
-        }
-        const existing = group.requests.find(
+export function groupByService(
+    state: Pick<ActivityState, 'hits' | 'services'>
+): ServiceActivity[] {
+    const rows = new Map<string, ServiceRequest[]>();
+    for (const hit of state.hits) {
+        const requests = rows.get(hit.service) ?? [];
+        rows.set(hit.service, requests);
+        const existing = requests.find(
             (r) => r.method === hit.method && r.path === hit.path
         );
         if (existing) {
-            existing.count += count;
+            existing.count += hit.count;
         } else {
-            group.requests.push({
-                kind: hit.kind ?? 'http',
+            requests.push({
+                kind: hit.kind,
                 method: hit.method,
                 path: hit.path,
-                count,
+                count: hit.count,
                 status: hit.status,
             });
         }
     }
-    return [...services.values()];
+    return Object.entries(state.services)
+        .sort(([, a], [, b]) => b.at - a.at)
+        .map(([service, total]) => {
+            const requests = rows.get(service) ?? [];
+            const latest = requests.find(
+                (r) =>
+                    r.method === total.latest.method &&
+                    r.path === total.latest.path
+            ) ?? { ...total.latest, count: 1, status: null };
+            return {
+                service,
+                at: total.at,
+                count: total.count,
+                messages: total.messages,
+                latest,
+                requests: requests.length > 0 ? requests : [latest],
+            };
+        });
 }
 
 export function recentCount(
@@ -344,5 +382,5 @@ export function recentCount(
     now: number,
     windowMs: number = ACTIVITY_WINDOW_MS
 ): number {
-    return (state.arrivals ?? []).filter((t) => now - t <= windowMs).length;
+    return state.arrivals.filter((t) => now - t <= windowMs).length;
 }

@@ -624,6 +624,7 @@ export function useMirrordUi() {
                 [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
                 [STORAGE_KEYS.JOINED_HEADER]: header,
                 [STORAGE_KEYS.JOINED_VALUE]: value,
+                [STORAGE_KEYS.JOINED_CONTEXT]: effectiveContext,
             });
             joinedHeaderRef.current = header;
             joinedValueRef.current = value;
@@ -634,7 +635,7 @@ export function useMirrordUi() {
                 joinedSessionName: target.id,
             });
         },
-        [sessions, scopePatterns]
+        [sessions, scopePatterns, effectiveContext]
     );
 
     const clearJoin = useCallback(async () => {
@@ -648,6 +649,7 @@ export function useMirrordUi() {
             STORAGE_KEYS.JOINED_SESSION_NAME,
             STORAGE_KEYS.JOINED_HEADER,
             STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.JOINED_CONTEXT,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
         joinedHeaderRef.current = null;

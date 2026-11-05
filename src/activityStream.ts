@@ -1,4 +1,5 @@
-import { STORAGE_KEYS } from './types';
+import { isPreviewSession, STORAGE_KEYS, type ClusterSession } from './types';
+import { fetchOperatorSessionsV2 } from './hooks/useMirrordUi';
 import { ACTIVITY_BADGE_KEY, STRINGS } from './constants';
 import { mirrordUiCredentials, refreshIconIndicator, storageGet } from './util';
 import {
@@ -18,6 +19,7 @@ const RETRY_MIN_MS = 2_000;
 const RETRY_MAX_MS = 30_000;
 const KEEPALIVE_MS = 20_000;
 const HTTP_NOT_FOUND = 404;
+const EVENT_STREAM_TYPE = 'text/event-stream';
 const STATUS_EVENT = 'status';
 const BADGE_REFRESH_MS = 5_000;
 const MEMBERS_REFRESH_MS = 30_000;
@@ -30,7 +32,7 @@ export const ACTIVITY_STORAGE_KEYS: readonly string[] = [
     STORAGE_KEYS.MIRRORD_UI_TOKEN,
     STORAGE_KEYS.MIRRORD_UI_DISCOVERED,
     STORAGE_KEYS.JOINED_KEY,
-    STORAGE_KEYS.SELECTED_CONTEXT,
+    STORAGE_KEYS.JOINED_CONTEXT,
 ];
 
 interface StreamConfig {
@@ -177,16 +179,20 @@ async function savedActivity(): Promise<ActivityState | null> {
 function restoreHits(
     saved: ActivityState | null,
     scope: string
-): Pick<ActivityState, 'hits' | 'arrivals'> {
-    return saved?.scope === scope && Array.isArray(saved.hits)
-        ? { hits: saved.hits, arrivals: saved.arrivals ?? [] }
-        : { hits: [] };
+): Pick<ActivityState, 'hits' | 'arrivals' | 'services'> {
+    return saved?.scope === scope
+        ? {
+              hits: saved.hits,
+              arrivals: saved.arrivals,
+              services: saved.services,
+          }
+        : { hits: [], arrivals: [], services: {} };
 }
 
 function readConfig(stored: Record<string, unknown>): StreamConfig | null {
     const { backend, token } = mirrordUiCredentials(stored);
     const key = stored[STORAGE_KEYS.JOINED_KEY];
-    const context = stored[STORAGE_KEYS.SELECTED_CONTEXT];
+    const context = stored[STORAGE_KEYS.JOINED_CONTEXT];
     if (!backend || !token || typeof key !== 'string') {
         return null;
     }
@@ -229,8 +235,13 @@ export async function syncActivityStream(): Promise<void> {
     state = {
         ...emptyActivity(config.key),
         status: 'connecting',
-        hits: sameKey ? saved.hits : [],
-        arrivals: sameKey ? (saved.arrivals ?? []) : [],
+        ...(sameKey
+            ? {
+                  hits: saved.hits,
+                  arrivals: saved.arrivals,
+                  services: saved.services,
+              }
+            : {}),
         ...(sameKey && saved.scope ? { scope: saved.scope } : {}),
     };
     persist();
@@ -261,10 +272,9 @@ async function start(
     const scope = scopeOf(effective);
     const restored = restoreHits(saved, scope);
     state = {
-        key: config.key,
+        ...emptyActivity(config.key),
         scope,
         status: 'connecting',
-        reason: null,
         ...restored,
     };
     persist();
@@ -303,22 +313,6 @@ function startKeepalive(): void {
     keepaliveTimer = setInterval(() => {
         chrome.runtime.getPlatformInfo().catch(() => undefined);
     }, KEEPALIVE_MS);
-}
-
-interface SessionSummary {
-    id?: unknown;
-    key?: unknown;
-    namespace?: unknown;
-    target?: { name?: unknown } | null;
-}
-
-function summaries(value: unknown): SessionSummary[] {
-    return Array.isArray(value) ? (value as SessionSummary[]) : [];
-}
-
-function targetName(session: SessionSummary): string | null {
-    const name = session.target?.name;
-    return typeof name === 'string' && name ? name : null;
 }
 
 async function previewImage(
@@ -361,35 +355,27 @@ async function refreshMembers(
     config: StreamConfig,
     gen: number
 ): Promise<void> {
-    const query = config.context
-        ? `?context=${encodeURIComponent(config.context)}`
-        : '';
-    let body: { sessions?: unknown; previewSessions?: unknown };
+    let sessions: ClusterSession[];
     try {
-        const resp = await fetch(
-            `${config.backend}/api/v2/operator/sessions${query}`,
-            { headers: { 'x-auth-token': config.token } }
-        );
-        if (!resp.ok) {
-            return;
-        }
-        body = (await resp.json()) as typeof body;
+        ({ sessions } = await fetchOperatorSessionsV2(
+            config.backend,
+            config.token,
+            config.context
+        ));
     } catch {
         return;
     }
-    const ours = (s: SessionSummary) => s.key === config.key;
-    const previews = summaries(body.previewSessions).filter(ours);
-    const previewIds = new Set(previews.map((p) => p.id));
+    const ours = sessions.filter((s) => s.key === config.key);
     const members = new Map<string, ActivityMember>();
-    for (const preview of previews) {
-        const service = targetName(preview);
-        if (!service || typeof preview.id !== 'string') {
+    for (const preview of ours.filter(isPreviewSession)) {
+        const service = preview.target?.name;
+        if (!service) {
             continue;
         }
         const image = await previewImage(
             config,
             preview.id,
-            typeof preview.namespace === 'string' ? preview.namespace : null
+            preview.namespace || null
         );
         members.set(service, {
             service,
@@ -397,9 +383,9 @@ async function refreshMembers(
             version: image ? imageVersion(image) : null,
         });
     }
-    for (const session of summaries(body.sessions).filter(ours)) {
-        const service = targetName(session);
-        if (!service || previewIds.has(session.id) || members.has(service)) {
+    for (const session of ours) {
+        const service = session.target?.name;
+        if (!service || isPreviewSession(session) || members.has(service)) {
             continue;
         }
         members.set(service, { service, kind: 'local', version: null });
@@ -429,7 +415,13 @@ async function connect(config: StreamConfig, gen: number) {
                 signal: ctrl.signal,
             }
         );
-        if (resp.status === HTTP_NOT_FOUND) {
+        // mirrord ui before 3.262.0 answers unknown API paths with its web page and a 200.
+        const contentType = resp.headers.get('content-type') ?? '';
+        if (
+            resp.status === HTTP_NOT_FOUND ||
+            (resp.ok && !contentType.startsWith(EVENT_STREAM_TYPE))
+        ) {
+            void resp.body?.cancel().catch(() => undefined);
             setStatus('outdated_ui');
             retryDelay = RETRY_MAX_MS;
             scheduleRetry(config, gen);

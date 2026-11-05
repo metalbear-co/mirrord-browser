@@ -31,7 +31,7 @@ interface Props {
     now: number;
 }
 
-type LineTone = 'active' | 'muted' | 'warning';
+type LineTone = 'muted' | 'warning';
 
 const truncate = {
     overflow: 'hidden',
@@ -39,17 +39,11 @@ const truncate = {
     whiteSpace: 'nowrap',
 } as const;
 
-function statusLine(
-    status: ActivityStatus,
-    key: string,
-    reached: number
-): { tone: LineTone; text: string } {
+function statusLine(status: Exclude<ActivityStatus, 'live'>): {
+    tone: LineTone;
+    text: string;
+} {
     switch (status) {
-        case 'live':
-            return {
-                tone: 'active',
-                text: STRINGS.ACTIVITY_LIVE(key, reached),
-            };
         case 'unavailable':
             return { tone: 'warning', text: STRINGS.ACTIVITY_UNAVAILABLE };
         case 'outdated_ui':
@@ -235,7 +229,7 @@ function ServiceCard({ model, now }: { model: CardModel; now: number }) {
     const [expanded, setExpanded] = useState(false);
     const { group, member, service } = model;
     const reached = group !== null;
-    const latest = group?.requests[0] ?? null;
+    const latest = group?.latest ?? null;
     return (
         <li>
             <Card
@@ -358,9 +352,10 @@ export function ActivityView({ joinedKey, activity, now }: Props) {
     }
 
     const reached = recentCount(activity, now);
-    const line = statusLine(activity.status, joinedKey, reached);
+    const line =
+        activity.status === 'live' ? null : statusLine(activity.status);
     const cards = cardModels(
-        groupByService(activity.hits),
+        groupByService(activity),
         activity.members ?? []
     ).slice(0, MAX_SERVICES);
 
@@ -368,14 +363,11 @@ export function ActivityView({ joinedKey, activity, now }: Props) {
         <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-0.5 px-1">
                 <div className="flex items-center gap-2">
-                    {activity.status === 'live' ? (
+                    {line === null ? (
                         <LiveLine joinedKey={joinedKey} reached={reached} />
                     ) : (
                         <>
-                            <StatusDot
-                                tone={line.tone}
-                                glow={line.tone === 'active'}
-                            />
+                            <StatusDot tone={line.tone} />
                             <span
                                 className="text-body min-w-0 flex-1"
                                 style={{ overflowWrap: 'anywhere' }}
@@ -385,7 +377,7 @@ export function ActivityView({ joinedKey, activity, now }: Props) {
                         </>
                     )}
                 </div>
-                {line.tone === 'warning' && activity.reason && (
+                {line?.tone === 'warning' && activity.reason && (
                     <span
                         className="text-meta text-muted-foreground"
                         style={{ overflowWrap: 'anywhere', paddingLeft: 16 }}

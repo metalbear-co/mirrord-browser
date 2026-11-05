@@ -66,6 +66,7 @@ async function joinKey(
         [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
         [STORAGE_KEYS.JOINED_HEADER]: header,
         [STORAGE_KEYS.JOINED_VALUE]: value,
+        [STORAGE_KEYS.JOINED_CONTEXT]: target.context,
         ...(target.context && {
             [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
         }),

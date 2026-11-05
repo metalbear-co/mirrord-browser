@@ -354,6 +354,7 @@ export async function handleJoin(key: string, context: string | null = null) {
             [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
+            [STORAGE_KEYS.JOINED_CONTEXT]: target.context,
             ...(target.context && {
                 [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
             }),
@@ -386,6 +387,7 @@ export async function handleLeave() {
             STORAGE_KEYS.JOINED_SESSION_NAME,
             STORAGE_KEYS.JOINED_HEADER,
             STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.JOINED_CONTEXT,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
         emitUserSucceeded('left', 'user_action');

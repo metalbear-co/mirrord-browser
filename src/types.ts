@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
     JOINED_SESSION_NAME: 'joined_session_name',
     JOINED_HEADER: 'joined_header',
     JOINED_VALUE: 'joined_value',
+    JOINED_CONTEXT: 'joined_context',
     SCOPE_PATTERNS: 'scope_patterns',
     ACTIVE_TAB: 'popup_tab',
     THEME: 'theme',

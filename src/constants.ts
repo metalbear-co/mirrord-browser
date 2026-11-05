@@ -96,12 +96,8 @@ export const STRINGS = {
     TAB_ACTIVITY: 'Activity',
     ACTIVITY_NOT_JOINED: 'Join a session to see its activity',
     ACTIVITY_NOT_JOINED_HINT:
-        'Activity lists each request that reaches the session or preview you joined, next to the browser request that sent it.',
+        'Activity lists the services in the session or preview you joined, and the requests and queue messages that reached each one.',
     ACTIVITY_CONNECTING: 'Connecting to mirrord ui…',
-    ACTIVITY_LIVE: (key: string, reached: number) =>
-        reached > 0
-            ? `${reached} ${reached === 1 ? 'request' : 'requests'} reached ${key} in the last minute`
-            : `Listening for requests that reach ${key}`,
     ACTIVITY_UNAVAILABLE:
         'mirrord ui can’t reach the operator for this context.',
     ACTIVITY_OUTDATED_UI: 'Update mirrord to 3.262.0 or later to see activity.',
@@ -129,7 +125,6 @@ export const STRINGS = {
     ACTIVITY_LOCAL_HINT: 'Running on a developer machine with mirrord',
     ACTIVITY_PREVIEW: 'preview',
     ACTIVITY_PREVIEW_HINT: 'Image tag of the preview environment',
-    ACTIVITY_PENDING_STATUS: '…',
     LABEL_URL_SCOPE_HEADING: 'URL scope',
     LABEL_HEADER_OBSERVED: 'header observed',
     LABEL_INJECTING: 'injecting',
