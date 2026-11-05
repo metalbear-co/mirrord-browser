@@ -55,7 +55,6 @@ let retryDelay = RETRY_MIN_MS;
 let badgeTimer: ReturnType<typeof setInterval> | null = null;
 let membersTimer: ReturnType<typeof setInterval> | null = null;
 const previewImages = new Map<string, string | null>();
-let defaultBadgeBackground: chrome.action.ColorArray | null = null;
 
 function sessionArea(): chrome.storage.StorageArea | undefined {
     return (
@@ -70,20 +69,37 @@ function persist(): void {
     void updateBadge();
 }
 
-// While requests reach the session, the toolbar badge shows how many arrived in the last minute;
-// afterwards it falls back to the injection check mark.
-async function updateBadge(): Promise<void> {
+const BADGE_ORIGINAL_KEY = 'activity_badge_original';
+
+let badgeQueue: Promise<void> = Promise.resolve();
+
+// Updates run one at a time so two of them can't both record the original color.
+function updateBadge(): Promise<void> {
+    badgeQueue = badgeQueue.then(drawBadge, drawBadge);
+    return badgeQueue;
+}
+
+// The original color lives in session storage so a restarted worker can still restore it.
+async function drawBadge(): Promise<void> {
     const action = (chrome as unknown as { action?: typeof chrome.action })
         .action;
-    if (!action) {
+    const area = sessionArea();
+    if (!action || !area) {
         return;
     }
     const count = hitsWithin(state.hits, Date.now());
     try {
+        const stored = await area.get(BADGE_ORIGINAL_KEY);
+        const original = stored[BADGE_ORIGINAL_KEY] as
+            | chrome.action.ColorArray
+            | undefined;
         if (count > 0) {
-            if (defaultBadgeBackground === null) {
-                const original = await action.getBadgeBackgroundColor({});
-                defaultBadgeBackground ??= original;
+            if (!original) {
+                await area.set({
+                    [BADGE_ORIGINAL_KEY]: await action.getBadgeBackgroundColor(
+                        {}
+                    ),
+                });
             }
             await action.setBadgeBackgroundColor({ color: BADGE_BACKGROUND });
             await action.setBadgeTextColor({ color: BADGE_TEXT });
@@ -100,15 +116,14 @@ async function updateBadge(): Promise<void> {
             clearInterval(badgeTimer);
             badgeTimer = null;
         }
-        const original = defaultBadgeBackground;
-        if (original !== null) {
-            defaultBadgeBackground = null;
+        if (original) {
+            await area.remove(BADGE_ORIGINAL_KEY);
             await action.setBadgeBackgroundColor({ color: original });
             const rules = await chrome.declarativeNetRequest.getDynamicRules();
             refreshIconIndicator(rules.length);
         }
     } catch {
-        // The badge is a hint; failing to draw it must not stop the stream.
+        // A failed badge update must not stop the event stream.
     }
 }
 
@@ -245,6 +260,7 @@ async function previewImage(
         previewImages.set(id, image);
         return image;
     } catch {
+        previewImages.set(id, null);
         return null;
     }
 }
