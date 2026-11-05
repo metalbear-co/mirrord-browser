@@ -22,7 +22,7 @@ import { SessionsView, ManualSetup, ActivityView } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
 import { useActivity } from './hooks/useActivity';
-import { hitsWithin } from './activity';
+import { recentCount } from './activity';
 import {
     capture,
     captureBeacon,
@@ -82,7 +82,7 @@ export function Popup() {
     const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
     const activity = useActivity();
-    const reachedLastMinute = hitsWithin(activity.activity.hits, activity.now);
+    const reachedLastMinute = recentCount(activity.activity, activity.now);
 
     // Sessions sharing a key are presented as one group, so count distinct keys
     // (not raw sessions) to match the list below.

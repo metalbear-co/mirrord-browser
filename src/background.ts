@@ -118,6 +118,8 @@ chrome.runtime.onInstalled.addListener(() => {
 
 void syncActivityStream();
 chrome.runtime.onStartup.addListener(() => void syncActivityStream());
+// The Activity stream keeps the worker alive, which would otherwise hold a downloaded update back.
+chrome.runtime.onUpdateAvailable.addListener(() => chrome.runtime.reload());
 
 chrome.runtime.onInstalled.addListener((details) => {
     void syncBaggageMode().then(() =>

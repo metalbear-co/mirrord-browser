@@ -8,7 +8,7 @@ import { formatRelativeTime } from '../util';
 import { RING_SECONDS } from '../headerObservation';
 import {
     groupByService,
-    hitsWithin,
+    recentCount,
     type ActivityMember,
     type ActivityState,
     type ActivityStatus,
@@ -357,7 +357,7 @@ export function ActivityView({ joinedKey, activity, now }: Props) {
         );
     }
 
-    const reached = hitsWithin(activity.hits, now);
+    const reached = recentCount(activity, now);
     const line = statusLine(activity.status, joinedKey, reached);
     const cards = cardModels(
         groupByService(activity.hits),

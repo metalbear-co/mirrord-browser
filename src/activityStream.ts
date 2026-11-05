@@ -6,9 +6,8 @@ import {
     emptyActivity,
     imageVersion,
     type ActivityMember,
-    hitsWithin,
+    recentCount,
     parseSse,
-    type ActivityHit,
     type ActivityState,
     type ActivityStatus,
     type SseMessage,
@@ -87,7 +86,7 @@ async function drawBadge(): Promise<void> {
     if (!action || !area) {
         return;
     }
-    const count = hitsWithin(state.hits, Date.now());
+    const count = recentCount(state, Date.now());
     try {
         const stored = await area.get(BADGE_ORIGINAL_KEY);
         const original = stored[BADGE_ORIGINAL_KEY] as
@@ -135,14 +134,37 @@ function setStatus(status: ActivityStatus, reason: string | null = null) {
     persist();
 }
 
+// Pins "the kubeconfig's current context" to a name, so switching contexts later can't mix
+// another cluster's events into this session's history.
+async function withCurrentContext(config: StreamConfig): Promise<StreamConfig> {
+    if (config.context) {
+        return config;
+    }
+    try {
+        const resp = await fetch(`${config.backend}/api/v2/kube/contexts`, {
+            headers: { 'x-auth-token': config.token },
+        });
+        const body = resp.ok
+            ? ((await resp.json()) as { current?: unknown })
+            : {};
+        return typeof body.current === 'string' && body.current
+            ? { ...config, context: body.current }
+            : config;
+    } catch {
+        return config;
+    }
+}
+
 function scopeOf(config: StreamConfig): string {
     return JSON.stringify([config.backend, config.context, config.key]);
 }
 
-async function restoreHits(scope: string): Promise<ActivityHit[]> {
+async function restoreHits(
+    scope: string
+): Promise<Pick<ActivityState, 'hits' | 'arrivals'>> {
     const area = sessionArea();
     if (!area) {
-        return [];
+        return { hits: [] };
     }
     try {
         const stored = await area.get(ACTIVITY_SESSION_KEY);
@@ -150,10 +172,10 @@ async function restoreHits(scope: string): Promise<ActivityHit[]> {
             | ActivityState
             | undefined;
         return previous?.scope === scope && Array.isArray(previous.hits)
-            ? previous.hits
-            : [];
+            ? { hits: previous.hits, arrivals: previous.arrivals ?? [] }
+            : { hits: [] };
     } catch {
-        return [];
+        return { hits: [] };
     }
 }
 
@@ -185,8 +207,9 @@ export async function syncActivityStream(): Promise<void> {
         persist();
         return;
     }
-    const scope = scopeOf(config);
-    const hits = await restoreHits(scope);
+    const effective = await withCurrentContext(config);
+    const scope = scopeOf(effective);
+    const restored = await restoreHits(scope);
     if (activeConfig !== serialized) {
         return;
     }
@@ -195,14 +218,14 @@ export async function syncActivityStream(): Promise<void> {
         scope,
         status: 'connecting',
         reason: null,
-        hits,
+        ...restored,
     };
     persist();
     startKeepalive();
-    void connect(config, serialized);
-    void refreshMembers(config, serialized);
+    void connect(effective, serialized);
+    void refreshMembers(effective, serialized);
     membersTimer = setInterval(
-        () => void refreshMembers(config, serialized),
+        () => void refreshMembers(effective, serialized),
         MEMBERS_REFRESH_MS
     );
 }
@@ -239,6 +262,7 @@ function startKeepalive(): void {
 interface SessionSummary {
     id?: unknown;
     key?: unknown;
+    namespace?: unknown;
     target?: { name?: unknown } | null;
 }
 
@@ -254,15 +278,22 @@ function targetName(session: SessionSummary): string | null {
 async function previewImage(
     config: StreamConfig,
     id: string,
-    query: string
+    namespace: string | null
 ): Promise<string | null> {
     const cached = previewImages.get(id);
     if (cached) {
         return cached;
     }
     try {
+        const params = new URLSearchParams();
+        if (config.context) {
+            params.set('context', config.context);
+        }
+        if (namespace) {
+            params.set('namespace', namespace);
+        }
         const resp = await fetch(
-            `${config.backend}/api/v2/operator/previews/${encodeURIComponent(id)}${query}`,
+            `${config.backend}/api/v2/operator/previews/${encodeURIComponent(id)}?${params.toString()}`,
             { headers: { 'x-auth-token': config.token } }
         );
         const body = resp.ok
@@ -309,7 +340,11 @@ async function refreshMembers(
         if (!service || typeof preview.id !== 'string') {
             continue;
         }
-        const image = await previewImage(config, preview.id, query);
+        const image = await previewImage(
+            config,
+            preview.id,
+            typeof preview.namespace === 'string' ? preview.namespace : null
+        );
         members.set(service, {
             service,
             kind: 'preview',

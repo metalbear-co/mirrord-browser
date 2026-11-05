@@ -23,8 +23,6 @@ export interface ActivityHit {
     // Absent on hits stored before repeats were merged.
     count?: number;
     kind?: 'http' | 'queue';
-    // Arrival times inside the activity window, for the last-minute counts.
-    times?: number[];
 }
 
 export interface ActivityMember {
@@ -37,6 +35,8 @@ export interface ActivityState {
     key: string | null;
     // Backend, context and key the hits belong to.
     scope?: string;
+    // Arrival times inside the activity window, kept apart from the capped display rows.
+    arrivals?: number[];
     status: ActivityStatus;
     reason: string | null;
     hits: ActivityHit[];
@@ -174,12 +174,6 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
     const merged: ActivityHit = {
         ...hit,
         count: (repeat?.count ?? 0) + 1,
-        times: [
-            hit.at,
-            ...(repeat?.times ?? []).filter(
-                (t) => hit.at - t <= ACTIVITY_WINDOW_MS
-            ),
-        ],
     };
     return {
         ...state,
@@ -187,6 +181,12 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
             merged,
             ...state.hits.filter((h) => h.id !== hit.id && h !== repeat),
         ].slice(0, MAX_HITS),
+        arrivals: [
+            hit.at,
+            ...(state.arrivals ?? []).filter(
+                (t) => hit.at - t <= ACTIVITY_WINDOW_MS
+            ),
+        ],
     };
 }
 
@@ -333,15 +333,10 @@ export function groupByService(hits: ActivityHit[]): ServiceActivity[] {
     return [...services.values()];
 }
 
-export function hitsWithin(
-    hits: ActivityHit[],
+export function recentCount(
+    state: ActivityState,
     now: number,
     windowMs: number = ACTIVITY_WINDOW_MS
 ): number {
-    return hits.reduce(
-        (total, h) =>
-            total +
-            (h.times ?? [h.at]).filter((t) => now - t <= windowMs).length,
-        0
-    );
+    return (state.arrivals ?? []).filter((t) => now - t <= windowMs).length;
 }
