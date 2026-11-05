@@ -1,7 +1,7 @@
 export const ACTIVITY_SESSION_KEY = 'activity';
 export const ACTIVITY_WINDOW_MS = 60_000;
 
-const MAX_HITS = 50;
+const MAX_HITS = 200;
 const REPEAT_WINDOW_MS = 10_000;
 
 export type ActivityStatus =
@@ -23,6 +23,8 @@ export interface ActivityHit {
     // Absent on hits stored before repeats were merged.
     count?: number;
     kind?: 'http' | 'queue';
+    // Arrival times inside the activity window, for the last-minute counts.
+    times?: number[];
 }
 
 export interface ActivityMember {
@@ -33,6 +35,8 @@ export interface ActivityMember {
 
 export interface ActivityState {
     key: string | null;
+    // Backend, context and key the hits belong to.
+    scope?: string;
     status: ActivityStatus;
     reason: string | null;
     hits: ActivityHit[];
@@ -102,13 +106,13 @@ function asString(value: unknown): string {
 }
 
 function correlationId(
-    service: string,
+    origin: string,
     payload: Record<string, unknown>
 ): string | null {
     const connection = payload['connection_id'];
     const request = payload['request_id'];
     return typeof connection === 'number' && typeof request === 'number'
-        ? `${service}/${connection}:${request}`
+        ? `${origin}/${connection}:${request}`
         : null;
 }
 
@@ -170,6 +174,12 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
     const merged: ActivityHit = {
         ...hit,
         count: (repeat?.count ?? 0) + 1,
+        times: [
+            hit.at,
+            ...(repeat?.times ?? []).filter(
+                (t) => hit.at - t <= ACTIVITY_WINDOW_MS
+            ),
+        ],
     };
     return {
         ...state,
@@ -217,6 +227,7 @@ export function applyOperatorEvent(
     }
     const data = asRecord(event['data']);
     const service = asString(event['service_name']);
+    const origin = `${asString(event['cluster'])}/${service}`;
     const request = asRecord(data?.['http_request']);
     if (request) {
         if (request['mode'] === 'filtered') {
@@ -227,7 +238,7 @@ export function applyOperatorEvent(
         if (isStatic(path)) {
             return state;
         }
-        const id = correlationId(service, request) ?? `${service}/${now}`;
+        const id = correlationId(origin, request) ?? `${origin}/${now}`;
         return mergeHit(state, {
             id,
             at: now,
@@ -244,7 +255,7 @@ export function applyOperatorEvent(
             return state;
         }
         return mergeHit(state, {
-            id: `${service}/${queue.broker}/${queue.name}/${now}`,
+            id: `${origin}/${queue.broker}/${queue.name}/${now}`,
             at: now,
             service,
             method: queue.broker,
@@ -255,7 +266,7 @@ export function applyOperatorEvent(
     }
     const response = asRecord(data?.['http_response']);
     const status = response?.['status'];
-    const id = response ? correlationId(service, response) : null;
+    const id = response ? correlationId(origin, response) : null;
     if (!id || typeof status !== 'number') {
         return state;
     }
@@ -327,7 +338,10 @@ export function hitsWithin(
     now: number,
     windowMs: number = ACTIVITY_WINDOW_MS
 ): number {
-    return hits
-        .filter((h) => now - h.at <= windowMs)
-        .reduce((total, h) => total + (h.count ?? 1), 0);
+    return hits.reduce(
+        (total, h) =>
+            total +
+            (h.times ?? [h.at]).filter((t) => now - t <= windowMs).length,
+        0
+    );
 }

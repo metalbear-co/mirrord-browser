@@ -54,7 +54,7 @@ let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 let retryDelay = RETRY_MIN_MS;
 let badgeTimer: ReturnType<typeof setInterval> | null = null;
 let membersTimer: ReturnType<typeof setInterval> | null = null;
-const previewImages = new Map<string, string | null>();
+const previewImages = new Map<string, string>();
 
 function sessionArea(): chrome.storage.StorageArea | undefined {
     return (
@@ -135,7 +135,11 @@ function setStatus(status: ActivityStatus, reason: string | null = null) {
     persist();
 }
 
-async function restoreHits(key: string): Promise<ActivityHit[]> {
+function scopeOf(config: StreamConfig): string {
+    return JSON.stringify([config.backend, config.context, config.key]);
+}
+
+async function restoreHits(scope: string): Promise<ActivityHit[]> {
     const area = sessionArea();
     if (!area) {
         return [];
@@ -145,7 +149,7 @@ async function restoreHits(key: string): Promise<ActivityHit[]> {
         const previous = stored[ACTIVITY_SESSION_KEY] as
             | ActivityState
             | undefined;
-        return previous?.key === key && Array.isArray(previous.hits)
+        return previous?.scope === scope && Array.isArray(previous.hits)
             ? previous.hits
             : [];
     } catch {
@@ -181,11 +185,18 @@ export async function syncActivityStream(): Promise<void> {
         persist();
         return;
     }
-    const hits = await restoreHits(config.key);
+    const scope = scopeOf(config);
+    const hits = await restoreHits(scope);
     if (activeConfig !== serialized) {
         return;
     }
-    state = { key: config.key, status: 'connecting', reason: null, hits };
+    state = {
+        key: config.key,
+        scope,
+        status: 'connecting',
+        reason: null,
+        hits,
+    };
     persist();
     startKeepalive();
     void connect(config, serialized);
@@ -245,8 +256,9 @@ async function previewImage(
     id: string,
     query: string
 ): Promise<string | null> {
-    if (previewImages.has(id)) {
-        return previewImages.get(id) ?? null;
+    const cached = previewImages.get(id);
+    if (cached) {
+        return cached;
     }
     try {
         const resp = await fetch(
@@ -257,10 +269,11 @@ async function previewImage(
             ? ((await resp.json()) as { image?: unknown })
             : {};
         const image = typeof body.image === 'string' ? body.image : null;
-        previewImages.set(id, image);
+        if (image) {
+            previewImages.set(id, image);
+        }
         return image;
     } catch {
-        previewImages.set(id, null);
         return null;
     }
 }
@@ -337,6 +350,8 @@ async function connect(config: StreamConfig, serialized: string) {
         );
         if (resp.status === HTTP_NOT_FOUND) {
             setStatus('outdated_ui');
+            retryDelay = RETRY_MAX_MS;
+            scheduleRetry(config, serialized);
             return;
         }
         if (!resp.ok || !resp.body) {
