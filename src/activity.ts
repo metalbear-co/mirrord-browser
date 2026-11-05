@@ -3,6 +3,7 @@ export const ACTIVITY_WINDOW_MS = 60_000;
 
 const MAX_HITS = 200;
 const REPEAT_WINDOW_MS = 10_000;
+let hitSequence = 0;
 
 export type ActivityStatus =
     | 'idle'
@@ -20,6 +21,8 @@ export interface ActivityHit {
     method: string;
     path: string;
     status: number | null;
+    // Connection and request ids from the event, used to attach the response.
+    correlation?: string;
     // Absent on hits stored before repeats were merged.
     count?: number;
     kind?: 'http' | 'queue';
@@ -177,10 +180,10 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
     };
     return {
         ...state,
-        hits: [
-            merged,
-            ...state.hits.filter((h) => h.id !== hit.id && h !== repeat),
-        ].slice(0, MAX_HITS),
+        hits: [merged, ...state.hits.filter((h) => h !== repeat)].slice(
+            0,
+            MAX_HITS
+        ),
         arrivals: [
             hit.at,
             ...(state.arrivals ?? []).filter(
@@ -238,9 +241,10 @@ export function applyOperatorEvent(
         if (isStatic(path)) {
             return state;
         }
-        const id = correlationId(origin, request) ?? `${origin}/${now}`;
+        const correlation = correlationId(origin, request);
         return mergeHit(state, {
-            id,
+            id: `${origin}/${now}/${++hitSequence}`,
+            ...(correlation ? { correlation } : {}),
             at: now,
             service,
             method,
@@ -255,7 +259,7 @@ export function applyOperatorEvent(
             return state;
         }
         return mergeHit(state, {
-            id: `${origin}/${queue.broker}/${queue.name}/${now}`,
+            id: `${origin}/${now}/${++hitSequence}`,
             at: now,
             service,
             method: queue.broker,
@@ -266,17 +270,19 @@ export function applyOperatorEvent(
     }
     const response = asRecord(data?.['http_response']);
     const status = response?.['status'];
-    const id = response ? correlationId(origin, response) : null;
-    if (!id || typeof status !== 'number') {
+    const correlation = response ? correlationId(origin, response) : null;
+    if (!correlation || typeof status !== 'number') {
         return state;
     }
-    const awaiting = (h: ActivityHit) => h.id === id && h.status === null;
-    if (!state.hits.some(awaiting)) {
+    const target = state.hits.find(
+        (h) => h.correlation === correlation && h.status === null
+    );
+    if (!target) {
         return state;
     }
     return {
         ...state,
-        hits: state.hits.map((h) => (awaiting(h) ? { ...h, status } : h)),
+        hits: state.hits.map((h) => (h === target ? { ...h, status } : h)),
     };
 }
 

@@ -201,7 +201,8 @@ function readConfig(stored: Record<string, unknown>): StreamConfig | null {
 }
 
 export async function syncActivityStream(): Promise<void> {
-    const config = readConfig(await storageGet([...ACTIVITY_STORAGE_KEYS]));
+    const stored = await storageGet([...ACTIVITY_STORAGE_KEYS]);
+    const config = readConfig(stored);
     const serialized = config ? JSON.stringify(config) : null;
     if (serialized === activeConfig) {
         return;
@@ -214,11 +215,24 @@ export async function syncActivityStream(): Promise<void> {
         return;
     }
     if (!config) {
-        state = emptyActivity();
+        // Still joined but waiting for mirrord ui credentials: keep the history for when they return.
+        const stillJoined =
+            typeof stored[STORAGE_KEYS.JOINED_KEY] === 'string' &&
+            saved?.key === stored[STORAGE_KEYS.JOINED_KEY];
+        state =
+            stillJoined && saved
+                ? { ...saved, status: 'connecting', reason: null }
+                : emptyActivity();
         persist();
         return;
     }
-    state = { ...emptyActivity(config.key), status: 'connecting' };
+    const sameKey = saved?.key === config.key;
+    state = {
+        ...emptyActivity(config.key),
+        status: 'connecting',
+        hits: sameKey ? saved.hits : [],
+        arrivals: sameKey ? (saved.arrivals ?? []) : [],
+    };
     persist();
     startKeepalive();
     await start(config, gen, saved);
