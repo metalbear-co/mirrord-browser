@@ -23,12 +23,6 @@ export interface ActivityHit {
     // Absent on hits stored before repeats were merged.
     count?: number;
     kind?: 'http' | 'queue';
-    occurrences?: Occurrence[];
-}
-
-export interface Occurrence {
-    at: number;
-    trace: string | null;
 }
 
 export interface ActivityMember {
@@ -132,27 +126,10 @@ const QUEUE_LABELS: Record<string, string> = {
     azure_service_bus: 'Service Bus',
 };
 
-const MAX_OCCURRENCES = 20;
-
-// W3C `traceparent` first, then the Google Cloud header load balancers add.
-export function traceId(headers: unknown): string | null {
-    const record = asRecord(headers);
-    if (!record) {
-        return null;
-    }
-    const traceparent = asString(record['traceparent']).split('-')[1];
-    if (traceparent) {
-        return traceparent;
-    }
-    const [cloud] = asString(record['x-cloud-trace-context']).split('/');
-    return cloud === undefined || cloud === '' ? null : cloud;
-}
-
 function queueMessage(data: Record<string, unknown> | null): {
     broker: string;
     name: string;
     mode: unknown;
-    headers: unknown;
 } | null {
     const queue = asRecord(data?.['queue_message']);
     if (queue) {
@@ -161,7 +138,6 @@ function queueMessage(data: Record<string, unknown> | null): {
             broker: QUEUE_LABELS[type] ?? type,
             name: asString(queue['queue_name']),
             mode: queue['mode'],
-            headers: queue['properties'],
         };
     }
     const kafka = asRecord(data?.['kafka_message']);
@@ -170,7 +146,6 @@ function queueMessage(data: Record<string, unknown> | null): {
             broker: 'Kafka',
             name: asString(kafka['topic']),
             mode: kafka['mode'],
-            headers: kafka['headers'],
         };
     }
     const redis = asRecord(data?.['redis_message']);
@@ -179,7 +154,6 @@ function queueMessage(data: Record<string, unknown> | null): {
             broker: 'Redis',
             name: asString(redis['channel']),
             mode: redis['mode'],
-            headers: null,
         };
     }
     return null;
@@ -196,10 +170,6 @@ function mergeHit(state: ActivityState, hit: ActivityHit): ActivityState {
     const merged: ActivityHit = {
         ...hit,
         count: (repeat?.count ?? 0) + 1,
-        occurrences: [
-            ...(hit.occurrences ?? []),
-            ...(repeat?.occurrences ?? []),
-        ].slice(0, MAX_OCCURRENCES),
     };
     return {
         ...state,
@@ -266,7 +236,6 @@ export function applyOperatorEvent(
             path,
             status: null,
             kind: 'http',
-            occurrences: [{ at: now, trace: traceId(request['headers']) }],
         });
     }
     const queue = queueMessage(data);
@@ -282,7 +251,6 @@ export function applyOperatorEvent(
             path: queue.name,
             status: null,
             kind: 'queue',
-            occurrences: [{ at: now, trace: traceId(queue.headers) }],
         });
     }
     const response = asRecord(data?.['http_response']);
@@ -302,7 +270,6 @@ export function applyOperatorEvent(
 }
 
 export interface ServiceRequest {
-    occurrences: Occurrence[];
     kind: 'http' | 'queue';
     method: string;
     path: string;
@@ -342,13 +309,8 @@ export function groupByService(hits: ActivityHit[]): ServiceActivity[] {
         );
         if (existing) {
             existing.count += count;
-            existing.occurrences = [
-                ...existing.occurrences,
-                ...(hit.occurrences ?? []),
-            ].slice(0, MAX_OCCURRENCES);
         } else {
             group.requests.push({
-                occurrences: (hit.occurrences ?? []).slice(0, MAX_OCCURRENCES),
                 kind: hit.kind ?? 'http',
                 method: hit.method,
                 path: hit.path,

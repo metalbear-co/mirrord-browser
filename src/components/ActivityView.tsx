@@ -19,7 +19,6 @@ import {
 const MAX_SERVICES = 20;
 const CHIP_MAX_WIDTH = 96;
 const MISSING_OPACITY = 0.6;
-const OCCURRENCE_OPACITY = 0.8;
 const CHEVRON_SIZE = 14;
 const HTTP_CLIENT_ERROR = 400;
 const HTTP_SERVER_ERROR = 500;
@@ -147,10 +146,6 @@ function CopyText({
     );
 }
 
-function clockTime(at: number): string {
-    return new Date(at).toLocaleTimeString([], { hour12: false });
-}
-
 function RequestRow({ request }: { request: ServiceRequest }) {
     const label = requestLabel(request);
     return (
@@ -175,32 +170,6 @@ function RequestRow({ request }: { request: ServiceRequest }) {
                     </span>
                 )}
             </div>
-            {request.occurrences.length > 0 && (
-                <ul className="m-0 flex list-none flex-col p-0 pl-3">
-                    {request.occurrences.map((occurrence) => (
-                        <li
-                            key={`${occurrence.at}-${occurrence.trace ?? ''}`}
-                            className="text-meta text-muted-foreground flex gap-3 font-mono"
-                            style={{ opacity: OCCURRENCE_OPACITY }}
-                        >
-                            <span className="shrink-0">
-                                {clockTime(occurrence.at)}
-                            </span>
-                            {occurrence.trace ? (
-                                <CopyText
-                                    text={STRINGS.ACTIVITY_TRACE(
-                                        occurrence.trace
-                                    )}
-                                    copy={occurrence.trace}
-                                    className="min-w-0"
-                                />
-                            ) : (
-                                <span>{STRINGS.ACTIVITY_NO_TRACE}</span>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            )}
         </li>
     );
 }

@@ -121,10 +121,8 @@ export const STRINGS = {
         return `${count} ${noun}${count === 1 ? '' : 's'}`;
     },
     ACTIVITY_NOT_REACHED: 'not reached yet',
-    ACTIVITY_TRACE: (id: string) => `trace ${id}`,
     ACTIVITY_COPY: 'Click to copy',
     ACTIVITY_COPIED: 'Copied',
-    ACTIVITY_NO_TRACE: 'no trace id',
     ACTIVITY_LOCAL: 'local',
     ACTIVITY_LOCAL_HINT: 'Running on a developer machine with mirrord',
     ACTIVITY_PREVIEW: 'preview',
