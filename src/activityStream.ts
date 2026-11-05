@@ -164,24 +164,25 @@ function scopeOf(config: StreamConfig): string {
     return JSON.stringify([config.backend, config.context, config.key]);
 }
 
-async function restoreHits(
-    scope: string
-): Promise<Pick<ActivityState, 'hits' | 'arrivals'>> {
-    const area = sessionArea();
-    if (!area) {
-        return { hits: [] };
-    }
+async function savedActivity(): Promise<ActivityState | null> {
     try {
-        const stored = await area.get(ACTIVITY_SESSION_KEY);
-        const previous = stored[ACTIVITY_SESSION_KEY] as
-            | ActivityState
-            | undefined;
-        return previous?.scope === scope && Array.isArray(previous.hits)
-            ? { hits: previous.hits, arrivals: previous.arrivals ?? [] }
-            : { hits: [] };
+        const stored = await sessionArea()?.get(ACTIVITY_SESSION_KEY);
+        return (
+            (stored?.[ACTIVITY_SESSION_KEY] as ActivityState | undefined) ??
+            null
+        );
     } catch {
-        return { hits: [] };
+        return null;
     }
+}
+
+function restoreHits(
+    saved: ActivityState | null,
+    scope: string
+): Pick<ActivityState, 'hits' | 'arrivals'> {
+    return saved?.scope === scope && Array.isArray(saved.hits)
+        ? { hits: saved.hits, arrivals: saved.arrivals ?? [] }
+        : { hits: [] };
 }
 
 function readConfig(stored: Record<string, unknown>): StreamConfig | null {
@@ -208,6 +209,10 @@ export async function syncActivityStream(): Promise<void> {
     stop();
     activeConfig = serialized;
     const gen = ++generation;
+    const saved = await savedActivity();
+    if (gen !== generation) {
+        return;
+    }
     if (!config) {
         state = emptyActivity();
         persist();
@@ -216,10 +221,14 @@ export async function syncActivityStream(): Promise<void> {
     state = { ...emptyActivity(config.key), status: 'connecting' };
     persist();
     startKeepalive();
-    await start(config, gen);
+    await start(config, gen, saved);
 }
 
-async function start(config: StreamConfig, gen: number): Promise<void> {
+async function start(
+    config: StreamConfig,
+    gen: number,
+    saved: ActivityState | null
+): Promise<void> {
     const effective = await withCurrentContext(config);
     if (gen !== generation) {
         return;
@@ -229,17 +238,14 @@ async function start(config: StreamConfig, gen: number): Promise<void> {
         retryTimer = setTimeout(() => {
             retryTimer = null;
             if (gen === generation) {
-                void start(config, gen);
+                void start(config, gen, saved);
             }
         }, retryDelay);
         retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
         return;
     }
     const scope = scopeOf(effective);
-    const restored = await restoreHits(scope);
-    if (gen !== generation) {
-        return;
-    }
+    const restored = restoreHits(saved, scope);
     state = {
         key: config.key,
         scope,
