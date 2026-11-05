@@ -203,7 +203,11 @@ function readConfig(stored: Record<string, unknown>): StreamConfig | null {
 export async function syncActivityStream(): Promise<void> {
     const stored = await storageGet([...ACTIVITY_STORAGE_KEYS]);
     const config = readConfig(stored);
-    const serialized = config ? JSON.stringify(config) : null;
+    const joined = stored[STORAGE_KEYS.JOINED_KEY];
+    // Without credentials the joined key alone decides, so leaving still clears the history.
+    const serialized = JSON.stringify(
+        config ?? { key: typeof joined === 'string' ? joined : null }
+    );
     if (serialized === activeConfig) {
         return;
     }
@@ -216,13 +220,10 @@ export async function syncActivityStream(): Promise<void> {
     }
     if (!config) {
         // Still joined but waiting for mirrord ui credentials: keep the history for when they return.
-        const stillJoined =
-            typeof stored[STORAGE_KEYS.JOINED_KEY] === 'string' &&
-            saved?.key === stored[STORAGE_KEYS.JOINED_KEY];
-        state =
-            stillJoined && saved
-                ? { ...saved, status: 'connecting', reason: null }
-                : emptyActivity();
+        const stillJoined = typeof joined === 'string' && saved?.key === joined;
+        state = stillJoined
+            ? { ...saved, status: 'connecting', reason: null }
+            : emptyActivity();
         persist();
         return;
     }
@@ -232,6 +233,7 @@ export async function syncActivityStream(): Promise<void> {
         status: 'connecting',
         hits: sameKey ? saved.hits : [],
         arrivals: sameKey ? (saved.arrivals ?? []) : [],
+        ...(sameKey && saved.scope ? { scope: saved.scope } : {}),
     };
     persist();
     startKeepalive();
