@@ -107,6 +107,8 @@ export const STRINGS = {
     ACTIVITY_OUTDATED_UI: 'Update mirrord to 3.262.0 or later to see activity.',
     ACTIVITY_OUTDATED_OPERATOR:
         'This operator doesn’t stream request events. Update it to see activity.',
+    ACTIVITY_NO_CONTEXT:
+        'Couldn’t read the current kube context from mirrord ui. Retrying…',
     ACTIVITY_DISCONNECTED: 'Lost the event stream from mirrord ui. Retrying…',
     ACTIVITY_EMPTY: (key: string) =>
         `Nothing has reached ${key} yet. Click through your app and requests show up here.`,

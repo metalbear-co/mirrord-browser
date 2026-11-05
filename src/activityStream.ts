@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from './types';
+import { STRINGS } from './constants';
 import { mirrordUiCredentials, refreshIconIndicator, storageGet } from './util';
 import {
     ACTIVITY_SESSION_KEY,
@@ -47,6 +48,8 @@ interface StatusPayload {
 
 let state: ActivityState = emptyActivity();
 let activeConfig: string | null = null;
+// Bumped on every config change; work started under an older value stops.
+let generation = 0;
 let controller: AbortController | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -136,7 +139,9 @@ function setStatus(status: ActivityStatus, reason: string | null = null) {
 
 // Pins "the kubeconfig's current context" to a name, so switching contexts later can't mix
 // another cluster's events into this session's history.
-async function withCurrentContext(config: StreamConfig): Promise<StreamConfig> {
+async function withCurrentContext(
+    config: StreamConfig
+): Promise<StreamConfig | null> {
     if (config.context) {
         return config;
     }
@@ -149,9 +154,9 @@ async function withCurrentContext(config: StreamConfig): Promise<StreamConfig> {
             : {};
         return typeof body.current === 'string' && body.current
             ? { ...config, context: body.current }
-            : config;
+            : null;
     } catch {
-        return config;
+        return null;
     }
 }
 
@@ -202,15 +207,37 @@ export async function syncActivityStream(): Promise<void> {
     }
     stop();
     activeConfig = serialized;
-    if (!config || !serialized) {
+    const gen = ++generation;
+    if (!config) {
         state = emptyActivity();
         persist();
         return;
     }
+    state = { ...emptyActivity(config.key), status: 'connecting' };
+    persist();
+    startKeepalive();
+    await start(config, gen);
+}
+
+async function start(config: StreamConfig, gen: number): Promise<void> {
     const effective = await withCurrentContext(config);
+    if (gen !== generation) {
+        return;
+    }
+    if (!effective) {
+        setStatus('disconnected', STRINGS.ACTIVITY_NO_CONTEXT);
+        retryTimer = setTimeout(() => {
+            retryTimer = null;
+            if (gen === generation) {
+                void start(config, gen);
+            }
+        }, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
+        return;
+    }
     const scope = scopeOf(effective);
     const restored = await restoreHits(scope);
-    if (activeConfig !== serialized) {
+    if (gen !== generation) {
         return;
     }
     state = {
@@ -221,11 +248,10 @@ export async function syncActivityStream(): Promise<void> {
         ...restored,
     };
     persist();
-    startKeepalive();
-    void connect(effective, serialized);
-    void refreshMembers(effective, serialized);
+    void connect(effective, gen);
+    void refreshMembers(effective, gen);
     membersTimer = setInterval(
-        () => void refreshMembers(effective, serialized),
+        () => void refreshMembers(effective, gen),
         MEMBERS_REFRESH_MS
     );
 }
@@ -313,7 +339,7 @@ async function previewImage(
 // flow never reached instead of leaving them out.
 async function refreshMembers(
     config: StreamConfig,
-    serialized: string
+    gen: number
 ): Promise<void> {
     const query = config.context
         ? `?context=${encodeURIComponent(config.context)}`
@@ -358,14 +384,14 @@ async function refreshMembers(
         }
         members.set(service, { service, kind: 'local', version: null });
     }
-    if (activeConfig !== serialized) {
+    if (gen !== generation) {
         return;
     }
     state = { ...state, members: [...members.values()] };
     persist();
 }
 
-async function connect(config: StreamConfig, serialized: string) {
+async function connect(config: StreamConfig, gen: number) {
     const ctrl = new AbortController();
     controller = ctrl;
     const params = new URLSearchParams();
@@ -386,7 +412,7 @@ async function connect(config: StreamConfig, serialized: string) {
         if (resp.status === HTTP_NOT_FOUND) {
             setStatus('outdated_ui');
             retryDelay = RETRY_MAX_MS;
-            scheduleRetry(config, serialized);
+            scheduleRetry(config, gen);
             return;
         }
         if (!resp.ok || !resp.body) {
@@ -395,14 +421,14 @@ async function connect(config: StreamConfig, serialized: string) {
         await readStream(resp.body);
         throw new Error('mirrord ui closed the event stream');
     } catch (err) {
-        if (ctrl.signal.aborted || activeConfig !== serialized) {
+        if (ctrl.signal.aborted || gen !== generation) {
             return;
         }
         setStatus(
             'disconnected',
             err instanceof Error ? err.message : String(err)
         );
-        scheduleRetry(config, serialized);
+        scheduleRetry(config, gen);
     }
 }
 
@@ -422,11 +448,11 @@ async function readStream(body: ReadableStream<Uint8Array>): Promise<void> {
     }
 }
 
-function scheduleRetry(config: StreamConfig, serialized: string): void {
+function scheduleRetry(config: StreamConfig, gen: number): void {
     retryTimer = setTimeout(() => {
         retryTimer = null;
-        if (activeConfig === serialized) {
-            void connect(config, serialized);
+        if (gen === generation) {
+            void connect(config, gen);
         }
     }, retryDelay);
     retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
