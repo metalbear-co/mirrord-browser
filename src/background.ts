@@ -39,6 +39,7 @@ import {
     reconnectBaggageBridges,
     syncBaggageMode,
 } from './baggageMode';
+import { ACTIVITY_STORAGE_KEYS, syncActivityStream } from './activityStream';
 
 const PONG_TYPE = 'pong';
 const JOIN_RESULT_TYPE = 'join_result';
@@ -115,6 +116,9 @@ chrome.runtime.onInstalled.addListener(() => {
     void restoreObservation().then(() => loadHeaderName());
 });
 
+void syncActivityStream();
+chrome.runtime.onStartup.addListener(() => void syncActivityStream());
+
 chrome.runtime.onInstalled.addListener((details) => {
     void syncBaggageMode().then(() =>
         (details.reason as string) === 'update'
@@ -157,6 +161,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     if (isBaggageModeChange(changes)) {
         void syncBaggageMode();
+    }
+    if (ACTIVITY_STORAGE_KEYS.some((key) => key in changes)) {
+        void syncActivityStream();
     }
 });
 

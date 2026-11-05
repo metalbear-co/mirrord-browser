@@ -93,6 +93,43 @@ export const STRINGS = {
 
     TAB_SESSIONS: 'Sessions',
     TAB_MANUAL: 'Override',
+    TAB_ACTIVITY: 'Activity',
+    ACTIVITY_NOT_JOINED: 'Join a session to see its activity',
+    ACTIVITY_NOT_JOINED_HINT:
+        'Activity lists each request that reaches the session or preview you joined, next to the browser request that sent it.',
+    ACTIVITY_CONNECTING: 'Connecting to mirrord ui…',
+    ACTIVITY_LIVE: (key: string, reached: number) =>
+        reached > 0
+            ? `${reached} ${reached === 1 ? 'request' : 'requests'} reached ${key} in the last minute`
+            : `Listening for requests that reach ${key}`,
+    ACTIVITY_UNAVAILABLE:
+        'mirrord ui can’t reach the operator for this context.',
+    ACTIVITY_OUTDATED_UI: 'Update mirrord to 3.262.0 or later to see activity.',
+    ACTIVITY_OUTDATED_OPERATOR:
+        'This operator doesn’t stream request events. Update it to see activity.',
+    ACTIVITY_DISCONNECTED: 'Lost the event stream from mirrord ui. Retrying…',
+    ACTIVITY_EMPTY: (key: string) =>
+        `Nothing has reached ${key} yet. Click through your app and requests show up here.`,
+    ACTIVITY_REACHED_LABEL: (key: string) => `reached ${key}`,
+    ACTIVITY_REQUEST_COUNT: (count: number, messages: number) => {
+        const noun =
+            messages === 0
+                ? 'request'
+                : messages === count
+                  ? 'message'
+                  : 'event';
+        return `${count} ${noun}${count === 1 ? '' : 's'}`;
+    },
+    ACTIVITY_NOT_REACHED: 'not reached yet',
+    ACTIVITY_TRACE: (id: string) => `trace ${id}`,
+    ACTIVITY_COPY: 'Click to copy',
+    ACTIVITY_COPIED: 'Copied',
+    ACTIVITY_NO_TRACE: 'no trace id',
+    ACTIVITY_LOCAL: 'local',
+    ACTIVITY_LOCAL_HINT: 'Running on a developer machine with mirrord',
+    ACTIVITY_PREVIEW: 'preview',
+    ACTIVITY_PREVIEW_HINT: 'Image tag of the preview environment',
+    ACTIVITY_PENDING_STATUS: '…',
     LABEL_URL_SCOPE_HEADING: 'URL scope',
     LABEL_HEADER_OBSERVED: 'header observed',
     LABEL_INJECTING: 'injecting',
@@ -160,6 +197,7 @@ export const STRINGS = {
 export const TAB = {
     SESSIONS: 'sessions',
     MANUAL: 'manual',
+    ACTIVITY: 'activity',
 } as const;
 
 export type TabId = (typeof TAB)[keyof typeof TAB];
