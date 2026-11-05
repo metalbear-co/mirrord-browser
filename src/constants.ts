@@ -194,6 +194,8 @@ export const STRINGS = {
     PUNCT_PERIOD: '.',
 } as const;
 
+export const ACTIVITY_BADGE_KEY = 'activity_badge_original';
+
 export const TAB = {
     SESSIONS: 'sessions',
     MANUAL: 'manual',

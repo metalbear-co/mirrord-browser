@@ -155,7 +155,7 @@ function setHeaderRule(
             .then(
                 () => {
                     console.warn('Header rule set successfully.');
-                    refreshIconIndicator(rules.length);
+                    void refreshIconIndicator(rules.length);
 
                     const storeConfig =
                         storageKey === STORAGE_KEYS.OVERRIDE

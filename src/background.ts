@@ -453,7 +453,7 @@ function toggleFirefoxSidebar() {
 
 function refreshIcon() {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
-        refreshIconIndicator(rules.length);
+        void refreshIconIndicator(rules.length);
     });
 }
 

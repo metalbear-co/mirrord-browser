@@ -43,5 +43,5 @@ export async function applyHeaderConfig(
             scope,
         },
     });
-    refreshIconIndicator(rules.length);
+    void refreshIconIndicator(rules.length);
 }

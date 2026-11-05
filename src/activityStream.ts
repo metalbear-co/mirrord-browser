@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from './types';
-import { STRINGS } from './constants';
+import { ACTIVITY_BADGE_KEY, STRINGS } from './constants';
 import { mirrordUiCredentials, refreshIconIndicator, storageGet } from './util';
 import {
     ACTIVITY_SESSION_KEY,
@@ -71,8 +71,6 @@ function persist(): void {
     void updateBadge();
 }
 
-const BADGE_ORIGINAL_KEY = 'activity_badge_original';
-
 let badgeQueue: Promise<void> = Promise.resolve();
 
 // Updates run one at a time so two of them can't both record the original color.
@@ -91,14 +89,14 @@ async function drawBadge(): Promise<void> {
     }
     const count = recentCount(state, Date.now());
     try {
-        const stored = await area.get(BADGE_ORIGINAL_KEY);
-        const original = stored[BADGE_ORIGINAL_KEY] as
+        const stored = await area.get(ACTIVITY_BADGE_KEY);
+        const original = stored[ACTIVITY_BADGE_KEY] as
             | chrome.action.ColorArray
             | undefined;
         if (count > 0) {
             if (!original) {
                 await area.set({
-                    [BADGE_ORIGINAL_KEY]: await action.getBadgeBackgroundColor(
+                    [ACTIVITY_BADGE_KEY]: await action.getBadgeBackgroundColor(
                         {}
                     ),
                 });
@@ -119,10 +117,10 @@ async function drawBadge(): Promise<void> {
             badgeTimer = null;
         }
         if (original) {
-            await area.remove(BADGE_ORIGINAL_KEY);
+            await area.remove(ACTIVITY_BADGE_KEY);
             await action.setBadgeBackgroundColor({ color: original });
             const rules = await chrome.declarativeNetRequest.getDynamicRules();
-            refreshIconIndicator(rules.length);
+            await refreshIconIndicator(rules.length);
         }
     } catch {
         // A failed badge update must not stop the event stream.

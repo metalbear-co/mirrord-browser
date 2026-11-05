@@ -42,7 +42,7 @@ export function useHeaderRules() {
         const chromeRules = await getDynamicRules();
         const parsed = parseRules(chromeRules);
         setRules(parsed);
-        refreshIconIndicator(parsed.length);
+        void refreshIconIndicator(parsed.length);
     }, []);
 
     const loadFormValues = useCallback(async () => {
