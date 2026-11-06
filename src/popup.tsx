@@ -18,9 +18,11 @@ import mirrordIconLight from './assets/mirrord-icon-light.svg';
 import { Moon, Settings, Share2, Sun, Check } from 'lucide-react';
 import { loadTheme, saveTheme, resolveDark } from './theme';
 import type { ThemePref } from './types';
-import { SessionsView, ManualSetup } from './components';
+import { SessionsView, ManualSetup, ActivityView } from './components';
 import { useHeaderRules } from './hooks';
 import { useMirrordUi } from './hooks/useMirrordUi';
+import { useActivity } from './hooks/useActivity';
+import { recentCount } from './activity';
 import {
     capture,
     captureBeacon,
@@ -52,9 +54,35 @@ document.addEventListener('visibilitychange', () => {
     });
 });
 
+const TAB_IDS: readonly string[] = [TAB.SESSIONS, TAB.ACTIVITY, TAB.MANUAL];
+
+function isTabId(value: unknown): value is TabId {
+    return typeof value === 'string' && TAB_IDS.includes(value);
+}
+
+function TabCount({ count }: { count: number }) {
+    return (
+        <span
+            className="font-mono"
+            style={{
+                fontSize: 10,
+                padding: '1px 6px',
+                borderRadius: 999,
+                background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                lineHeight: 1.4,
+            }}
+        >
+            {count}
+        </span>
+    );
+}
+
 export function Popup() {
     const headerRules = useHeaderRules();
     const mirrordUi = useMirrordUi();
+    const activity = useActivity();
+    const reachedLastMinute = recentCount(activity.activity, activity.now);
 
     // Sessions sharing a key are presented as one group, so count distinct keys
     // (not raw sessions) to match the list below.
@@ -75,7 +103,7 @@ export function Popup() {
             [STORAGE_KEYS.ACTIVE_TAB],
             (stored: Record<string, unknown>) => {
                 const saved = stored[STORAGE_KEYS.ACTIVE_TAB];
-                if (saved === TAB.SESSIONS || saved === TAB.MANUAL) {
+                if (isTabId(saved)) {
                     setTab(saved);
                 }
                 setTabRestored(true);
@@ -170,25 +198,20 @@ export function Popup() {
                     onValueChange={(v: string) => setTab(v as TabId)}
                     className="flex flex-col gap-2"
                 >
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value={TAB.SESSIONS}>
                             <span className="inline-flex items-center gap-1.5">
                                 {STRINGS.TAB_SESSIONS}
                                 {sessionKeyCount > 0 && (
-                                    <span
-                                        className="font-mono"
-                                        style={{
-                                            fontSize: 10,
-                                            padding: '1px 6px',
-                                            borderRadius: 999,
-                                            background:
-                                                'hsl(var(--background))',
-                                            color: 'hsl(var(--foreground))',
-                                            lineHeight: 1.4,
-                                        }}
-                                    >
-                                        {sessionKeyCount}
-                                    </span>
+                                    <TabCount count={sessionKeyCount} />
+                                )}
+                            </span>
+                        </TabsTrigger>
+                        <TabsTrigger value={TAB.ACTIVITY}>
+                            <span className="inline-flex items-center gap-1.5">
+                                {STRINGS.TAB_ACTIVITY}
+                                {reachedLastMinute > 0 && (
+                                    <TabCount count={reachedLastMinute} />
                                 )}
                             </span>
                         </TabsTrigger>
@@ -201,6 +224,13 @@ export function Popup() {
                     </TabsContent>
                     <TabsContent value={TAB.MANUAL} className="mt-0">
                         <ManualSetup headerRules={headerRules} />
+                    </TabsContent>
+                    <TabsContent value={TAB.ACTIVITY} className="mt-0">
+                        <ActivityView
+                            joinedKey={mirrordUi.joinState.joinedKey}
+                            activity={activity.activity}
+                            now={activity.now}
+                        />
                     </TabsContent>
                 </Tabs>
             </div>
