@@ -1,5 +1,5 @@
 import { isPreviewSession, STORAGE_KEYS, type ClusterSession } from './types';
-import { fetchOperatorSessionsV2 } from './hooks/useMirrordUi';
+import { fetchContexts, fetchOperatorSessionsV2 } from './hooks/useMirrordUi';
 import { ACTIVITY_BADGE_KEY, STRINGS } from './constants';
 import { mirrordUiCredentials, refreshIconIndicator, storageGet } from './util';
 import {
@@ -146,15 +146,9 @@ async function withCurrentContext(
         return config;
     }
     try {
-        const resp = await fetch(`${config.backend}/api/v2/kube/contexts`, {
-            headers: { 'x-auth-token': config.token },
-        });
-        const body = resp.ok
-            ? ((await resp.json()) as { current?: unknown })
-            : {};
-        return typeof body.current === 'string' && body.current
-            ? { ...config, context: body.current }
-            : null;
+        const current = (await fetchContexts(config.backend, config.token))
+            ?.current;
+        return current ? { ...config, context: current } : null;
     } catch {
         return null;
     }
