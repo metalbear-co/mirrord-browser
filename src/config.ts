@@ -89,6 +89,7 @@ function clearJoinedSession(): Promise<void> {
                 STORAGE_KEYS.JOINED_SESSION_NAME,
                 STORAGE_KEYS.JOINED_HEADER,
                 STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.JOINED_CONTEXT,
                 STORAGE_KEYS.SCOPE_PATTERNS,
             ],
             () => resolve()
@@ -155,7 +156,7 @@ function setHeaderRule(
             .then(
                 () => {
                     console.warn('Header rule set successfully.');
-                    refreshIconIndicator(rules.length);
+                    void refreshIconIndicator(rules.length);
 
                     const storeConfig =
                         storageKey === STORAGE_KEYS.OVERRIDE

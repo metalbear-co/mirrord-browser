@@ -39,6 +39,7 @@ import {
     reconnectBaggageBridges,
     syncBaggageMode,
 } from './baggageMode';
+import { ACTIVITY_STORAGE_KEYS, syncActivityStream } from './activityStream';
 
 const PONG_TYPE = 'pong';
 const JOIN_RESULT_TYPE = 'join_result';
@@ -115,6 +116,11 @@ chrome.runtime.onInstalled.addListener(() => {
     void restoreObservation().then(() => loadHeaderName());
 });
 
+void syncActivityStream();
+chrome.runtime.onStartup.addListener(() => void syncActivityStream());
+// The Activity stream keeps the worker alive, which would otherwise hold a downloaded update back.
+chrome.runtime.onUpdateAvailable.addListener(() => chrome.runtime.reload());
+
 chrome.runtime.onInstalled.addListener((details) => {
     void syncBaggageMode().then(() =>
         (details.reason as string) === 'update'
@@ -157,6 +163,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     if (isBaggageModeChange(changes)) {
         void syncBaggageMode();
+    }
+    if (ACTIVITY_STORAGE_KEYS.some((key) => key in changes)) {
+        void syncActivityStream();
     }
 });
 
@@ -345,6 +354,7 @@ export async function handleJoin(key: string, context: string | null = null) {
             [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
             [STORAGE_KEYS.JOINED_HEADER]: header,
             [STORAGE_KEYS.JOINED_VALUE]: value,
+            [STORAGE_KEYS.JOINED_CONTEXT]: target.context,
             ...(target.context && {
                 [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
             }),
@@ -377,6 +387,7 @@ export async function handleLeave() {
             STORAGE_KEYS.JOINED_SESSION_NAME,
             STORAGE_KEYS.JOINED_HEADER,
             STORAGE_KEYS.JOINED_VALUE,
+            STORAGE_KEYS.JOINED_CONTEXT,
             STORAGE_KEYS.SCOPE_PATTERNS,
         ]);
         emitUserSucceeded('left', 'user_action');
@@ -444,7 +455,7 @@ function toggleFirefoxSidebar() {
 
 function refreshIcon() {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
-        refreshIconIndicator(rules.length);
+        void refreshIconIndicator(rules.length);
     });
 }
 

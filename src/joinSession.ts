@@ -184,7 +184,8 @@ export async function joinMatchingSession(
         [STORAGE_KEYS.JOINED_SESSION_NAME]: target.id,
         [STORAGE_KEYS.JOINED_HEADER]: header,
         [STORAGE_KEYS.JOINED_VALUE]: value,
+        [STORAGE_KEYS.JOINED_CONTEXT]: null,
     });
-    refreshIconIndicator(1);
+    void refreshIconIndicator(1);
     return target.key;
 }

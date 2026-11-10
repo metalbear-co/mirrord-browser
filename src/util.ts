@@ -24,11 +24,33 @@ import {
     STRINGS,
     METALBEAR_EXTENSION_URL,
     CONFIG_HASH_PARAM,
+    ACTIVITY_BADGE_KEY,
 } from './constants';
 
 dayjs.extend(relativeTime);
 
-export function refreshIconIndicator(num: number) {
+// Activity owns the badge while it shows a hit count; it restores the check mark itself.
+async function activityOwnsBadge(): Promise<boolean> {
+    const session = (
+        chrome.storage as unknown as
+            | { session?: chrome.storage.StorageArea }
+            | undefined
+    )?.session;
+    if (!session) {
+        return false;
+    }
+    try {
+        const stored = await session.get(ACTIVITY_BADGE_KEY);
+        return stored[ACTIVITY_BADGE_KEY] !== undefined;
+    } catch {
+        return false;
+    }
+}
+
+export async function refreshIconIndicator(num: number): Promise<void> {
+    if (await activityOwnsBadge()) {
+        return;
+    }
     void chrome.action.setBadgeTextColor({ color: '#ADD8E6' });
     if (num > 0) {
         void chrome.action.setBadgeText({ text: '✓' });

@@ -31,6 +31,7 @@ function installChrome() {
             lastError: undefined,
             onStartup: noopEvent,
             onInstalled: noopEvent,
+            onUpdateAvailable: noopEvent,
             onConnect: noopEvent,
             onMessageExternal: noopEvent,
             onMessage: noopEvent,

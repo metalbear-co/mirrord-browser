@@ -39,8 +39,8 @@ describe('refreshIconIndicator', () => {
         } as unknown as typeof chrome;
     });
 
-    it('sets badge color and ✓ when num > 0', () => {
-        refreshIconIndicator(1);
+    it('sets badge color and ✓ when num > 0', async () => {
+        await refreshIconIndicator(1);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
             color: '#ADD8E6',
@@ -48,8 +48,8 @@ describe('refreshIconIndicator', () => {
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓' });
     });
 
-    it('sets badge color and clears text when num is 0', () => {
-        refreshIconIndicator(0);
+    it('sets badge color and clears text when num is 0', async () => {
+        await refreshIconIndicator(0);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
             color: '#ADD8E6',
