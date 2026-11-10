@@ -1,1 +1,0 @@
-Added an Activity tab that shows which services in the joined session or preview received your requests and queue messages, which ones were not reached, and the version each is running. The toolbar badge counts hits from the last minute.
