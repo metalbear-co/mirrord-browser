@@ -8,6 +8,25 @@ This project uses [*towncrier*](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.10.0](https://github.com/metalbear-co/mirrord-browser/tree/0.10.0) - 2026-11-10
+
+
+### Added
+
+- Added an Activity tab that shows which services in the joined session or
+  preview received your requests and queue messages, which ones were not
+  reached, and the version each is running. The toolbar badge counts hits from
+  the last minute.
+- Firefox build (`pnpm build:firefox`), with a localhost page bridge in place
+  of `externally_connectable`.
+
+
+### Fixed
+
+- The popup now tells you when the Kubernetes credentials used by `mirrord ui`
+  have expired (instead of suggesting you install the operator), and points you
+  to re-authenticate. Sessions load again automatically afterwards.
+
 ## [0.9.0](https://github.com/metalbear-co/mirrord-browser/tree/0.9.0) - 2026-10-21
 
 
