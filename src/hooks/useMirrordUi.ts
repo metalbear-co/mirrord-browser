@@ -34,6 +34,7 @@ import {
 import { emitUserBlocked, emitUserSucceeded } from '../analytics';
 
 let bridgeHealthy = true;
+let bridgeUnhealthySince: number | null = null;
 
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNAUTHORIZED = 401;
@@ -186,13 +187,20 @@ async function runPoll(
     v2 = false,
     context: string | null = null
 ): Promise<PollResult> {
+    const endpoint = v2 ? 'operator_sessions_v2' : 'operator_sessions';
     try {
         const resp = v2
             ? await fetchOperatorSessionsV2(backend, token, context)
             : await fetchOperatorSessions(backend, token);
         if (!bridgeHealthy) {
             bridgeHealthy = true;
-            emitUserSucceeded('bridge_recovered', 'health');
+            emitUserSucceeded('bridge_recovered', 'health', {
+                endpoint,
+                ...(bridgeUnhealthySince !== null && {
+                    blocked_for_ms: Date.now() - bridgeUnhealthySince,
+                }),
+            });
+            bridgeUnhealthySince = null;
         }
         return { ok: true, data: resp };
     } catch (err) {
@@ -204,13 +212,29 @@ async function runPoll(
                 : undefined;
         if (bridgeHealthy) {
             bridgeHealthy = false;
-            emitUserBlocked('bridge_unhealthy', 'health', {
-                error,
-                ...(status !== undefined && { status }),
-            });
+            bridgeUnhealthySince = Date.now();
+            void reportBridgeUnhealthy(backend, endpoint, error, status);
         }
         return { ok: false, error, ...(status !== undefined && { status }) };
     }
+}
+
+async function reportBridgeUnhealthy(
+    backend: string,
+    endpoint: string,
+    error: string,
+    status: number | undefined
+): Promise<void> {
+    // A status means the server answered; without one, re-probe `/health` to tell a daemon that
+    // stopped from one that is up and failing this request.
+    const reachedServer =
+        status !== undefined ? true : await pingHealth(backend);
+    emitUserBlocked('bridge_unhealthy', 'health', {
+        error,
+        endpoint,
+        reached_server: reachedServer,
+        ...(status !== undefined && { status }),
+    });
 }
 
 /** True for HTTP responses that indicate the mirrord ui token is wrong / rejected. */
