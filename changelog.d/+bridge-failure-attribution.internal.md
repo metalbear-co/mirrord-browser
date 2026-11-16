@@ -1,0 +1,1 @@
+Session-bridge health telemetry now records which operator-sessions endpoint failed, whether the `mirrord ui` server was still reachable at the time, and how long the bridge stayed unhealthy before recovering.
