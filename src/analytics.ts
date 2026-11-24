@@ -11,10 +11,14 @@ const APP_VERSION = (() => {
     }
 })();
 
+const BROWSER = __BROWSER__ === 'firefox' ? 'Firefox' : 'Chrome';
+
 const DISTINCT_ID_KEY = 'posthog_distinct_id';
 
 let distinctId: string | null = null;
 let optedOut = false;
+let preferenceLoaded = false;
+let loadGeneration = 0;
 
 function pageStorage(): Storage | null {
     try {
@@ -91,14 +95,69 @@ function getDistinctId(): string {
  * Kicks off eagerly at module init so it resolves before most capture calls.
  */
 export async function loadOptOutState(): Promise<void> {
+    const generation = ++loadGeneration;
     try {
         const result = await chrome.storage.local.get(
             STORAGE_KEYS.ANALYTICS_OPT_OUT
         );
-        optedOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true;
+        const storedOptOut = result[STORAGE_KEYS.ANALYTICS_OPT_OUT] === true;
+        // Only ever tighten before the consent lookup finishes, so a refresh never reopens sending.
+        if (storedOptOut) {
+            optedOut = true;
+        }
+        const consent = await hasDataCollectionConsent();
+        if (generation === loadGeneration) {
+            optedOut = storedOptOut || !consent;
+        }
     } catch {
         // Storage access can fail in certain contexts; default to not opted out
+    } finally {
+        preferenceLoaded = true;
     }
+}
+
+const DATA_COLLECTION = 'technicalAndInteraction';
+
+type DataCollectionPermissions = chrome.permissions.Permissions & {
+    data_collection?: string[];
+};
+
+/** Firefox asks for usage-data consent at install; other browsers have no such grant. */
+export async function hasDataCollectionConsent(): Promise<boolean> {
+    if (__BROWSER__ !== 'firefox') {
+        return true;
+    }
+    try {
+        const granted =
+            (await chrome.permissions.getAll()) as DataCollectionPermissions;
+        return granted.data_collection?.includes(DATA_COLLECTION) ?? false;
+    } catch {
+        return false;
+    }
+}
+
+/** Call synchronously from a user gesture: Firefox only shows the prompt on user input. */
+export function requestDataCollectionConsent(): Promise<boolean> {
+    if (__BROWSER__ !== 'firefox') {
+        return Promise.resolve(true);
+    }
+    return chrome.permissions
+        .request({
+            data_collection: [DATA_COLLECTION],
+        } as DataCollectionPermissions)
+        .catch(() => false);
+}
+
+try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && STORAGE_KEYS.ANALYTICS_OPT_OUT in changes) {
+            void loadOptOutState();
+        }
+    });
+    chrome.permissions.onAdded.addListener(() => void loadOptOutState());
+    chrome.permissions.onRemoved.addListener(() => void loadOptOutState());
+} catch {
+    // Not every context (or test environment) exposes these APIs.
 }
 
 /** Resolves once the opt-out preference has been read from storage. */
@@ -108,6 +167,7 @@ export const optOutReady = loadOptOutState();
  * Update opt-out state in memory and persist to storage.
  */
 export async function setOptOut(value: boolean): Promise<void> {
+    loadGeneration++;
     optedOut = value;
     try {
         if (value) {
@@ -126,6 +186,10 @@ export function capture(
     event: string,
     properties?: Record<string, unknown>
 ): void {
+    if (!preferenceLoaded) {
+        void optOutReady.then(() => capture(event, properties));
+        return;
+    }
     if (optedOut) {
         return;
     }
@@ -141,6 +205,7 @@ export function capture(
                     ...properties,
                     $lib: 'mirrord-browser-extension',
                     $app_version: APP_VERSION,
+                    $browser: BROWSER,
                 },
                 timestamp: new Date().toISOString(),
             }),
@@ -157,7 +222,7 @@ export function captureBeacon(
     event: string,
     properties?: Record<string, unknown>
 ): void {
-    if (optedOut) {
+    if (optedOut || !preferenceLoaded) {
         return;
     }
     try {
@@ -169,6 +234,7 @@ export function captureBeacon(
                 ...properties,
                 $lib: 'mirrord-browser-extension',
                 $app_version: APP_VERSION,
+                $browser: BROWSER,
             },
             timestamp: new Date().toISOString(),
         });

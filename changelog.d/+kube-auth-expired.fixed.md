@@ -1,1 +1,0 @@
-The popup now tells you when the Kubernetes credentials used by `mirrord ui` have expired (instead of suggesting you install the operator), and points you to re-authenticate. Sessions load again automatically afterwards.

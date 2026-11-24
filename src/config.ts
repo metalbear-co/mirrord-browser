@@ -5,7 +5,12 @@ import {
     updateDynamicRules,
 } from './util';
 import type { Config, StoredConfig } from './types';
-import { STORAGE_KEYS, ALL_RESOURCE_TYPES } from './types';
+import {
+    ALL_RESOURCE_TYPES,
+    HEADER_SET,
+    MODIFY_HEADERS,
+    STORAGE_KEYS,
+} from './types';
 import { capture, emitUserBlocked, emitUserSucceeded } from './analytics';
 import {
     isRegex,
@@ -84,6 +89,7 @@ function clearJoinedSession(): Promise<void> {
                 STORAGE_KEYS.JOINED_SESSION_NAME,
                 STORAGE_KEYS.JOINED_HEADER,
                 STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.JOINED_CONTEXT,
                 STORAGE_KEYS.SCOPE_PATTERNS,
             ],
             () => resolve()
@@ -121,14 +127,11 @@ function setHeaderRule(
                 id: 1,
                 priority: 1,
                 action: {
-                    type: chrome.declarativeNetRequest.RuleActionType
-                        .MODIFY_HEADERS,
+                    type: MODIFY_HEADERS,
                     requestHeaders: [
                         {
                             header: key.trim(),
-                            operation:
-                                chrome.declarativeNetRequest.HeaderOperation
-                                    .SET,
+                            operation: HEADER_SET,
                             value: value.trim(),
                         },
                     ],
@@ -153,7 +156,7 @@ function setHeaderRule(
             .then(
                 () => {
                     console.warn('Header rule set successfully.');
-                    refreshIconIndicator(rules.length);
+                    void refreshIconIndicator(rules.length);
 
                     const storeConfig =
                         storageKey === STORAGE_KEYS.OVERRIDE

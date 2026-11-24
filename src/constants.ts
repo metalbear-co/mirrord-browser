@@ -93,6 +93,38 @@ export const STRINGS = {
 
     TAB_SESSIONS: 'Sessions',
     TAB_MANUAL: 'Override',
+    TAB_ACTIVITY: 'Activity',
+    ACTIVITY_NOT_JOINED: 'Join a session to see its activity',
+    ACTIVITY_NOT_JOINED_HINT:
+        'Activity lists the services in the session or preview you joined, and the requests and queue messages that reached each one.',
+    ACTIVITY_CONNECTING: 'Connecting to mirrord ui…',
+    ACTIVITY_UNAVAILABLE:
+        'mirrord ui can’t reach the operator for this context.',
+    ACTIVITY_OUTDATED_UI: 'Update mirrord to 3.262.0 or later to see activity.',
+    ACTIVITY_OUTDATED_OPERATOR:
+        'This operator doesn’t stream request events. Update it to see activity.',
+    ACTIVITY_NO_CONTEXT:
+        'Couldn’t read the current kube context from mirrord ui. Retrying…',
+    ACTIVITY_DISCONNECTED: 'Lost the event stream from mirrord ui. Retrying…',
+    ACTIVITY_EMPTY: (key: string) =>
+        `Nothing has reached ${key} yet. Click through your app and requests show up here.`,
+    ACTIVITY_REACHED_LABEL: (key: string) => `reached ${key}`,
+    ACTIVITY_REQUEST_COUNT: (count: number, messages: number) => {
+        const noun =
+            messages === 0
+                ? 'request'
+                : messages === count
+                  ? 'message'
+                  : 'event';
+        return `${count} ${noun}${count === 1 ? '' : 's'}`;
+    },
+    ACTIVITY_NOT_REACHED: 'not reached yet',
+    ACTIVITY_COPY: 'Click to copy',
+    ACTIVITY_COPIED: 'Copied',
+    ACTIVITY_LOCAL: 'local',
+    ACTIVITY_LOCAL_HINT: 'Running on a developer machine with mirrord',
+    ACTIVITY_PREVIEW: 'preview',
+    ACTIVITY_PREVIEW_HINT: 'Image tag of the preview environment',
     LABEL_URL_SCOPE_HEADING: 'URL scope',
     LABEL_HEADER_OBSERVED: 'header observed',
     LABEL_INJECTING: 'injecting',
@@ -157,9 +189,12 @@ export const STRINGS = {
     PUNCT_PERIOD: '.',
 } as const;
 
+export const ACTIVITY_BADGE_KEY = 'activity_badge_original';
+
 export const TAB = {
     SESSIONS: 'sessions',
     MANUAL: 'manual',
+    ACTIVITY: 'activity',
 } as const;
 
 export type TabId = (typeof TAB)[keyof typeof TAB];

@@ -42,7 +42,7 @@ export function useHeaderRules() {
         const chromeRules = await getDynamicRules();
         const parsed = parseRules(chromeRules);
         setRules(parsed);
-        refreshIconIndicator(parsed.length);
+        void refreshIconIndicator(parsed.length);
     }, []);
 
     const loadFormValues = useCallback(async () => {
@@ -153,6 +153,7 @@ export function useHeaderRules() {
                 STORAGE_KEYS.JOINED_SESSION_NAME,
                 STORAGE_KEYS.JOINED_HEADER,
                 STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.JOINED_CONTEXT,
                 STORAGE_KEYS.SCOPE_PATTERNS,
             ]);
             await loadRules();

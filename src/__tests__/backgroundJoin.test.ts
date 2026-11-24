@@ -31,6 +31,7 @@ function installChrome() {
             lastError: undefined,
             onStartup: noopEvent,
             onInstalled: noopEvent,
+            onUpdateAvailable: noopEvent,
             onConnect: noopEvent,
             onMessageExternal: noopEvent,
             onMessage: noopEvent,
@@ -67,6 +68,7 @@ function installChrome() {
         action: {
             setBadgeText: () => undefined,
             setBadgeTextColor: () => undefined,
+            onClicked: noopEvent,
         },
         alarms: {
             create: () => undefined,

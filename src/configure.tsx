@@ -13,9 +13,11 @@ import { resolveJoinTarget } from './joinSession';
 import {
     buildDnrRule,
     getDynamicRules,
-    updateDynamicRules,
+    MIRRORD_UI_CREDENTIAL_KEYS,
+    mirrordUiCredentials,
     storageGet,
     storageSet,
+    updateDynamicRules,
 } from './util';
 import {
     CONFIGURE_STATUS,
@@ -64,6 +66,7 @@ async function joinKey(
         [STORAGE_KEYS.JOINED_SESSION_NAME]: target.sessionName,
         [STORAGE_KEYS.JOINED_HEADER]: header,
         [STORAGE_KEYS.JOINED_VALUE]: value,
+        [STORAGE_KEYS.JOINED_CONTEXT]: target.context,
         ...(target.context && {
             [STORAGE_KEYS.SELECTED_CONTEXT]: target.context,
         }),
@@ -87,16 +90,9 @@ async function resolveStatus(params: URLSearchParams): Promise<Status> {
     }
 
     if (joinParam) {
-        const stored = await storageGet([
-            STORAGE_KEYS.MIRRORD_UI_BACKEND,
-            STORAGE_KEYS.MIRRORD_UI_TOKEN,
-        ]);
-        const backend = stored[STORAGE_KEYS.MIRRORD_UI_BACKEND] as
-            | string
-            | undefined;
-        const token = stored[STORAGE_KEYS.MIRRORD_UI_TOKEN] as
-            | string
-            | undefined;
+        const { backend, token } = mirrordUiCredentials(
+            await storageGet([...MIRRORD_UI_CREDENTIAL_KEYS])
+        );
         if (!backend || !token) {
             return { kind: CONFIGURE_STATUS.NOT_CONFIGURED };
         }

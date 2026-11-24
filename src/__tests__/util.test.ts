@@ -15,6 +15,7 @@ import {
     isGroupLive,
     formatDurationSecs,
     withBaggageMerge,
+    mirrordUiCredentials,
 } from '../util';
 import type {
     ClusterSession,
@@ -26,7 +27,7 @@ import type {
 } from '../types';
 import { decodeConfig } from '../config';
 import { STRINGS } from '../constants';
-import { ALL_RESOURCE_TYPES } from '../types';
+import { ALL_RESOURCE_TYPES, STORAGE_KEYS } from '../types';
 
 describe('refreshIconIndicator', () => {
     beforeEach(() => {
@@ -38,8 +39,8 @@ describe('refreshIconIndicator', () => {
         } as unknown as typeof chrome;
     });
 
-    it('sets badge color and ✓ when num > 0', () => {
-        refreshIconIndicator(1);
+    it('sets badge color and ✓ when num > 0', async () => {
+        await refreshIconIndicator(1);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
             color: '#ADD8E6',
@@ -47,8 +48,8 @@ describe('refreshIconIndicator', () => {
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓' });
     });
 
-    it('sets badge color and clears text when num is 0', () => {
-        refreshIconIndicator(0);
+    it('sets badge color and clears text when num is 0', async () => {
+        await refreshIconIndicator(0);
 
         expect(chrome.action.setBadgeTextColor).toHaveBeenCalledWith({
             color: '#ADD8E6',
@@ -700,5 +701,43 @@ describe('formatDurationSecs', () => {
         [-5, '0s'],
     ])('formats %d as %s', (secs, expected) => {
         expect(formatDurationSecs(secs)).toBe(expected);
+    });
+});
+
+describe('mirrordUiCredentials', () => {
+    it('prefers explicitly configured credentials over discovered ones', () => {
+        const discovered = {
+            [STORAGE_KEYS.MIRRORD_UI_DISCOVERED]: {
+                backend: 'http://127.0.0.1:59281',
+                token: 'discovered-token',
+            },
+        };
+        expect(
+            mirrordUiCredentials({
+                ...discovered,
+                [STORAGE_KEYS.MIRRORD_UI_BACKEND]: 'http://127.0.0.1:7000',
+                [STORAGE_KEYS.MIRRORD_UI_TOKEN]: 'explicit-token',
+            })
+        ).toEqual({
+            backend: 'http://127.0.0.1:7000',
+            token: 'explicit-token',
+            discovered: false,
+        });
+        expect(mirrordUiCredentials(discovered)).toEqual({
+            backend: 'http://127.0.0.1:59281',
+            token: 'discovered-token',
+            discovered: true,
+        });
+        expect(
+            mirrordUiCredentials({
+                [STORAGE_KEYS.MIRRORD_UI_DISCOVERED]: {
+                    backend: 'http://127.0.0.1:59281',
+                },
+            })
+        ).toEqual({
+            backend: 'http://127.0.0.1:59281',
+            token: null,
+            discovered: false,
+        });
     });
 });

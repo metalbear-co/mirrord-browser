@@ -1,12 +1,64 @@
 import { defineConfig } from 'vite';
-import { crx } from '@crxjs/vite-plugin';
+import { crx, type ManifestV3Export } from '@crxjs/vite-plugin';
 import react from '@vitejs/plugin-react';
-import manifest from './src/manifest.json';
+import chromeManifest from './src/manifest.json';
 import { resolve } from 'path';
 
+const browser = process.env['BROWSER'] === 'firefox' ? 'firefox' : 'chrome';
+
+function firefoxManifest(): ManifestV3Export {
+    const {
+        key: _key,
+        externally_connectable: externallyConnectable,
+        side_panel: sidePanel,
+        background,
+        ...rest
+    } = chromeManifest;
+    const icons = {
+        '48': 'images/mirrord-48.png',
+        '96': 'images/mirrord-96.png',
+        '128': 'images/mirrord-128.png',
+    };
+    const manifest = {
+        ...rest,
+        icons,
+        permissions: rest.permissions.filter((p) => p !== 'sidePanel'),
+        background: { scripts: [background.service_worker], type: 'module' },
+        action: { default_title: rest.name },
+        sidebar_action: {
+            default_panel: sidePanel.default_path,
+            default_title: rest.name,
+            default_icon: icons,
+            open_at_install: false,
+        },
+        content_scripts: [
+            ...rest.content_scripts,
+            {
+                matches: externallyConnectable.matches,
+                js: ['src/content/pageBridge.ts'],
+                run_at: 'document_start',
+            },
+        ],
+        browser_specific_settings: {
+            gecko: {
+                id: 'mirrord@metalbear.com',
+                strict_min_version: '140.0',
+                data_collection_permissions: {
+                    required: ['none' as const],
+                    optional: ['technicalAndInteraction' as const],
+                },
+            },
+        },
+    };
+    return manifest;
+}
+
 export default defineConfig({
+    define: {
+        __BROWSER__: JSON.stringify(browser),
+    },
     build: {
-        outDir: 'dist',
+        outDir: browser === 'firefox' ? 'dist-firefox' : 'dist',
         emptyOutDir: true,
         rollupOptions: {
             input: {
@@ -21,5 +73,12 @@ export default defineConfig({
             },
         },
     },
-    plugins: [react(), crx({ manifest })],
+    plugins: [
+        react(),
+        crx({
+            manifest:
+                browser === 'firefox' ? firefoxManifest() : chromeManifest,
+            browser,
+        }),
+    ],
 });
