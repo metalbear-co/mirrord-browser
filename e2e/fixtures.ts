@@ -32,6 +32,8 @@ export const test = base.extend<ExtensionFixtures>({
                 `--load-extension=${EXTENSION_PATH}`,
                 '--no-first-run',
                 '--disable-gpu',
+                // Keeps test runs out of production analytics; the analytics spec records events before they are sent.
+                '--host-resolver-rules=MAP hog.metalbear.com ~NOTFOUND',
             ],
         });
 
