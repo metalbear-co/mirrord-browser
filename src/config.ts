@@ -1,5 +1,6 @@
 import '@metalbear/ui/styles.css';
 import {
+    deriveInjectionHint,
     getDynamicRules,
     refreshIconIndicator,
     updateDynamicRules,
@@ -221,9 +222,20 @@ async function handleConfigLink(): Promise<void> {
         return;
     }
 
-    const header = isRegex(config.header_filter)
-        ? promptForValidHeader(config.header_filter)
-        : config.header_filter;
+    // Derive a header the filter accepts, as the popup does when joining a
+    // session, and only ask the user when no single value can be derived.
+    let header: string;
+    try {
+        const hint = deriveInjectionHint(config.header_filter);
+        header = hint
+            ? `${hint.header}: ${hint.value}`
+            : isRegex(config.header_filter)
+              ? promptForValidHeader(config.header_filter)
+              : config.header_filter;
+    } catch (err) {
+        alert((err as Error).message);
+        return;
+    }
 
     // Scope is set by user via popup UI, not provided by CLI.
     // This field exists for future use but will be undefined here.

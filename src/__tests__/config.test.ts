@@ -265,6 +265,43 @@ describe('promptForValidHeader', () => {
         expect(mockPrompt).toHaveBeenCalledTimes(3);
         expect(mockAlert).toHaveBeenCalledTimes(2); // 2 alerts: empty + invalid
     });
+
+    it('stops when the prompt is cancelled instead of asking again', () => {
+        // Cancel returns null, and so does every prompt once Chrome suppresses dialogs.
+        const mockPrompt = jest
+            .spyOn(globalThis, 'prompt')
+            .mockImplementationOnce(() => null)
+            .mockImplementation(() => {
+                throw new Error('prompted again after Cancel');
+            });
+        const mockAlert = jest
+            .spyOn(globalThis, 'alert')
+            .mockImplementation(() => undefined);
+
+        expect(() => promptForValidHeader('X-MIRRORD-USER: \\d+')).toThrow(
+            'No header entered'
+        );
+        expect(mockPrompt).toHaveBeenCalledTimes(1);
+        expect(mockAlert).not.toHaveBeenCalled();
+    });
+
+    it('matches the pattern case-insensitively, like the mirrord agent', () => {
+        jest.spyOn(globalThis, 'prompt')
+            .mockImplementationOnce(
+                () => 'Baggage: mirrord-session=browser-debug'
+            )
+            .mockImplementation(() => {
+                throw new Error('prompted again');
+            });
+        const mockAlert = jest
+            .spyOn(globalThis, 'alert')
+            .mockImplementation(() => undefined);
+
+        expect(
+            promptForValidHeader('^baggage: .*mirrord-session=browser-debug.*')
+        ).toBe('Baggage: mirrord-session=browser-debug');
+        expect(mockAlert).not.toHaveBeenCalled();
+    });
 });
 
 describe('storeDefaults', () => {
