@@ -66,13 +66,20 @@ export function decodeConfig(encoded: string): Config {
  * @param pattern a regex pattern for HTTP headers
  */
 export function promptForValidHeader(pattern: string): string {
-    const regex = new RegExp(pattern);
+    // The mirrord agent matches header filters case-insensitively (it prepends `(?i)`).
+    const regex = new RegExp(pattern, 'i');
     let header: string | null = null;
 
     while (!header) {
         const input = prompt(
             `Enter a header that matches pattern:\n${pattern}`
         );
+        // Cancel, or Chrome suppressing further dialogs, returns null.
+        if (input === null) {
+            throw new Error(
+                'No header entered, the configuration was not applied.'
+            );
+        }
         if (!input) {
             alert('No input provided.');
             continue;

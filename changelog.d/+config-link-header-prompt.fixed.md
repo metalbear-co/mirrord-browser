@@ -1,0 +1,1 @@
+A CLI config link with a regex `header_filter` now derives the header to inject, as the docs describe, instead of always prompting. The prompt matches case-insensitively like the mirrord agent, and pressing Cancel stops instead of asking again forever.
