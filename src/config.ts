@@ -162,11 +162,9 @@ function setHeaderRule(
                         storageKey === STORAGE_KEYS.OVERRIDE
                             ? storeOverride
                             : storeDefaults;
-                    const clearSession =
-                        storageKey === STORAGE_KEYS.OVERRIDE
-                            ? clearJoinedSession()
-                            : Promise.resolve();
-                    void clearSession
+                    // The new rule replaced any joined session's rule, whichever
+                    // slot it is stored in (CLI links always use defaults).
+                    void clearJoinedSession()
                         .then(() =>
                             storeConfig(key.trim(), value.trim(), scope)
                         )
