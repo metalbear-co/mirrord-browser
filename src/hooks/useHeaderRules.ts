@@ -316,6 +316,15 @@ export function useHeaderRules() {
                 removeRuleIds: existingRules.map((r) => r.id),
                 addRules: newRules,
             });
+            // The defaults replaced the joined session's rule, so drop its state too.
+            await storageRemove([
+                STORAGE_KEYS.JOINED_KEY,
+                STORAGE_KEYS.JOINED_SESSION_NAME,
+                STORAGE_KEYS.JOINED_HEADER,
+                STORAGE_KEYS.JOINED_VALUE,
+                STORAGE_KEYS.JOINED_CONTEXT,
+                STORAGE_KEYS.SCOPE_PATTERNS,
+            ]);
         } catch (e) {
             const msg =
                 e instanceof Error ? e.message : STRINGS.ERR_RESET_FAILED;

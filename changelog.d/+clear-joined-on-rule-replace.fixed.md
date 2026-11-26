@@ -1,0 +1,1 @@
+Opening a CLI config link or pressing "Reset to Default" while joined to a session now clears the joined session, so the Sessions and Activity tabs no longer show a session whose header is no longer injected.

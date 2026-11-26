@@ -454,6 +454,49 @@ describe('useHeaderRules analytics', () => {
             );
         });
 
+        it('drops the joined session state along with the override', async () => {
+            mockStorageGet.mockImplementation(
+                (
+                    _keys: string[],
+                    cb: (result: Record<string, unknown>) => void
+                ) =>
+                    cb({
+                        defaults: {
+                            headerName: 'X-Default',
+                            headerValue: 'defaultval',
+                        },
+                        joined_key: 'alice',
+                    })
+            );
+            mockStorageRemove.mockImplementation(
+                (_keys: string[], cb: () => void) => cb()
+            );
+            mockUpdateDynamicRules.mockImplementation(
+                (_opts: unknown, cb: () => void) => cb()
+            );
+
+            const { result } = renderHook(() => useHeaderRules());
+
+            await act(async () => {
+                await result.current.handleReset();
+            });
+
+            const removed = mockStorageRemove.mock.calls.flatMap(
+                ([keys]) => keys as string[]
+            );
+            expect(removed).toEqual(
+                expect.arrayContaining([
+                    'override',
+                    'joined_key',
+                    'joined_session_name',
+                    'joined_header',
+                    'joined_value',
+                    'joined_context',
+                    'scope_patterns',
+                ])
+            );
+        });
+
         it('sets error on storage_remove failure', async () => {
             mockStorageGet.mockImplementation(
                 (
