@@ -1,0 +1,1 @@
+The "header observed" counter and the header-observation check no longer count a header the page sent itself, such as the `baggage` header from Sentry or OpenTelemetry, only one carrying the injected value.

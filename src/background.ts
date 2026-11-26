@@ -73,6 +73,9 @@ type BridgeMessage =
     | LeaveMessage;
 
 let observation: HeaderObservation = emptyObservation('');
+// The value our rule sets. A page can send the same header itself (tracing
+// SDKs send `baggage`), and only a header carrying this value is ours.
+let injectedValue = '';
 const subscribers = new Set<chrome.runtime.Port>();
 let rotationTimer: ReturnType<typeof setInterval> | null = null;
 let observationLoaded = false;
@@ -175,8 +178,14 @@ function onSendHeaders(details: chrome.webRequest.WebRequestHeadersDetails) {
         return;
     }
     const target = observation.headerName.toLowerCase();
-    const headers = details.requestHeaders ?? [];
-    if (!headers.some((h) => h.name.toLowerCase() === target)) {
+    // `includes`, not equality: baggage merge mode adds our member to the
+    // page's own list.
+    const matchedHeader = (details.requestHeaders ?? []).find(
+        (h) =>
+            h.name.toLowerCase() === target &&
+            (h.value ?? '').includes(injectedValue)
+    );
+    if (!matchedHeader) {
         return;
     }
     observation = recordRequest(
@@ -185,10 +194,7 @@ function onSendHeaders(details: chrome.webRequest.WebRequestHeadersDetails) {
         details.method,
         Date.now()
     );
-    const matchedHeader = headers.find((h) => h.name.toLowerCase() === target);
-    if (matchedHeader) {
-        notifyHeaderObserved(matchedHeader.name);
-    }
+    notifyHeaderObserved(matchedHeader.name);
     persistObservation();
     broadcast();
 }
@@ -488,17 +494,20 @@ function syncCanary(headerName: string, scoped: boolean) {
 function loadHeaderName(options: { arm?: boolean } = {}) {
     chrome.declarativeNetRequest.getDynamicRules((rules) => {
         let headerName = '';
+        let value = '';
         let scoped = false;
         for (const rule of rules) {
             if (rule.action.type === MODIFY_HEADERS) {
                 const h = rule.action.requestHeaders?.[0]?.header;
                 if (h) {
                     headerName = h;
+                    value = rule.action.requestHeaders?.[0]?.value ?? '';
                     scoped = isScopedCondition(rule.condition);
                     break;
                 }
             }
         }
+        injectedValue = value;
         const next = setHeaderName(observation, headerName);
         const changed = next !== observation;
         if (changed) {
